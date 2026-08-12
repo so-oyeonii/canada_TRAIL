@@ -2,198 +2,187 @@
 
 import { useMemo, useState } from "react";
 
-type Stage = "plan" | "picks" | "delivery" | "tracking";
-type GiftTier = "light" | "balanced" | "special";
+type Screen = "budget" | "picks" | "drop" | "tracking";
+type Tier = "light" | "balanced" | "special";
 
 type Gift = {
   id: string;
-  recipient: string;
-  detail: string;
-  product: string;
+  for: string;
+  name: string;
   store: string;
   area: string;
   price: number;
   reason: string;
-  mark: string;
-  tone: string;
+  color: string;
+  symbol: string;
 };
 
-const giftSets: Record<GiftTier, Gift[]> = {
+const giftSets: Record<Tier, Gift[]> = {
   light: [
-    { id: "mother-light", recipient: "엄마", detail: "한 분 · 오래 남는 선물", product: "토론토 세라믹 찻잔", store: "Spacing Store", area: "401 Richmond", price: 42, reason: "지역 작가 제품이고 작고 단단해 포장하기 쉬워요.", mark: "01", tone: "clay" },
-    { id: "friends-light", recipient: "친구들", detail: "두 분 · 같은 가격대", product: "시티 핀 & 미니 토트 2개", store: "Kid Icarus", area: "Kensington", price: 56, reason: "각자 다른 디자인을 고를 수 있어도 가격은 같아요.", mark: "02", tone: "sky" },
-    { id: "team-light", recipient: "연구실", detail: "여럿이 나눠 먹는 선물", product: "메이플 캔디 셰어팩", store: "Blue Banana", area: "Kensington", price: 38, reason: "낱개 포장 24개라 인원수를 따로 셀 필요가 없어요.", mark: "03", tone: "maple" },
+    { id: "mom-light", for: "MOM", name: "Ceramic tea cup", store: "Spacing Store", area: "7 min walk", price: 42, reason: "Local, thoughtful, and easy to pack.", color: "peach", symbol: "C" },
+    { id: "friends-light", for: "2 FRIENDS", name: "City pins + mini totes", store: "Kid Icarus", area: "9 min walk", price: 56, reason: "Two equal-value gifts, different designs.", color: "blue", symbol: "T" },
+    { id: "team-light", for: "LAB TEAM", name: "Maple candy share pack", store: "Blue Banana", area: "2 min walk", price: 38, reason: "24 wrapped pieces for easy sharing.", color: "yellow", symbol: "M" },
   ],
   balanced: [
-    { id: "mother-balanced", recipient: "엄마", detail: "한 분 · 오래 남는 선물", product: "온타리오 세라믹 티 세트", store: "Spacing Store", area: "401 Richmond", price: 58, reason: "지역 작가 제품이고 예산 안에서 가장 선물다운 선택이에요.", mark: "01", tone: "clay" },
-    { id: "friends-balanced", recipient: "친구들", detail: "두 분 · 같은 가격대", product: "토론토 그래픽 토트 2개", store: "Kid Icarus", area: "Kensington", price: 72, reason: "색은 달라도 단가는 같아 친구 사이에 부담이 없어요.", mark: "02", tone: "sky" },
-    { id: "team-balanced", recipient: "연구실", detail: "여럿이 나눠 먹는 선물", product: "메이플 & 초콜릿 박스", store: "Blue Banana", area: "Kensington", price: 54, reason: "개별 포장 30개, 실온 보관이라 귀국 후 바로 나눌 수 있어요.", mark: "03", tone: "maple" },
+    { id: "mom-balanced", for: "MOM", name: "Ontario tea set", store: "Spacing Store", area: "7 min walk", price: 58, reason: "The most meaningful local pick in your range.", color: "peach", symbol: "C" },
+    { id: "friends-balanced", for: "2 FRIENDS", name: "Toronto graphic totes", store: "Kid Icarus", area: "9 min walk", price: 72, reason: "Different colors, same price. Fair and packable.", color: "blue", symbol: "T" },
+    { id: "team-balanced", for: "LAB TEAM", name: "Maple chocolate box", store: "Blue Banana", area: "2 min walk", price: 54, reason: "30 wrapped pieces, ready to share back home.", color: "yellow", symbol: "M" },
   ],
   special: [
-    { id: "mother-special", recipient: "엄마", detail: "한 분 · 오래 남는 선물", product: "캐나다 울 블랭킷", store: "Spacing Store", area: "401 Richmond", price: 84, reason: "부피를 줄여 포장해 주고, 프리미엄 선물로 오래 쓸 수 있어요.", mark: "01", tone: "clay" },
-    { id: "friends-special", recipient: "친구들", detail: "두 분 · 같은 가격대", product: "리미티드 아트 프린트 2점", store: "Kid Icarus", area: "Kensington", price: 96, reason: "같은 컬렉션의 다른 작품이라 의미와 형평성을 모두 챙겨요.", mark: "02", tone: "sky" },
-    { id: "team-special", recipient: "연구실", detail: "여럿이 나눠 먹는 선물", product: "캐나다 스낵 큐레이션 박스", store: "Blue Banana", area: "Kensington", price: 68, reason: "짭짤한 맛과 단맛을 섞어 취향이 달라도 함께 즐길 수 있어요.", mark: "03", tone: "maple" },
+    { id: "mom-special", for: "MOM", name: "Canadian wool throw", store: "Spacing Store", area: "7 min walk", price: 84, reason: "A lasting premium gift with compact packing.", color: "peach", symbol: "W" },
+    { id: "friends-special", for: "2 FRIENDS", name: "Limited art prints", store: "Kid Icarus", area: "9 min walk", price: 96, reason: "A matched pair from one Toronto collection.", color: "blue", symbol: "A" },
+    { id: "team-special", for: "LAB TEAM", name: "Canadian snack edit", store: "Blue Banana", area: "2 min walk", price: 68, reason: "Sweet and savory picks for mixed tastes.", color: "yellow", symbol: "S" },
   ],
 };
 
-const steps = [
-  { id: "plan", label: "조건 정하기" },
-  { id: "picks", label: "상품 고르기" },
-  { id: "delivery", label: "배송 맡기기" },
-  { id: "tracking", label: "도착 확인" },
-] as const;
+const navItems = [
+  { screen: "budget" as Screen, label: "Plan", icon: "⌁" },
+  { screen: "picks" as Screen, label: "Picks", icon: "◇" },
+  { screen: "drop" as Screen, label: "Drop", icon: "▱" },
+  { screen: "tracking" as Screen, label: "Track", icon: "⌖" },
+];
 
-function Logo() {
-  return <div className="logo" aria-label="TRAIL"><span>T</span><b>TRAIL</b><small>SHOP · DROP · GO</small></div>;
+function Money({ value }: { value: number }) {
+  return <>${value}</>;
 }
 
-function Money({ amount }: { amount: number }) {
-  return <>{new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(amount)}</>;
+function Brand() {
+  return <div className="brand"><span>T</span><b>TRAIL</b></div>;
 }
 
 export default function Home() {
-  const [stage, setStage] = useState<Stage>("plan");
+  const [screen, setScreen] = useState<Screen>("budget");
   const [budget, setBudget] = useState(200);
-  const [selectedIds, setSelectedIds] = useState<string[]>(giftSets.balanced.map((gift) => gift.id));
-  const [destination, setDestination] = useState("The Annex Hotel · Front desk");
-  const [trackingStep, setTrackingStep] = useState(1);
-  const [notice, setNotice] = useState("");
+  const [selectedIds, setSelectedIds] = useState(giftSets.balanced.map((gift) => gift.id));
+  const [deliveryStep, setDeliveryStep] = useState(1);
 
-  const tier: GiftTier = budget < 170 ? "light" : budget > 250 ? "special" : "balanced";
-  const recommendations = giftSets[tier];
-  const selected = recommendations.filter((gift) => selectedIds.includes(gift.id));
-  const giftTotal = selected.reduce((sum, gift) => sum + gift.price, 0);
+  const tier: Tier = budget < 170 ? "light" : budget > 250 ? "special" : "balanced";
+  const gifts = giftSets[tier];
+  const selected = gifts.filter((gift) => selectedIds.includes(gift.id));
+  const productTotal = selected.reduce((sum, gift) => sum + gift.price, 0);
   const deliveryFee = selected.length ? 9 : 0;
-  const total = giftTotal + deliveryFee;
+  const total = productTotal + deliveryFee;
   const remaining = budget - total;
-  const overBudget = remaining < 0;
 
-  const allocation = useMemo(() => {
-    const available = Math.max(budget - 9, 0);
-    return [
-      { who: "엄마", amount: Math.round(available * .31), color: "var(--apricot)" },
-      { who: "친구들", amount: Math.round(available * .38), color: "var(--blue)" },
-      { who: "연구실", amount: Math.round(available * .31), color: "var(--yellow)" },
-    ];
+  const split = useMemo(() => {
+    const spendable = Math.max(budget - 9, 0);
+    return [Math.round(spendable * .31), Math.round(spendable * .38), Math.round(spendable * .31)];
   }, [budget]);
 
-  const changeBudget = (value: number) => {
+  const go = (next: Screen) => {
+    setScreen(next);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const updateBudget = (value: number) => {
+    const nextTier: Tier = value < 170 ? "light" : value > 250 ? "special" : "balanced";
     setBudget(value);
-    const nextTier: GiftTier = value < 170 ? "light" : value > 250 ? "special" : "balanced";
     setSelectedIds(giftSets[nextTier].map((gift) => gift.id));
-    setNotice("예산에 맞춰 추천을 다시 골랐어요.");
-    window.setTimeout(() => setNotice(""), 1800);
   };
 
   const toggleGift = (id: string) => {
     setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   };
 
-  const go = (next: Stage) => {
-    setStage(next);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
   return (
-    <main className="app-shell">
-      <header className="global-header">
-        <Logo />
-        <div className="trip-context"><span className="pulse" />Toronto · 오늘 3시간 <button aria-label="여행 조건 수정" onClick={() => go("plan")}>수정</button></div>
-      </header>
+    <main className="stage">
+      <section className="phone" aria-live="polite">
+        <div className="status-bar"><span>9:41</span><div><i /><i /><b /></div></div>
 
-      <nav className="stepper" aria-label="쇼핑과 배송 진행 단계">
-        {steps.map((step, index) => {
-          const activeIndex = steps.findIndex((item) => item.id === stage);
-          return <button key={step.id} className={index <= activeIndex ? "active" : ""} onClick={() => index <= activeIndex && go(step.id)} disabled={index > activeIndex}><i>{index < activeIndex ? "✓" : index + 1}</i><span>{step.label}</span></button>;
-        })}
-      </nav>
+        {screen === "budget" && (
+          <div className="screen budget-screen">
+            <header className="app-header"><Brand /><button className="avatar" aria-label="Open profile">SY</button></header>
+            <div className="welcome"><p>TORONTO · 3 HOURS FREE</p><h1>Shop smart.<br /><em>Travel light.</em></h1><span>Plan gifts that fit your budget, then send every bag straight to your hotel.</span></div>
 
-      {notice && <div className="toast" role="status">{notice}</div>}
-
-      {stage === "plan" && (
-        <section className="page plan-page">
-          <div className="intro">
-            <p className="eyebrow">TRAIL GIFT PLANNER</p>
-            <h1>선물은 잘 고르고,<br /><em>짐은 남기고.</em></h1>
-            <p className="lede">누구에게 무엇을 살지부터, 지금 갈 만한 매장과 호텔 배송까지 한 번에 정해드려요.</p>
-            <div className="promise-row"><span><b>3</b>명·그룹별 추천</span><span><b>1</b>번만 가방 맡기기</span><span><b>3h</b>안에 끝나는 동선</span></div>
-          </div>
-
-          <div className="budget-ticket">
-            <div className="ticket-head"><span>오늘의 선물 예산</span><b><Money amount={budget} /></b></div>
-            <input className="budget-range" type="range" min="120" max="340" step="10" value={budget} onChange={(event) => changeBudget(Number(event.target.value))} aria-label="총 선물 예산" />
-            <div className="range-labels"><span>CAD 120</span><span>CAD 340</span></div>
-            <div className="perforation" />
-            <div className="allocation-list">
-              {allocation.map((item) => <div key={item.who}><span><i style={{ background: item.color }} />{item.who}</span><b>약 <Money amount={item.amount} /></b></div>)}
-              <div className="fee-row"><span><i />배송 여유</span><b>CAD 9 포함</b></div>
+            <div className="budget-pass">
+              <div className="pass-top"><span>GIFT BUDGET</span><b>CAD <Money value={budget} /></b></div>
+              <input type="range" min="120" max="340" step="10" value={budget} onChange={(event) => updateBudget(Number(event.target.value))} aria-label="Gift budget" />
+              <div className="range-label"><span>$120</span><span>$340</span></div>
+              <div className="tear" />
+              <div className="budget-split">
+                <div><i className="peach" /><span>Mom</span><b><Money value={split[0]} /></b></div>
+                <div><i className="blue" /><span>2 friends</span><b><Money value={split[1]} /></b></div>
+                <div><i className="yellow" /><span>Lab team</span><b><Money value={split[2]} /></b></div>
+              </div>
+              <small>Delivery reserve included · CAD $9</small>
             </div>
-            <p className="ticket-note">관계, 인원수, 포장 난이도를 반영한 추천 배분이에요. 상품을 고르면서 자유롭게 바꿀 수 있어요.</p>
-          </div>
 
-          <div className="recipient-panel">
-            <div className="section-heading"><span><b>선물할 사람</b><small>이번 여행에서 꼭 챙길 3그룹</small></span><button aria-label="선물할 사람 추가">＋ 추가</button></div>
-            <div className="people-row">
-              <div><i className="person-icon peach">엄</i><span><b>엄마</b><small>로컬 디자인</small></span><button aria-label="엄마 설정 수정">•••</button></div>
-              <div><i className="person-icon blue">친</i><span><b>친구 2명</b><small>각자 하나씩</small></span><button aria-label="친구 설정 수정">•••</button></div>
-              <div><i className="person-icon yellow">연</i><span><b>연구실</b><small>나눠 먹기</small></span><button aria-label="연구실 설정 수정">•••</button></div>
+            <section className="recipients">
+              <div className="section-title"><span><b>Shopping for</b><small>3 people or groups</small></span><button aria-label="Add recipient">＋</button></div>
+              <div className="recipient-row">
+                <div><i className="peach">M</i><span><b>Mom</b><small>Local design</small></span></div>
+                <div><i className="blue">F</i><span><b>Friends</b><small>2 gifts</small></span></div>
+                <div><i className="yellow">L</i><span><b>Lab</b><small>Shareable</small></span></div>
+              </div>
+            </section>
+
+            <button className="main-button" onClick={() => go("picks")}><span>Find gifts in budget<small>In-stock picks along one easy route</small></span><i>→</i></button>
+          </div>
+        )}
+
+        {screen === "picks" && (
+          <div className="screen picks-screen">
+            <header className="detail-header"><button onClick={() => go("budget")} aria-label="Go back">←</button><span>Gift picks</span><i>{selected.length}</i></header>
+            <div className="picks-intro"><div><p>CURATED FOR YOUR TRIP</p><h1>Three stops.<br /><em>Everyone covered.</em></h1></div><div className={remaining < 0 ? "balance over" : "balance"}><small>LEFT</small><b><Money value={remaining} /></b><span>of <Money value={budget} /></span></div></div>
+
+            <div className="route-card"><div className="route-track"><i>YOU</i><span /><i>1</i><span /><i>2</i><span /><i>3</i><span /><i className="drop-pin">DROP</i></div><b>1.2 km · 1 hr 40 min</b><small>Ends at your bag-drop partner</small></div>
+
+            <div className="gift-list">
+              {gifts.map((gift) => {
+                const checked = selectedIds.includes(gift.id);
+                return <article className={checked ? "gift selected" : "gift"} key={gift.id}>
+                  <div className={`gift-art ${gift.color}`}><span>{gift.symbol}</span></div>
+                  <div className="gift-info"><small>{gift.for}</small><h2>{gift.name}</h2><p><b>{gift.store}</b> · {gift.area}</p><em>✦ {gift.reason}</em></div>
+                  <div className="gift-buy"><b><Money value={gift.price} /></b><button onClick={() => toggleGift(gift.id)} aria-label={`${checked ? "Remove" : "Add"} ${gift.name}`}>{checked ? "✓" : "+"}</button></div>
+                </article>;
+              })}
             </div>
+
+            <div className="checkout-bar"><span><small>{selected.length} gifts + delivery</small><b><Money value={total} /> total</b></span><button onClick={() => go("drop")} disabled={!selected.length || remaining < 0}>Shop this route →</button></div>
           </div>
+        )}
 
-          <button className="primary-cta" onClick={() => go("picks")}><span>예산에 맞는 상품 보기<small>재고가 있고 배송 가능한 매장만 보여드려요</small></span><i>→</i></button>
-        </section>
-      )}
+        {screen === "drop" && (
+          <div className="screen drop-screen">
+            <header className="detail-header"><button onClick={() => go("picks")} aria-label="Go back">←</button><span>Bag drop</span><i>3</i></header>
+            <div className="bag-visual" aria-hidden="true"><i>TRAIL</i><i>LOCAL</i><span>✓</span></div>
+            <div className="drop-title"><p>SHOPPING COMPLETE</p><h1>Leave the bags.<br /><em>Keep the day.</em></h1><span>Bring all three bags to the final store. We will send them to your hotel together.</span></div>
 
-      {stage === "picks" && (
-        <section className="page picks-page">
-          <div className="page-title"><div><button className="back" onClick={() => go("plan")}>←</button><p className="eyebrow">예산 맞춤 추천</p><h1>세 곳이면<br /><em>모두 준비돼요.</em></h1></div><div className={`budget-gauge ${overBudget ? "over" : ""}`}><small>남은 예산</small><b><Money amount={remaining} /></b><span><Money amount={total} /> / <Money amount={budget} /></span></div></div>
+            <div className="drop-pass"><div><span>BAG DROP PASS</span><b>TR–2718</b></div><div className="barcode" /><small>Show this screen at Blue Banana Market</small></div>
 
-          <div className="smart-route"><div className="route-line"><i>현재</i><span /><i>1</i><span /><i>2</i><span /><i>3</i><span /><i className="drop">DROP</i></div><div><b>총 1.2 km · 약 1시간 40분</b><small>401 Richmond → Kensington · 마지막 매장에서 가방 맡기기</small></div></div>
+            <div className="drop-details">
+              <div><i>⌂</i><span><small>Drop-off</small><b>Blue Banana Market</b></span><em>2 min</em></div>
+              <div><i>⌖</i><span><small>Deliver to</small><b>The Annex Hotel</b></span><em>›</em></div>
+              <div><i>◷</i><span><small>Arrival window</small><b>Today, 6:30–7:00 PM</b></span><em>$9</em></div>
+            </div>
 
-          <div className="gift-list">
-            {recommendations.map((gift) => {
-              const checked = selectedIds.includes(gift.id);
-              return (
-                <article className={`gift-card ${checked ? "selected" : ""}`} key={gift.id}>
-                  <div className={`gift-mark ${gift.tone}`}><span>{gift.mark}</span><i>{gift.recipient.slice(0, 1)}</i></div>
-                  <div className="gift-copy"><div className="gift-meta"><span>{gift.recipient}</span><small>{gift.detail}</small></div><h2>{gift.product}</h2><div className="store-line"><b>{gift.store}</b><span>{gift.area}</span><span>재고 있음</span></div><p><i>✦</i>{gift.reason}</p></div>
-                  <div className="gift-action"><b><Money amount={gift.price} /></b><button className={checked ? "checked" : ""} onClick={() => toggleGift(gift.id)} aria-label={`${gift.product} ${checked ? "선택 해제" : "선택"}`}>{checked ? "✓ 담음" : "+ 담기"}</button></div>
-                </article>
-              );
-            })}
+            <button className="main-button dark" onClick={() => { setDeliveryStep(1); go("tracking"); }}><span>I dropped off my bags<small>Start secure delivery tracking</small></span><i>→</i></button>
           </div>
+        )}
 
-          <div className="why-panel"><span>추천 원칙</span><p>평점순이 아니라 <b>선물 적합도 × 예산 × 재고 × 배송 가능 여부 × 현재 동선</b>을 함께 계산했어요.</p></div>
+        {screen === "tracking" && (
+          <div className="screen tracking-screen">
+            <header className="app-header light"><Brand /><button onClick={() => go("budget")}>Done</button></header>
+            <div className="free-hands"><div><span>✦</span></div><p>BAGS ON THE MOVE</p><h1>{deliveryStep === 3 ? "Delivered to your hotel." : "Your hands are free."}</h1><span>{deliveryStep === 3 ? "Your bags are waiting safely at the front desk." : "Keep exploring. We will let you know the moment your bags arrive."}</span></div>
 
-          <div className="sticky-summary"><div><span>상품 {selected.length}개 · 배송 CAD 9</span><b>합계 <Money amount={total} /></b></div><button onClick={() => go("delivery")} disabled={!selected.length || overBudget}>이대로 쇼핑하기 <i>→</i></button></div>
-        </section>
-      )}
+            <div className="tracking-card">
+              <div className="tracking-head"><span>TR–2718 · 3 bags</span><b>{deliveryStep === 1 ? "Driver pickup" : deliveryStep === 2 ? "On the way" : "Delivered"}</b></div>
+              <div className="tracking-line">
+                {["Dropped", "Picked up", "On route", "At hotel"].map((label, index) => <div className={index <= deliveryStep ? "done" : ""} key={label}><i>{index < deliveryStep ? "✓" : ""}</i><span>{label}</span></div>)}
+              </div>
+              <div className="eta"><span>Estimated arrival</span><b>{deliveryStep === 3 ? "6:42 PM" : "6:30–7:00 PM"}</b></div>
+              {deliveryStep < 3 && <button className="next-state" onClick={() => setDeliveryStep((current) => Math.min(3, current + 1))}>Preview next status →</button>}
+            </div>
 
-      {stage === "delivery" && (
-        <section className="page delivery-page">
-          <button className="back" onClick={() => go("picks")}>←</button>
-          <div className="delivery-hero"><div className="bag-stack" aria-hidden="true"><i>TRAIL</i><i>LOCAL</i><span>✓</span></div><div><p className="eyebrow">구매를 마쳤나요?</p><h1>마지막 매장에 맡기면<br /><em>호텔에서 다시 만나요.</em></h1><p>세 매장에서 받은 쇼핑백을 Blue Banana 카운터에 한 번에 맡겨 주세요.</p></div></div>
-
-          <div className="delivery-grid">
-            <div className="handoff-card"><span className="card-kicker">BAG DROP PASS</span><b className="drop-code">TR–2718</b><div className="barcode" aria-hidden="true" /><p>직원에게 이 화면을 보여주세요</p></div>
-            <div className="delivery-form"><label><span>배송 받을 곳</span><input value={destination} onChange={(event) => setDestination(event.target.value)} aria-label="배송 받을 곳" /></label><div><span>맡기는 곳</span><b>Blue Banana Market · Service desk</b></div><div><span>예상 도착</span><b>오늘 18:30–19:00</b></div><div><span>배송비</span><b>CAD 9 · 예산에 포함</b></div></div>
+            <button className="explore-card"><span><small>1 HR 20 MIN, BAG-FREE</small><b>Walk to Graffiti Alley</b><em>8 min · On your way to the hotel</em></span><i>→</i></button>
           </div>
+        )}
 
-          <div className="care-note"><i>◎</i><div><b>가방은 이렇게 이동해요</b><p>매장에서 봉인 → 기사 인수 시 코드 확인 → 호텔 프런트에 전달. 단계마다 알림을 보내드려요.</p></div></div>
-          <button className="primary-cta dark" onClick={() => { setTrackingStep(1); go("tracking"); }}><span>가방 맡기기 완료<small>{destination}로 배송을 시작해요</small></span><i>→</i></button>
-        </section>
-      )}
-
-      {stage === "tracking" && (
-        <section className="page tracking-page">
-          <div className="tracking-top"><Logo /><button onClick={() => go("plan")}>새 쇼핑 계획</button></div>
-          <div className="tracking-hero"><div className="freehands"><span>✦</span><i /><i /></div><p className="eyebrow">가방은 TRAIL이 맡을게요</p><h1>{trackingStep === 3 ? "호텔에 도착했어요." : "이제 가볍게,\n여행을 계속하세요."}</h1><p>{trackingStep === 3 ? `${destination}에 안전하게 전달했습니다.` : "쇼핑백 3개가 호텔로 이동 중이에요. 도착 전까지 손은 자유롭습니다."}</p></div>
-
-          <div className="tracking-card"><div className="tracking-head"><span>TR–2718 · 쇼핑백 3개</span><b>{trackingStep === 1 ? "기사 인수" : trackingStep === 2 ? "호텔로 이동 중" : "배송 완료"}</b></div><div className="tracking-rail">{["매장에 맡김", "기사 인수", "호텔 이동", "프런트 도착"].map((label, index) => <div className={index <= trackingStep ? "done" : ""} key={label}><i>{index < trackingStep ? "✓" : ""}</i><span>{label}</span></div>)}</div><div className="arrival"><span>도착 예정</span><b>{trackingStep === 3 ? "18:42 도착" : "18:30–19:00"}</b></div>{trackingStep < 3 && <button className="preview-button" onClick={() => setTrackingStep((current) => Math.min(3, current + 1))}>다음 배송 상태 보기 →</button>}</div>
-
-          <div className="next-stop"><span><small>가방 없이 1시간 20분</small><b>Graffiti Alley까지 걸어볼까요?</b><em>도보 8분 · 호텔 방향 동선</em></span><button aria-label="추천 장소 자세히 보기">→</button></div>
-        </section>
-      )}
+        <nav className={screen === "tracking" ? "tab-bar dark-tabs" : "tab-bar"} aria-label="Main navigation">
+          {navItems.map((item) => <button key={item.screen} className={screen === item.screen ? "active" : ""} onClick={() => go(item.screen)}><i>{item.icon}</i><span>{item.label}</span></button>)}
+        </nav>
+        <div className="home-indicator" />
+      </section>
     </main>
   );
 }

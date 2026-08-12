@@ -1,10 +1,13 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: "#12333c",
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
@@ -13,26 +16,19 @@ export async function generateMetadata(): Promise<Metadata> {
   const socialImage = `${protocol}://${host}/og.png`;
 
   return {
-    title: "TRAIL — 선물은 잘 고르고, 짐은 남기고",
-    description: "여행지에서 예산에 맞는 선물과 매장을 추천하고, 구매한 가방을 호텔까지 배송하는 쇼핑 플래너.",
+    title: "TRAIL — Shop smart. Travel light.",
+    description: "A mobile gift planner that matches your budget, maps the right stores, and sends every bag to your hotel.",
+    applicationName: "TRAIL",
+    appleWebApp: { capable: true, statusBarStyle: "default", title: "TRAIL" },
     openGraph: {
-      title: "TRAIL — 선물은 잘 고르고, 짐은 남기고",
-      description: "예산 맞춤 선물 추천부터 호텔 배송까지, 여행자의 쇼핑을 가볍게.",
-      images: [{ url: socialImage, width: 1200, height: 630, alt: "TRAIL budget-led gift shopping and hotel delivery" }],
+      title: "TRAIL — Shop smart. Travel light.",
+      description: "Budget-led gift picks, one easy route, and hotel delivery.",
+      images: [{ url: socialImage, width: 1200, height: 630, alt: "TRAIL mobile gift shopping and hotel delivery app" }],
     },
-    twitter: {
-      card: "summary_large_image",
-      title: "TRAIL — 선물은 잘 고르고, 짐은 남기고",
-      description: "예산 맞춤 선물 추천부터 호텔 배송까지, 여행자의 쇼핑을 가볍게.",
-      images: [socialImage],
-    },
+    twitter: { card: "summary_large_image", title: "TRAIL — Shop smart. Travel light.", description: "Budget-led gift picks, one easy route, and hotel delivery.", images: [socialImage] },
   };
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return (
-    <html lang="ko">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>{children}</body>
-    </html>
-  );
+  return <html lang="en"><body>{children}</body></html>;
 }

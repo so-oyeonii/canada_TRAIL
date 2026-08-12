@@ -16,16 +16,16 @@ export async function generateMetadata(): Promise<Metadata> {
   const socialImage = `${protocol}://${host}/og.png`;
 
   return {
-    title: "TRAIL Classic — AI travel shopping companion",
-    description: "Plan gifts and personal finds, shop at real local stores, track actual spend, rebalance the trip wallet, and send bags to your hotel.",
-    applicationName: "TRAIL Classic",
-    appleWebApp: { capable: true, statusBarStyle: "default", title: "TRAIL Classic" },
+    title: "TRAIL AI — Talk it through. Take home the right thing.",
+    description: "A conversational AI gift planner that turns what you want into an editable shopping, route, and delivery plan.",
+    applicationName: "TRAIL",
+    appleWebApp: { capable: true, statusBarStyle: "default", title: "TRAIL" },
     openGraph: {
-      title: "TRAIL Classic — Your travel shopping command center",
-      description: "Ask AI, approve a balanced plan, shop offline, and send every bag to your hotel.",
+      title: "TRAIL AI — Your editable gift plan",
+      description: "Talk about the gift, review the AI draft, customize every detail, then approve and shop.",
       images: [{ url: socialImage, width: 1200, height: 630, alt: "TRAIL mobile gift shopping and hotel delivery app" }],
     },
-    twitter: { card: "summary_large_image", title: "TRAIL Classic — Your travel shopping command center", description: "Ask AI, approve a balanced plan, shop offline, and send every bag to your hotel.", images: [socialImage] },
+    twitter: { card: "summary_large_image", title: "TRAIL AI — Your editable gift plan", description: "Talk about the gift, review the AI draft, customize every detail, then approve and shop.", images: [socialImage] },
   };
 }
 

@@ -2,374 +2,198 @@
 
 import { useMemo, useState } from "react";
 
-type Screen =
-  | "welcome"
-  | "home"
-  | "shopping"
-  | "budget"
-  | "stores"
-  | "route"
-  | "drop"
-  | "delivery"
-  | "layover"
-  | "time"
-  | "decision"
-  | "rest";
+type Stage = "plan" | "picks" | "delivery" | "tracking";
+type GiftTier = "light" | "balanced" | "special";
 
-const journey = ["Discover", "Decide", "Shop", "Drop", "Explore", "Receive"];
+type Gift = {
+  id: string;
+  recipient: string;
+  detail: string;
+  product: string;
+  store: string;
+  area: string;
+  price: number;
+  reason: string;
+  mark: string;
+  tone: string;
+};
 
-const stores = [
-  {
-    name: "Spacing Store",
-    area: "401 Richmond St W",
-    distance: "7 min walk",
-    category: "Canadian design",
-    note: "Thoughtful home pieces for Mom, within the CAD 55 range.",
-    color: "mint",
-  },
-  {
-    name: "Blue Banana Market",
-    area: "Kensington Market",
-    distance: "9 min walk",
-    category: "Local food & gifts",
-    note: "One stop for your friends and shareable maple treats for the lab.",
-    color: "coral",
-  },
-  {
-    name: "Kid Icarus",
-    area: "205 Augusta Ave",
-    distance: "2 min walk",
-    category: "Toronto-made prints",
-    note: "A small, personal add-on that still keeps you under budget.",
-    color: "blue",
-  },
-];
+const giftSets: Record<GiftTier, Gift[]> = {
+  light: [
+    { id: "mother-light", recipient: "엄마", detail: "한 분 · 오래 남는 선물", product: "토론토 세라믹 찻잔", store: "Spacing Store", area: "401 Richmond", price: 42, reason: "지역 작가 제품이고 작고 단단해 포장하기 쉬워요.", mark: "01", tone: "clay" },
+    { id: "friends-light", recipient: "친구들", detail: "두 분 · 같은 가격대", product: "시티 핀 & 미니 토트 2개", store: "Kid Icarus", area: "Kensington", price: 56, reason: "각자 다른 디자인을 고를 수 있어도 가격은 같아요.", mark: "02", tone: "sky" },
+    { id: "team-light", recipient: "연구실", detail: "여럿이 나눠 먹는 선물", product: "메이플 캔디 셰어팩", store: "Blue Banana", area: "Kensington", price: 38, reason: "낱개 포장 24개라 인원수를 따로 셀 필요가 없어요.", mark: "03", tone: "maple" },
+  ],
+  balanced: [
+    { id: "mother-balanced", recipient: "엄마", detail: "한 분 · 오래 남는 선물", product: "온타리오 세라믹 티 세트", store: "Spacing Store", area: "401 Richmond", price: 58, reason: "지역 작가 제품이고 예산 안에서 가장 선물다운 선택이에요.", mark: "01", tone: "clay" },
+    { id: "friends-balanced", recipient: "친구들", detail: "두 분 · 같은 가격대", product: "토론토 그래픽 토트 2개", store: "Kid Icarus", area: "Kensington", price: 72, reason: "색은 달라도 단가는 같아 친구 사이에 부담이 없어요.", mark: "02", tone: "sky" },
+    { id: "team-balanced", recipient: "연구실", detail: "여럿이 나눠 먹는 선물", product: "메이플 & 초콜릿 박스", store: "Blue Banana", area: "Kensington", price: 54, reason: "개별 포장 30개, 실온 보관이라 귀국 후 바로 나눌 수 있어요.", mark: "03", tone: "maple" },
+  ],
+  special: [
+    { id: "mother-special", recipient: "엄마", detail: "한 분 · 오래 남는 선물", product: "캐나다 울 블랭킷", store: "Spacing Store", area: "401 Richmond", price: 84, reason: "부피를 줄여 포장해 주고, 프리미엄 선물로 오래 쓸 수 있어요.", mark: "01", tone: "clay" },
+    { id: "friends-special", recipient: "친구들", detail: "두 분 · 같은 가격대", product: "리미티드 아트 프린트 2점", store: "Kid Icarus", area: "Kensington", price: 96, reason: "같은 컬렉션의 다른 작품이라 의미와 형평성을 모두 챙겨요.", mark: "02", tone: "sky" },
+    { id: "team-special", recipient: "연구실", detail: "여럿이 나눠 먹는 선물", product: "캐나다 스낵 큐레이션 박스", store: "Blue Banana", area: "Kensington", price: 68, reason: "짭짤한 맛과 단맛을 섞어 취향이 달라도 함께 즐길 수 있어요.", mark: "03", tone: "maple" },
+  ],
+};
 
-function Glyph({ children }: { children: React.ReactNode }) {
-  return <span className="glyph" aria-hidden="true">{children}</span>;
+const steps = [
+  { id: "plan", label: "조건 정하기" },
+  { id: "picks", label: "상품 고르기" },
+  { id: "delivery", label: "배송 맡기기" },
+  { id: "tracking", label: "도착 확인" },
+] as const;
+
+function Logo() {
+  return <div className="logo" aria-label="TRAIL"><span>T</span><b>TRAIL</b><small>SHOP · DROP · GO</small></div>;
 }
 
-function Brand() {
-  return (
-    <div className="brand" aria-label="TRAIL">
-      <span className="brand-mark">T</span>
-      <span>TRAIL</span>
-    </div>
-  );
-}
-
-function TopBar({ title, onBack, action }: { title?: string; onBack?: () => void; action?: React.ReactNode }) {
-  return (
-    <header className="topbar">
-      {onBack ? (
-        <button className="icon-button" onClick={onBack} aria-label="Go back">←</button>
-      ) : <Brand />}
-      {title && <strong className="topbar-title">{title}</strong>}
-      <div className="topbar-action">{action}</div>
-    </header>
-  );
-}
-
-function PrimaryButton({ children, onClick, light = false }: { children: React.ReactNode; onClick: () => void; light?: boolean }) {
-  return <button className={`primary-button${light ? " light" : ""}`} onClick={onClick}>{children}<span>→</span></button>;
-}
-
-function AiNote({ children, dark = false }: { children: React.ReactNode; dark?: boolean }) {
-  return (
-    <div className={`ai-note${dark ? " dark" : ""}`}>
-      <Glyph>✦</Glyph>
-      <p>{children}</p>
-    </div>
-  );
-}
-
-function Progress({ active }: { active: number }) {
-  return (
-    <div className="journey-strip" aria-label="Journey progress">
-      {journey.map((item, index) => (
-        <span key={item} className={index <= active ? "active" : ""}>{item}</span>
-      ))}
-    </div>
-  );
+function Money({ amount }: { amount: number }) {
+  return <>{new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", maximumFractionDigits: 0 }).format(amount)}</>;
 }
 
 export default function Home() {
-  const [screen, setScreen] = useState<Screen>("welcome");
-  const [deliveryStep, setDeliveryStep] = useState(1);
-  const [selectedDecision, setSelectedDecision] = useState<"shop" | "rest" | "visit">("shop");
+  const [stage, setStage] = useState<Stage>("plan");
+  const [budget, setBudget] = useState(200);
+  const [selectedIds, setSelectedIds] = useState<string[]>(giftSets.balanced.map((gift) => gift.id));
+  const [destination, setDestination] = useState("The Annex Hotel · Front desk");
+  const [trackingStep, setTrackingStep] = useState(1);
+  const [notice, setNotice] = useState("");
 
-  const back: Record<Screen, Screen> = useMemo(() => ({
-    welcome: "welcome",
-    home: "welcome",
-    shopping: "home",
-    budget: "shopping",
-    stores: "budget",
-    route: "stores",
-    drop: "route",
-    delivery: "drop",
-    layover: "home",
-    time: "layover",
-    decision: "time",
-    rest: "decision",
-  }), []);
+  const tier: GiftTier = budget < 170 ? "light" : budget > 250 ? "special" : "balanced";
+  const recommendations = giftSets[tier];
+  const selected = recommendations.filter((gift) => selectedIds.includes(gift.id));
+  const giftTotal = selected.reduce((sum, gift) => sum + gift.price, 0);
+  const deliveryFee = selected.length ? 9 : 0;
+  const total = giftTotal + deliveryFee;
+  const remaining = budget - total;
+  const overBudget = remaining < 0;
 
-  const goBack = () => setScreen(back[screen]);
+  const allocation = useMemo(() => {
+    const available = Math.max(budget - 9, 0);
+    return [
+      { who: "엄마", amount: Math.round(available * .31), color: "var(--apricot)" },
+      { who: "친구들", amount: Math.round(available * .38), color: "var(--blue)" },
+      { who: "연구실", amount: Math.round(available * .31), color: "var(--yellow)" },
+    ];
+  }, [budget]);
+
+  const changeBudget = (value: number) => {
+    setBudget(value);
+    const nextTier: GiftTier = value < 170 ? "light" : value > 250 ? "special" : "balanced";
+    setSelectedIds(giftSets[nextTier].map((gift) => gift.id));
+    setNotice("예산에 맞춰 추천을 다시 골랐어요.");
+    window.setTimeout(() => setNotice(""), 1800);
+  };
+
+  const toggleGift = (id: string) => {
+    setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+  };
+
+  const go = (next: Stage) => {
+    setStage(next);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   return (
-    <main className="site-shell">
-      <div className="ambient-route" aria-hidden="true">
-        <span>YYZ</span><i></i><span>TOR</span><i></i><span>TRAIL</span>
-      </div>
-      <section className="phone" aria-live="polite">
-        <div className={`screen screen-${screen}`} key={screen}>
+    <main className="app-shell">
+      <header className="global-header">
+        <Logo />
+        <div className="trip-context"><span className="pulse" />Toronto · 오늘 3시간 <button aria-label="여행 조건 수정" onClick={() => go("plan")}>수정</button></div>
+      </header>
 
-          {screen === "welcome" && (
-            <div className="welcome-screen">
-              <div className="welcome-top"><Brand /><span className="local-chip">Toronto · 14:10</span></div>
-              <div className="compass-hero" aria-hidden="true">
-                <div className="orbit orbit-one"><span>SHOP</span></div>
-                <div className="orbit orbit-two"><span>REST</span></div>
-                <div className="compass-core"><b>3h</b><small>usable time</small></div>
-              </div>
-              <div className="welcome-copy">
-                <p className="eyebrow">Your context-aware travel companion</p>
-                <h1>Travel lighter.<br /><em>Decide smarter.</em></h1>
-                <p>TRAIL turns your location, time and priorities into one realistic next move.</p>
-              </div>
-              <div className="welcome-actions">
-                <PrimaryButton onClick={() => setScreen("home")} light>Start with my context</PrimaryButton>
-                <p>Discover · Decide · Shop · Drop · Explore · Receive</p>
-              </div>
+      <nav className="stepper" aria-label="쇼핑과 배송 진행 단계">
+        {steps.map((step, index) => {
+          const activeIndex = steps.findIndex((item) => item.id === stage);
+          return <button key={step.id} className={index <= activeIndex ? "active" : ""} onClick={() => index <= activeIndex && go(step.id)} disabled={index > activeIndex}><i>{index < activeIndex ? "✓" : index + 1}</i><span>{step.label}</span></button>;
+        })}
+      </nav>
+
+      {notice && <div className="toast" role="status">{notice}</div>}
+
+      {stage === "plan" && (
+        <section className="page plan-page">
+          <div className="intro">
+            <p className="eyebrow">TRAIL GIFT PLANNER</p>
+            <h1>선물은 잘 고르고,<br /><em>짐은 남기고.</em></h1>
+            <p className="lede">누구에게 무엇을 살지부터, 지금 갈 만한 매장과 호텔 배송까지 한 번에 정해드려요.</p>
+            <div className="promise-row"><span><b>3</b>명·그룹별 추천</span><span><b>1</b>번만 가방 맡기기</span><span><b>3h</b>안에 끝나는 동선</span></div>
+          </div>
+
+          <div className="budget-ticket">
+            <div className="ticket-head"><span>오늘의 선물 예산</span><b><Money amount={budget} /></b></div>
+            <input className="budget-range" type="range" min="120" max="340" step="10" value={budget} onChange={(event) => changeBudget(Number(event.target.value))} aria-label="총 선물 예산" />
+            <div className="range-labels"><span>CAD 120</span><span>CAD 340</span></div>
+            <div className="perforation" />
+            <div className="allocation-list">
+              {allocation.map((item) => <div key={item.who}><span><i style={{ background: item.color }} />{item.who}</span><b>약 <Money amount={item.amount} /></b></div>)}
+              <div className="fee-row"><span><i />배송 여유</span><b>CAD 9 포함</b></div>
             </div>
-          )}
+            <p className="ticket-note">관계, 인원수, 포장 난이도를 반영한 추천 배분이에요. 상품을 고르면서 자유롭게 바꿀 수 있어요.</p>
+          </div>
 
-          {screen === "home" && (
-            <>
-              <TopBar action={<button className="location-button">Toronto⌄</button>} />
-              <div className="content home-content">
-                <p className="eyebrow">Tuesday, 12 August</p>
-                <h1>Where should we<br /><em>take you next?</em></h1>
-                <div className="context-ribbon">
-                  <div><span className="live-dot"></span><b>Downtown Toronto</b><small>Current location</small></div>
-                  <div><b>3h 00m</b><small>Available</small></div>
-                </div>
-                <div className="action-grid">
-                  <button className="action-card main-action" onClick={() => setScreen("shopping")}>
-                    <Glyph>✦</Glyph><span><b>Plan with AI</b><small>A realistic plan for right now</small></span><i>→</i>
-                  </button>
-                  <button className="action-card" onClick={() => setScreen("shopping")}>
-                    <Glyph>◇</Glyph><span><b>Find gifts</b><small>Personal picks, nearby</small></span>
-                  </button>
-                  <button className="action-card dark-card" onClick={() => setScreen("layover")}>
-                    <Glyph>↗</Glyph><span><b>Layover help</b><small>Know your real time window</small></span>
-                  </button>
-                  <button className="action-card wide-action" onClick={() => { setSelectedDecision("rest"); setScreen("rest"); }}>
-                    <Glyph>◒</Glyph><span><b>Find a place to rest</b><small>Matched to your time and comfort</small></span><i>→</i>
-                  </button>
-                </div>
-                <AiNote>You can comfortably fit a focused gift run before dinner. I’ll keep the route under 2 hours.</AiNote>
-              </div>
-            </>
-          )}
+          <div className="recipient-panel">
+            <div className="section-heading"><span><b>선물할 사람</b><small>이번 여행에서 꼭 챙길 3그룹</small></span><button aria-label="선물할 사람 추가">＋ 추가</button></div>
+            <div className="people-row">
+              <div><i className="person-icon peach">엄</i><span><b>엄마</b><small>로컬 디자인</small></span><button aria-label="엄마 설정 수정">•••</button></div>
+              <div><i className="person-icon blue">친</i><span><b>친구 2명</b><small>각자 하나씩</small></span><button aria-label="친구 설정 수정">•••</button></div>
+              <div><i className="person-icon yellow">연</i><span><b>연구실</b><small>나눠 먹기</small></span><button aria-label="연구실 설정 수정">•••</button></div>
+            </div>
+          </div>
 
-          {screen === "shopping" && (
-            <>
-              <TopBar title="AI shopping plan" onBack={goBack} />
-              <div className="content">
-                <div className="title-block"><p className="eyebrow">Decision setup</p><h2>Tell me what<br />matters today.</h2></div>
-                <div className="decision-card">
-                  <label><span>⌖</span><div><small>Current location</small><input aria-label="Current location" defaultValue="Toronto, ON" /></div></label>
-                  <label><span>◷</span><div><small>Available time</small><input aria-label="Available time" defaultValue="3 hours" /></div></label>
-                  <label><span>¤</span><div><small>Total gift budget</small><input aria-label="Gift budget" defaultValue="CAD 200" /></div></label>
-                </div>
-                <div className="form-section">
-                  <div className="section-label"><b>Who are you shopping for?</b><span>4 groups</span></div>
-                  <div className="chip-row"><button className="choice-chip selected">Mother</button><button className="choice-chip selected">2 friends</button><button className="choice-chip selected">Lab members</button></div>
-                </div>
-                <div className="form-section">
-                  <div className="section-label"><b>Preferences</b></div>
-                  <div className="preference-list"><span>Local design</span><span>Food to share</span><span>Easy to pack</span></div>
-                </div>
-                <AiNote>I’ll balance meaning, group size and packing ease—not just split the budget evenly.</AiNote>
-              </div>
-              <div className="bottom-action"><PrimaryButton onClick={() => setScreen("budget")}>Build my gift plan</PrimaryButton></div>
-            </>
-          )}
+          <button className="primary-cta" onClick={() => go("picks")}><span>예산에 맞는 상품 보기<small>재고가 있고 배송 가능한 매장만 보여드려요</small></span><i>→</i></button>
+        </section>
+      )}
 
-          {screen === "budget" && (
-            <>
-              <TopBar title="Gift plan" onBack={goBack} />
-              <div className="content">
-                <Progress active={1} />
-                <div className="budget-hero">
-                  <span>Total gift budget</span><b>CAD 200</b><small>CAD 10 kept as flexibility</small>
-                </div>
-                <h2 className="section-heading">A balanced split</h2>
-                <div className="budget-list">
-                  <div><i className="avatar mother">M</i><span><b>Mother</b><small>Local design · thoughtful</small></span><strong>$55</strong></div>
-                  <div><i className="avatar friends">F</i><span><b>Two friends</b><small>Useful · easy to pack</small></span><strong>$70</strong></div>
-                  <div><i className="avatar lab">L</i><span><b>Lab members</b><small>Food · easy to share</small></span><strong>$65</strong></div>
-                </div>
-                <div className="budget-bar"><i style={{width:"29%"}}></i><i style={{width:"37%"}}></i><i style={{width:"34%"}}></i></div>
-                <AiNote>This split considers your total budget, each relationship, preferences and the size of each recipient group.</AiNote>
-              </div>
-              <div className="bottom-action"><PrimaryButton onClick={() => setScreen("stores")}>See 3 matched stores</PrimaryButton></div>
-            </>
-          )}
+      {stage === "picks" && (
+        <section className="page picks-page">
+          <div className="page-title"><div><button className="back" onClick={() => go("plan")}>←</button><p className="eyebrow">예산 맞춤 추천</p><h1>세 곳이면<br /><em>모두 준비돼요.</em></h1></div><div className={`budget-gauge ${overBudget ? "over" : ""}`}><small>남은 예산</small><b><Money amount={remaining} /></b><span><Money amount={total} /> / <Money amount={budget} /></span></div></div>
 
-          {screen === "stores" && (
-            <>
-              <TopBar title="Nearby matches" onBack={goBack} action={<span className="tiny-badge">3 picks</span>} />
-              <div className="content no-bottom-pad">
-                <Progress active={1} />
-                <div className="title-row"><div><p className="eyebrow">Shortlist, not a catalogue</p><h2>Right for you,<br />right now.</h2></div><div className="map-pin">⌖<small>1.2 km</small></div></div>
-                <div className="store-list">
-                  {stores.map((store, index) => (
-                    <button className="store-card" key={store.name} onClick={() => setScreen("route")}>
-                      <div className={`store-visual ${store.color}`}><span>0{index + 1}</span><i></i></div>
-                      <div className="store-copy"><small>{store.category}</small><b>{store.name}</b><p>{store.note}</p><div><span>{store.distance}</span><span>{store.area}</span></div></div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="bottom-action floating"><PrimaryButton onClick={() => setScreen("route")}>Build the efficient route</PrimaryButton></div>
-            </>
-          )}
+          <div className="smart-route"><div className="route-line"><i>현재</i><span /><i>1</i><span /><i>2</i><span /><i>3</i><span /><i className="drop">DROP</i></div><div><b>총 1.2 km · 약 1시간 40분</b><small>401 Richmond → Kensington · 마지막 매장에서 가방 맡기기</small></div></div>
 
-          {screen === "route" && (
-            <>
-              <TopBar title="Shopping route" onBack={goBack} />
-              <div className="route-map">
-                <div className="street s1"></div><div className="street s2"></div><div className="street s3"></div>
-                <div className="route-line"></div>
-                <span className="route-point p0">YOU</span><span className="route-point p1">1</span><span className="route-point p2">2</span><span className="route-point p3">3</span>
-                <span className="map-label l1">Queen St W</span><span className="map-label l2">Kensington</span>
-              </div>
-              <div className="route-sheet">
-                <div className="route-summary"><div><p className="eyebrow">Your efficient loop</p><h2>1h 42m</h2></div><div><b>1.2 km</b><small>total walking</small></div></div>
-                <div className="route-timeline">
-                  <div><i>1</i><span><b>Spacing Store</b><small>14:20 · Shop for Mom · 25 min</small></span></div>
-                  <div className="movement"><i></i><span>7 min walk</span></div>
-                  <div><i>2</i><span><b>Blue Banana Market</b><small>14:52 · Friends + lab · 35 min</small></span></div>
-                  <div className="movement"><i></i><span>2 min walk</span></div>
-                  <div><i>3</i><span><b>Kid Icarus</b><small>15:29 · Optional add-on · 18 min</small></span></div>
-                </div>
-                <AiNote>The route ends at a participating TRAIL store, so your bags can continue without you.</AiNote>
-                <PrimaryButton onClick={() => setScreen("drop")}>I’ve finished shopping</PrimaryButton>
-              </div>
-            </>
-          )}
+          <div className="gift-list">
+            {recommendations.map((gift) => {
+              const checked = selectedIds.includes(gift.id);
+              return (
+                <article className={`gift-card ${checked ? "selected" : ""}`} key={gift.id}>
+                  <div className={`gift-mark ${gift.tone}`}><span>{gift.mark}</span><i>{gift.recipient.slice(0, 1)}</i></div>
+                  <div className="gift-copy"><div className="gift-meta"><span>{gift.recipient}</span><small>{gift.detail}</small></div><h2>{gift.product}</h2><div className="store-line"><b>{gift.store}</b><span>{gift.area}</span><span>재고 있음</span></div><p><i>✦</i>{gift.reason}</p></div>
+                  <div className="gift-action"><b><Money amount={gift.price} /></b><button className={checked ? "checked" : ""} onClick={() => toggleGift(gift.id)} aria-label={`${gift.product} ${checked ? "선택 해제" : "선택"}`}>{checked ? "✓ 담음" : "+ 담기"}</button></div>
+                </article>
+              );
+            })}
+          </div>
 
-          {screen === "drop" && (
-            <>
-              <TopBar title="Bag drop" onBack={goBack} />
-              <div className="content drop-content">
-                <Progress active={3} />
-                <div className="bag-illustration" aria-hidden="true"><div className="bag bag-one">TRAIL</div><div className="bag bag-two">LOCAL</div><span>✓</span></div>
-                <div className="center-title"><p className="eyebrow">Purchase complete</p><h2>Leave the bags.<br /><em>Keep the day.</em></h2><p>Your purchases will travel to your designated destination while you continue exploring.</p></div>
-                <div className="drop-details">
-                  <div><span>◇</span><p><small>Purchased items</small><b>3 shopping bags</b></p></div>
-                  <div><span>⌂</span><p><small>Participating store</small><b>Blue Banana Market</b></p></div>
-                  <div><span>⌖</span><p><small>Delivery destination</small><b>The Annex Hotel</b></p><button aria-label="Change destination">›</button></div>
-                </div>
-              </div>
-              <div className="bottom-action"><PrimaryButton onClick={() => { setDeliveryStep(1); setScreen("delivery"); }}>Leave my shopping bags</PrimaryButton></div>
-            </>
-          )}
+          <div className="why-panel"><span>추천 원칙</span><p>평점순이 아니라 <b>선물 적합도 × 예산 × 재고 × 배송 가능 여부 × 현재 동선</b>을 함께 계산했어요.</p></div>
 
-          {screen === "delivery" && (
-            <>
-              <TopBar action={<button className="close-button" onClick={() => setScreen("home")}>Done</button>} />
-              <div className="delivery-content">
-                <div className="free-hands"><div className="sun-ring"><span>✦</span></div><p className="eyebrow">Drop confirmed</p><h1>Your hands are free.<br /><em>Continue exploring.</em></h1><p>It’s 15:48. You still have 1h 22m nearby before dinner.</p></div>
-                <div className="delivery-card">
-                  <div className="delivery-head"><span>Delivery to The Annex Hotel</span><b>{deliveryStep === 1 ? "In progress" : deliveryStep === 2 ? "Arriving soon" : "Delivered"}</b></div>
-                  <div className="status-line">
-                    {[0,1,2].map((step) => <i key={step} className={step <= deliveryStep ? "done" : ""}></i>)}
-                  </div>
-                  <div className="status-labels"><span>Left at store</span><span>On the way</span><span>At hotel</span></div>
-                  {deliveryStep < 2 ? <button className="text-button" onClick={() => setDeliveryStep(deliveryStep + 1)}>Preview next delivery state →</button> : <p className="delivered-note">Your purchases have arrived at your designated location.</p>}
-                </div>
-                <button className="explore-card" onClick={() => setScreen("home")}><span><small>TRAIL suggests</small><b>Walk through Graffiti Alley</b><em>8 minutes from here · fits your time</em></span><i>→</i></button>
-              </div>
-            </>
-          )}
+          <div className="sticky-summary"><div><span>상품 {selected.length}개 · 배송 CAD 9</span><b>합계 <Money amount={total} /></b></div><button onClick={() => go("delivery")} disabled={!selected.length || overBudget}>이대로 쇼핑하기 <i>→</i></button></div>
+        </section>
+      )}
 
-          {screen === "layover" && (
-            <>
-              <TopBar title="Layover assistance" onBack={goBack} />
-              <div className="content">
-                <div className="airport-code"><div><span>YYZ</span><small>Toronto Pearson</small></div><i>→</i><div><span>NRT</span><small>Tokyo Narita</small></div></div>
-                <div className="title-block"><p className="eyebrow">Connection context</p><h2>What can I<br />realistically do?</h2></div>
-                <div className="decision-card airport-form">
-                  <label><span>◷</span><div><small>Layover duration</small><input aria-label="Layover duration" defaultValue="6 hours" /></div></label>
-                  <label><span>△</span><div><small>Departure</small><input aria-label="Departure terminal" defaultValue="Terminal 1 · 20:10" /></div></label>
-                  <label><span>◎</span><div><small>Travel situation</small><input aria-label="Travel situation" defaultValue="International · carry-on" /></div></label>
-                </div>
-                <div className="form-section"><div className="section-label"><b>What would feel best?</b></div><div className="chip-row"><button className="choice-chip selected">Shop</button><button className="choice-chip">Rest</button><button className="choice-chip">Short visit</button></div></div>
-                <AiNote>I’ll account for immigration, terminal movement, transport, security re-entry and boarding—not just the six hours on your ticket.</AiNote>
-              </div>
-              <div className="bottom-action"><PrimaryButton onClick={() => setScreen("time")}>Calculate my real window</PrimaryButton></div>
-            </>
-          )}
+      {stage === "delivery" && (
+        <section className="page delivery-page">
+          <button className="back" onClick={() => go("picks")}>←</button>
+          <div className="delivery-hero"><div className="bag-stack" aria-hidden="true"><i>TRAIL</i><i>LOCAL</i><span>✓</span></div><div><p className="eyebrow">구매를 마쳤나요?</p><h1>마지막 매장에 맡기면<br /><em>호텔에서 다시 만나요.</em></h1><p>세 매장에서 받은 쇼핑백을 Blue Banana 카운터에 한 번에 맡겨 주세요.</p></div></div>
 
-          {screen === "time" && (
-            <>
-              <TopBar title="Available time" onBack={goBack} />
-              <div className="content">
-                <div className="time-hero"><span>6h layover</span><b>2h 15m</b><small>realistically usable time</small></div>
-                <div className="time-track">
-                  <div className="segment immigration" style={{flex:55}}><span>Immigration</span><b>55m</b></div>
-                  <div className="segment travel" style={{flex:45}}><span>Transport</span><b>45m</b></div>
-                  <div className="segment activity" style={{flex:135}}><span>Your time</span><b>2h 15m</b></div>
-                  <div className="segment security" style={{flex:65}}><span>Return + security</span><b>1h 05m</b></div>
-                  <div className="segment boarding" style={{flex:60}}><span>Boarding buffer</span><b>1h</b></div>
-                </div>
-                <div className="clock-row"><span>14:10 now</span><span>19:10 gate</span><span>20:10 flight</span></div>
-                <div className="safe-window">
-                  <div className="safe-icon">✓</div><div><p className="eyebrow">TRAIL’s read</p><h3>Stay close to the airport.</h3><p>Downtown would leave too little margin. Airport shopping, a proper rest, or one nearby stop are realistic.</p></div>
-                </div>
-                <div className="context-checks"><span>✓ Immigration included</span><span>✓ Terminal 1 return</span><span>✓ Carry-on pace</span></div>
-              </div>
-              <div className="bottom-action"><PrimaryButton onClick={() => setScreen("decision")}>Compare realistic options</PrimaryButton></div>
-            </>
-          )}
+          <div className="delivery-grid">
+            <div className="handoff-card"><span className="card-kicker">BAG DROP PASS</span><b className="drop-code">TR–2718</b><div className="barcode" aria-hidden="true" /><p>직원에게 이 화면을 보여주세요</p></div>
+            <div className="delivery-form"><label><span>배송 받을 곳</span><input value={destination} onChange={(event) => setDestination(event.target.value)} aria-label="배송 받을 곳" /></label><div><span>맡기는 곳</span><b>Blue Banana Market · Service desk</b></div><div><span>예상 도착</span><b>오늘 18:30–19:00</b></div><div><span>배송비</span><b>CAD 9 · 예산에 포함</b></div></div>
+          </div>
 
-          {screen === "decision" && (
-            <>
-              <TopBar title="Best use of your time" onBack={goBack} />
-              <div className="content no-bottom-pad">
-                <p className="eyebrow">Based on your 2h 15m window</p><h2 className="decision-title">Three realistic choices.<br /><em>One clear fit.</em></h2>
-                <div className="option-list">
-                  <button className={selectedDecision === "shop" ? "selected" : ""} onClick={() => setSelectedDecision("shop")}><i>◇</i><span><b>Shop locally, inside YYZ</b><small>Best fit · 75 min activity</small><em>Canadian gifts · duty-free · easy return</em></span><strong>✓</strong></button>
-                  <button className={selectedDecision === "rest" ? "selected" : ""} onClick={() => setSelectedDecision("rest")}><i>◒</i><span><b>Rest before the flight</b><small>Very comfortable · 90 min</small><em>Lounge, quiet zone or 24-hour café</em></span><strong>✓</strong></button>
-                  <button className={selectedDecision === "visit" ? "selected" : ""} onClick={() => setSelectedDecision("visit")}><i>⌖</i><span><b>Short nearby visit</b><small>Possible · tighter margin</small><em>One stop near the airport only</em></span><strong>✓</strong></button>
-                </div>
-                <AiNote dark>{selectedDecision === "shop" ? "Shop is the strongest fit: local products, no weather risk, and a generous return buffer." : selectedDecision === "rest" ? "Rest gives you the most comfort with the least movement before your overnight flight." : "A short visit is possible, but I’ll keep you within a 15-minute ride of Terminal 1."}</AiNote>
-              </div>
-              <div className="bottom-action"><PrimaryButton onClick={() => setScreen("rest")}>Show my suggested plan</PrimaryButton></div>
-            </>
-          )}
+          <div className="care-note"><i>◎</i><div><b>가방은 이렇게 이동해요</b><p>매장에서 봉인 → 기사 인수 시 코드 확인 → 호텔 프런트에 전달. 단계마다 알림을 보내드려요.</p></div></div>
+          <button className="primary-cta dark" onClick={() => { setTrackingStep(1); go("tracking"); }}><span>가방 맡기기 완료<small>{destination}로 배송을 시작해요</small></span><i>→</i></button>
+        </section>
+      )}
 
-          {screen === "rest" && (
-            <>
-              <TopBar title="Suggested layover plan" onBack={goBack} />
-              <div className="content no-bottom-pad">
-                <div className="plan-hero"><p className="eyebrow">Toronto · Terminal 1</p><h2>{selectedDecision === "rest" ? "A calm reset," : selectedDecision === "visit" ? "One nearby stop," : "Local gifts,"}<br /><em>with room to move.</em></h2><p>Localized for YYZ opening hours, terminal layout and your carry-on pace.</p></div>
-                <div className="mobility-banner"><div className="mobility-icon">↝</div><div><small>Mobility-aware route</small><b>12 min total walking</b><p>Indoor route · elevator access · no terminal transfer</p></div></div>
-                <div className="suggested-timeline">
-                  <div><time>15:10</time><i></i><span><b>{selectedDecision === "rest" ? "Plaza Premium Lounge" : selectedDecision === "visit" ? "UP Express to nearby stop" : "Distillery Collection"}</b><small>{selectedDecision === "rest" ? "Quiet seating · light meal · 65 min" : selectedDecision === "visit" ? "Single, weather-safe visit · 55 min" : "Canadian food gifts · near D gates · 30 min"}</small></span></div>
-                  <div><time>16:20</time><i></i><span><b>{selectedDecision === "rest" ? "Terminal 1 quiet zone" : selectedDecision === "visit" ? "Return toward Terminal 1" : "Duty-free Canadian edit"}</b><small>{selectedDecision === "rest" ? "Low-traffic seating · 25 min" : selectedDecision === "visit" ? "Built-in transport buffer · 35 min" : "Three packable options · 25 min"}</small></span></div>
-                  <div><time>17:05</time><i></i><span><b>Walk to security</b><small>Level 3 · elevator route · 8 min</small></span></div>
-                  <div><time>19:10</time><i className="final"></i><span><b>Be at Gate D32</b><small>One-hour boarding buffer protected</small></span></div>
-                </div>
-                <div className="local-note"><span>YYZ</span><p><b>Why this plan is local</b><small>It reflects Terminal 1 distances, Canadian gift categories and Toronto transport timing—not a generic six-hour layover.</small></p></div>
-                <PrimaryButton onClick={() => setScreen("home")}>Return to home</PrimaryButton>
-              </div>
-            </>
-          )}
-        </div>
-      </section>
+      {stage === "tracking" && (
+        <section className="page tracking-page">
+          <div className="tracking-top"><Logo /><button onClick={() => go("plan")}>새 쇼핑 계획</button></div>
+          <div className="tracking-hero"><div className="freehands"><span>✦</span><i /><i /></div><p className="eyebrow">가방은 TRAIL이 맡을게요</p><h1>{trackingStep === 3 ? "호텔에 도착했어요." : "이제 가볍게,\n여행을 계속하세요."}</h1><p>{trackingStep === 3 ? `${destination}에 안전하게 전달했습니다.` : "쇼핑백 3개가 호텔로 이동 중이에요. 도착 전까지 손은 자유롭습니다."}</p></div>
+
+          <div className="tracking-card"><div className="tracking-head"><span>TR–2718 · 쇼핑백 3개</span><b>{trackingStep === 1 ? "기사 인수" : trackingStep === 2 ? "호텔로 이동 중" : "배송 완료"}</b></div><div className="tracking-rail">{["매장에 맡김", "기사 인수", "호텔 이동", "프런트 도착"].map((label, index) => <div className={index <= trackingStep ? "done" : ""} key={label}><i>{index < trackingStep ? "✓" : ""}</i><span>{label}</span></div>)}</div><div className="arrival"><span>도착 예정</span><b>{trackingStep === 3 ? "18:42 도착" : "18:30–19:00"}</b></div>{trackingStep < 3 && <button className="preview-button" onClick={() => setTrackingStep((current) => Math.min(3, current + 1))}>다음 배송 상태 보기 →</button>}</div>
+
+          <div className="next-stop"><span><small>가방 없이 1시간 20분</small><b>Graffiti Alley까지 걸어볼까요?</b><em>도보 8분 · 호텔 방향 동선</em></span><button aria-label="추천 장소 자세히 보기">→</button></div>
+        </section>
+      )}
     </main>
   );
 }

@@ -13,17 +13,17 @@ export async function generateMetadata(): Promise<Metadata> {
   const socialImage = `${protocol}://${host}/og.png`;
 
   return {
-    title: "TRAIL — Decide smarter. Travel lighter.",
-    description: "A context-aware travel companion for realistic decisions and hands-free shopping.",
+    title: "TRAIL — 선물은 잘 고르고, 짐은 남기고",
+    description: "여행지에서 예산에 맞는 선물과 매장을 추천하고, 구매한 가방을 호텔까지 배송하는 쇼핑 플래너.",
     openGraph: {
-      title: "TRAIL — Travel lighter. Decide smarter.",
-      description: "Context-aware travel assistance and hands-free shopping.",
-      images: [{ url: socialImage, width: 1200, height: 630, alt: "TRAIL travel decision compass" }],
+      title: "TRAIL — 선물은 잘 고르고, 짐은 남기고",
+      description: "예산 맞춤 선물 추천부터 호텔 배송까지, 여행자의 쇼핑을 가볍게.",
+      images: [{ url: socialImage, width: 1200, height: 630, alt: "TRAIL budget-led gift shopping and hotel delivery" }],
     },
     twitter: {
       card: "summary_large_image",
-      title: "TRAIL — Travel lighter. Decide smarter.",
-      description: "Context-aware travel assistance and hands-free shopping.",
+      title: "TRAIL — 선물은 잘 고르고, 짐은 남기고",
+      description: "예산 맞춤 선물 추천부터 호텔 배송까지, 여행자의 쇼핑을 가볍게.",
       images: [socialImage],
     },
   };
@@ -31,7 +31,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="ko">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>{children}</body>
     </html>
   );

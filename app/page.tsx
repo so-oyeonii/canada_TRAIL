@@ -2,74 +2,34 @@
 
 import { FormEvent, useMemo, useState } from "react";
 
-type Screen = "home" | "chat" | "review" | "picks" | "drop" | "tracking" | "profile";
+type Screen = "home" | "chat" | "review" | "picks" | "shop" | "drop" | "tracking" | "profile";
 type Message = { role: "ai" | "user"; text: string };
 type Trip = { country: string; city: string; areas: string[]; startDate: string; endDate: string; hotel: string; hotelAddress: string; companions: string; freeTime: string };
 type PastTrip = { id: string; city: string; country: string; dates: string; areas: string[]; purchases: string; spend: number; insight: string; color: string };
-type Plan = {
-  recipient: string;
-  quantity: number;
-  category: string;
-  budget: number;
-  preference: string;
-  time: string;
-  localOnly: boolean;
-  easyPack: boolean;
-  hotelDelivery: boolean;
-};
+type Plan = { recipient: string; quantity: number; category: string; budget: number; preference: string; time: string; localOnly: boolean; easyPack: boolean; hotelDelivery: boolean };
+type PurchaseStatus = "planned" | "bought" | "unavailable" | "skipped";
+type Purchase = { status: PurchaseStatus; actualPrice: number; quantity: number; bags: number; handling: "Standard" | "Heavy" | "Fragile" | "Chilled" };
 
-const initialPlan: Plan = {
-  recipient: "My mom",
-  quantity: 1,
-  category: "Home & design",
-  budget: 80,
-  preference: "Thoughtful and useful",
-  time: "2 hours",
-  localOnly: true,
-  easyPack: true,
-  hotelDelivery: true,
-};
-
-const initialTrip: Trip = {
-  country: "Canada",
-  city: "Toronto",
-  areas: ["Kensington Market", "Queen West", "Distillery District"],
-  startDate: "2026-08-12",
-  endDate: "2026-08-16",
-  hotel: "The Annex Hotel",
-  hotelAddress: "296 Brunswick Ave",
-  companions: "Solo trip",
-  freeTime: "3 hours",
-};
-
+const initialPlan: Plan = { recipient: "My mom", quantity: 1, category: "Home & design", budget: 80, preference: "Thoughtful and useful", time: "2 hours", localOnly: true, easyPack: true, hotelDelivery: true };
+const initialTrip: Trip = { country: "Canada", city: "Toronto", areas: ["Kensington Market", "Queen West", "Distillery District"], startDate: "2026-08-12", endDate: "2026-08-16", hotel: "The Annex Hotel", hotelAddress: "296 Brunswick Ave", companions: "Solo trip", freeTime: "3 hours" };
 const pastTrips: PastTrip[] = [
   { id: "tokyo", city: "Tokyo", country: "Japan", dates: "Apr 3–9, 2025", areas: ["Kichijoji", "Kuramae", "Ginza"], purchases: "Stationery · tea · ceramics", spend: 184, insight: "You chose small, useful objects from independent makers.", color: "peach" },
   { id: "copenhagen", city: "Copenhagen", country: "Denmark", dates: "Sep 12–16, 2024", areas: ["Nørrebro", "Vesterbro"], purchases: "Home design · chocolate", spend: 142, insight: "You preferred local design and paid more for packable quality.", color: "blue" },
 ];
-
 const starters = [
   { icon: "M", title: "A gift for my mom", prompt: "I want a thoughtful local gift for my mom under CAD 80." },
   { icon: "F", title: "Two equal gifts", prompt: "I need two different but equal-value gifts for my friends." },
   { icon: "T", title: "Treats for my team", prompt: "I need something easy to share with my 12-person lab team." },
 ];
-
 const productTemplates = [
-  { name: "Ontario stoneware tea set", store: "Spacing Store", price: 58, walk: "7 min", color: "peach", mark: "C", reason: "Local maker · compact box · made to last" },
-  { name: "Toronto linen market tote", store: "Kid Icarus", price: 36, walk: "9 min", color: "blue", mark: "T", reason: "Useful every day · folds completely flat" },
-  { name: "Maple chocolate collection", store: "Blue Banana", price: 29, walk: "2 min", color: "yellow", mark: "M", reason: "Toronto favorite · travel-safe packaging" },
+  { name: "Ontario stoneware tea set", store: "Spacing Store", address: "401 Richmond St W", detour: "+7 min", closes: "Open until 6 PM", confidence: "Recently seen", transfer: "Fragile transfer", color: "peach", mark: "C", reason: "Local maker · fits Mom’s budget", handling: "Fragile" as const },
+  { name: "Toronto linen market tote", store: "Kid Icarus", address: "205 Augusta Ave", detour: "+4 min", closes: "Open until 7 PM", confidence: "Call to confirm", transfer: "Standard transfer", color: "blue", mark: "T", reason: "Useful every day · folds flat", handling: "Standard" as const },
+  { name: "Maple chocolate collection", store: "Blue Banana", address: "250 Augusta Ave", detour: "+2 min", closes: "Open until 8 PM", confidence: "Recently seen", transfer: "Chilled transfer", color: "yellow", mark: "M", reason: "Local favorite · ice pack ready", handling: "Chilled" as const },
 ];
 
-function Brand() {
-  return <div className="brand"><span>T</span><b>TRAIL</b></div>;
-}
-
-function Header({ title, back, action }: { title?: string; back?: () => void; action?: React.ReactNode }) {
-  return <header className="app-header">{back ? <button className="round-button" onClick={back} aria-label="Go back">←</button> : <Brand />}{title && <b className="header-title">{title}</b>}<div className="header-action">{action}</div></header>;
-}
-
-function Toggle({ on, onChange, label }: { on: boolean; onChange: (value: boolean) => void; label: string }) {
-  return <button className={on ? "toggle on" : "toggle"} role="switch" aria-checked={on} aria-label={label} onClick={() => onChange(!on)}><i /></button>;
-}
+function Brand() { return <div className="brand"><span>T</span><b>TRAIL</b></div>; }
+function Header({ title, back, action }: { title?: string; back?: () => void; action?: React.ReactNode }) { return <header className="app-header">{back ? <button className="round-button" onClick={back} aria-label="Go back">←</button> : <Brand />}{title && <b className="header-title">{title}</b>}<div className="header-action">{action}</div></header>; }
+function Toggle({ on, onChange, label }: { on: boolean; onChange: (value: boolean) => void; label: string }) { return <button className={on ? "toggle on" : "toggle"} role="switch" aria-checked={on} aria-label={label} onClick={() => onChange(!on)}><i /></button>; }
 
 export default function Home() {
   const [screen, setScreen] = useState<Screen>("home");
@@ -78,182 +38,84 @@ export default function Home() {
   const [expandedTrip, setExpandedTrip] = useState<string | null>(null);
   const [plan, setPlan] = useState<Plan>(initialPlan);
   const [approvedPlan, setApprovedPlan] = useState<Plan | null>(null);
-  const [messages, setMessages] = useState<Message[]>([
-    { role: "ai", text: "Hi, I’m Trail. I remember that you prefer useful, packable finds from local makers. Tell me who you’re shopping for in Toronto this time." },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([{ role: "ai", text: "Hi, I’m Trail. Tell me who you’re shopping for and where today takes you. I’ll find gift stops along your route and get the bags back to your hotel." }]);
   const [input, setInput] = useState("");
-  const [deliveryStep, setDeliveryStep] = useState(1);
+  const [deliveryStep, setDeliveryStep] = useState(0);
+  const [purchases, setPurchases] = useState<Record<number, Purchase>>({});
+  const [editingPurchase, setEditingPurchase] = useState<number | null>(null);
 
-  const estimates = useMemo(() => {
-    const stops = plan.budget < 60 ? 1 : plan.budget < 130 ? 2 : 3;
-    return { stops, minutes: 35 + stops * 22, reserve: plan.hotelDelivery ? 9 : 0 };
-  }, [plan.budget, plan.hotelDelivery]);
-
-  const go = (next: Screen) => {
-    setScreen(next);
-    window.setTimeout(() => document.querySelector(".screen")?.scrollTo({ top: 0, behavior: "smooth" }), 0);
-  };
-
-  const inferPlan = (text: string) => {
-    const lower = text.toLowerCase();
-    setPlan((current) => {
-      const next = { ...current };
-      const amount = text.match(/(?:cad|\$)\s?(\d+)|(\d+)\s?(?:cad|dollars?)/i);
-      if (amount) next.budget = Number(amount[1] || amount[2]);
-      if (/mom|mother/.test(lower)) { next.recipient = "My mom"; next.quantity = 1; }
-      if (/friend/.test(lower)) { next.recipient = "My friends"; next.quantity = /two|2/.test(lower) ? 2 : 1; }
-      if (/team|lab|cowork/.test(lower)) { next.recipient = "My lab team"; next.quantity = 12; }
-      if (/food|snack|chocolate|treat|share/.test(lower)) next.category = "Food & treats";
-      if (/design|home|ceramic|useful/.test(lower)) next.category = "Home & design";
-      if (/souvenir|local|toronto|canadian/.test(lower)) next.localOnly = true;
-      if (/pack|carry|small|light/.test(lower)) next.easyPack = true;
-      if (/no delivery|carry it|take it/.test(lower)) next.hotelDelivery = false;
-      if (/hotel|deliver|hands.free/.test(lower)) next.hotelDelivery = true;
-      if (/meaningful|thoughtful/.test(lower)) next.preference = "Thoughtful and personal";
-      if (/practical|useful/.test(lower)) next.preference = "Practical and useful";
-      return next;
-    });
-  };
-
-  const sendMessage = (text: string) => {
-    const clean = text.trim();
-    if (!clean) return;
-    inferPlan(clean);
-    setMessages((current) => [...current, { role: "user", text: clean }, { role: "ai", text: "Got it. I’m shaping the budget, gift type, route, and delivery around that. Add anything else, or open the draft when it feels complete." }]);
-    setInput("");
-  };
-
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    sendMessage(input);
-  };
-
-  const startChat = (prompt?: string) => {
-    go("chat");
-    if (prompt) window.setTimeout(() => sendMessage(prompt), 50);
-  };
-
-  const updatePlan = <K extends keyof Plan>(key: K, value: Plan[K]) => setPlan((current) => ({ ...current, [key]: value }));
-  const updateTrip = <K extends keyof Trip>(key: K, value: Trip[K]) => setTrip((current) => ({ ...current, [key]: value }));
-  const addArea = () => {
-    const area = areaDraft.trim();
-    if (!area || trip.areas.includes(area)) return;
-    updateTrip("areas", [...trip.areas, area]);
-    setAreaDraft("");
-  };
-  const removeArea = (area: string) => updateTrip("areas", trip.areas.filter((item) => item !== area));
-
-  const approvePlan = () => {
-    setApprovedPlan({ ...plan });
-    go("picks");
-  };
-
+  const estimates = useMemo(() => { const stops = plan.budget < 60 ? 1 : plan.budget < 130 ? 2 : 3; return { stops, minutes: 35 + stops * 22, transfer: plan.hotelDelivery ? 12 : 0 }; }, [plan.budget, plan.hotelDelivery]);
   const activePlan = approvedPlan ?? plan;
   const city = trip.city;
+  const products = productTemplates.map((item, index) => ({ ...item, area: trip.areas[index % Math.max(1, trip.areas.length)] ?? city, price: Math.max(18, Math.round(activePlan.budget * [.48, .31, .21][index])) }));
+  const boughtEntries = Object.entries(purchases).filter(([, purchase]) => purchase.status === "bought");
+  const spent = boughtEntries.reduce((sum, [, purchase]) => sum + purchase.actualPrice * purchase.quantity, 0);
+  const bagCount = boughtEntries.reduce((sum, [, purchase]) => sum + purchase.bags, 0);
+  const remaining = Math.max(0, activePlan.budget - spent);
+  const go = (next: Screen) => { setScreen(next); window.setTimeout(() => document.querySelector(".screen")?.scrollTo({ top: 0, behavior: "smooth" }), 0); };
+  const updatePlan = <K extends keyof Plan>(key: K, value: Plan[K]) => setPlan((current) => ({ ...current, [key]: value }));
+  const updateTrip = <K extends keyof Trip>(key: K, value: Trip[K]) => setTrip((current) => ({ ...current, [key]: value }));
+  const inferPlan = (text: string) => { const lower = text.toLowerCase(); setPlan((current) => { const next = { ...current }; const amount = text.match(/(?:cad|\$)\s?(\d+)|(\d+)\s?(?:cad|dollars?)/i); if (amount) next.budget = Number(amount[1] || amount[2]); if (/mom|mother/.test(lower)) { next.recipient = "My mom"; next.quantity = 1; } if (/friend/.test(lower)) { next.recipient = "My friends"; next.quantity = /two|2/.test(lower) ? 2 : 1; } if (/team|lab|cowork/.test(lower)) { next.recipient = "My lab team"; next.quantity = 12; } if (/food|snack|chocolate|treat|share/.test(lower)) next.category = "Food & treats"; if (/design|home|ceramic|useful/.test(lower)) next.category = "Home & design"; if (/hotel|deliver|hands.free|heavy|chill|ice/.test(lower)) next.hotelDelivery = true; if (/meaningful|thoughtful/.test(lower)) next.preference = "Thoughtful and personal"; if (/practical|useful/.test(lower)) next.preference = "Practical and useful"; return next; }); };
+  const sendMessage = (text: string) => { const clean = text.trim(); if (!clean) return; inferPlan(clean); setMessages((current) => [...current, { role: "user", text: clean }, { role: "ai", text: "Got it. I’m balancing the gift, budget, today’s neighborhoods, and how each purchase can travel safely to your hotel." }]); setInput(""); };
+  const submit = (event: FormEvent) => { event.preventDefault(); sendMessage(input); };
+  const startChat = (prompt?: string) => { go("chat"); if (prompt) window.setTimeout(() => sendMessage(prompt), 50); };
+  const addArea = () => { const area = areaDraft.trim(); if (!area || trip.areas.includes(area)) return; updateTrip("areas", [...trip.areas, area]); setAreaDraft(""); };
+  const setPurchase = (index: number, patch: Partial<Purchase>) => setPurchases((current) => ({ ...current, [index]: { status: "planned", actualPrice: products[index].price, quantity: 1, bags: 1, handling: products[index].handling, ...current[index], ...patch } }));
+  const markBought = (index: number) => { setPurchase(index, { status: "bought" }); setEditingPurchase(index); };
+  const confirmPurchase = () => { setEditingPurchase(null); go("shop"); };
   const tripDates = `${new Date(`${trip.startDate}T00:00:00`).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}–${new Date(`${trip.endDate}T00:00:00`).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}`;
-  const products = productTemplates.map((item, index) => ({ ...item, area: trip.areas[index % Math.max(1, trip.areas.length)] ?? city, price: Math.max(18, Math.round((activePlan.budget - estimates.reserve) * [.48, .31, .21][index])) }));
 
-  return (
-    <main className="stage">
-      <section className="phone" aria-live="polite">
-        <div className="status-bar"><span>9:41</span><div><i /><i /><b /></div></div>
+  return <main className="stage"><section className="phone" aria-live="polite"><div className="status-bar"><span>9:41</span><div><i /><i /><b /></div></div>
+    {screen === "home" && <div className="screen home-screen"><Header action={<button className="avatar" aria-label="Open profile" onClick={() => go("profile")}>SY</button>} />
+      <section className="home-hero handsfree-hero"><div className="ai-orbit"><i>✦</i><span>HANDS-FREE SOUVENIR TRAVEL</span></div><p>{city.toUpperCase()} · {trip.freeTime.toUpperCase()} FREE</p><h1>Shop local.<br />Keep your <em>hands free.</em></h1><span>Trail finds gift stops along today’s route. You buy in store—we carry your purchased bags safely to {trip.hotel}.</span></section>
+      <button className="journey-card" onClick={() => startChat()}><div className="journey-line"><i>YOU</i><span /><i>SHOP</i><span /><i>HOTEL</i></div><div><small>PLAN TODAY’S HANDS-FREE ROUTE</small><b>Find gifts without carrying them all day</b><em>AI picks stores, prices and safe bag transfer →</em></div></button>
+      <section className="handsfree-proof"><article><i>⌁</i><span><small>ALONG YOUR ROUTE</small><b>3 local stops</b><em>Only +13 min</em></span></article><article><i>▣</i><span><small>TO YOUR HOTEL</small><b>Standard · fragile · chilled</b><em>From CAD $12</em></span></article></section>
+      <section className="starter-section"><div className="section-label"><b>What are you looking for?</b><span>Tell Trail naturally</span></div><div className="starter-list">{starters.map((item) => <button key={item.title} onClick={() => startChat(item.prompt)}><i>{item.icon}</i><span><b>{item.title}</b><small>{item.prompt}</small></span><em>›</em></button>)}</div></section>
+    </div>}
 
-        {screen === "home" && <div className="screen home-screen">
-          <Header action={<button className="avatar" aria-label="Open profile" onClick={() => go("profile")}>SY</button>} />
-          <section className="home-hero"><div className="ai-orbit"><i>✦</i><span>AI gift planner</span></div><p>{city.toUpperCase()} · {trip.freeTime.toUpperCase()} FREE</p><h1>What do you want<br />to bring <em>home?</em></h1><span>Talk it through. Trail turns your idea into a budget, store route, and bag-delivery plan you can edit before approving.</span></section>
+    {screen === "chat" && <div className="screen chat-screen"><Header title="Ask Trail" back={() => go("home")} action={<button className="text-action" onClick={() => go("review")}>View brief</button>} />
+      <div className="chat-status"><i>✦</i><span><b>Trail AI</b><small>{trip.areas.length} areas · hotel transfer ready</small></span><em>MEMORY ON</em></div><div className="memory-strip"><span><small>TRAIL REMEMBERS</small><b>Local makers · useful gifts · easy to carry home</b></span><button onClick={() => go("profile")}>Why?</button></div>
+      <div className="messages">{messages.map((message, index) => <div className={`message ${message.role}`} key={`${message.role}-${index}`}>{message.role === "ai" && <i>✦</i>}<p>{message.text}</p></div>)}</div>
+      <div className="quick-replies"><button onClick={() => sendMessage("Find stores along Kensington and Queen West.")}>Along my route</button><button onClick={() => sendMessage("I want hotel bag transfer for anything heavy, fragile or chilled.")}>Hands-free all day</button><button onClick={() => sendMessage("My total budget is CAD 80.")}>Budget $80</button></div>
+      <div className="live-draft"><span><small>SHOPPING BRIEF</small><b>{plan.recipient} · {plan.category}</b></span><strong>${plan.budget}</strong><button onClick={() => go("review")}>Review →</button></div>
+      <form className="chat-input" onSubmit={submit}><button type="button" aria-label="Add attachment">＋</button><input value={input} onChange={(event) => setInput(event.target.value)} placeholder="What do you want to bring home?" aria-label="Message Trail" /><button type="submit" aria-label="Send message">↑</button></form>
+    </div>}
 
-          <button className="ask-card" onClick={() => startChat()}><div className="trail-face">✦</div><span><small>ASK TRAIL</small><b>Describe the gift in your own words</b><em>“Something thoughtful for my mom under $80…”</em></span><i>→</i></button>
+    {screen === "review" && <div className="screen review-screen"><Header title="Shopping brief" back={() => go("chat")} action={<span className="draft-badge">AI DRAFT</span>} /><div className="review-intro"><div className="spark">✦</div><span><p>READY TO REVIEW</p><h1>Gifts, route and<br />hands-free needs.</h1><small>Change any detail. Trail updates store stops and transfer handling.</small></span></div>
+      <div className="confidence"><span><b>7 details understood</b><small>Recipient, budget, type, route, time, packing, hotel</small></span><strong>94%</strong></div>
+      <section className="settings-card"><label><span><small>SHOPPING FOR</small><input value={plan.recipient} onChange={(e) => updatePlan("recipient", e.target.value)} /></span><i>✎</i></label><label><span><small>NUMBER OF GIFTS</small><input type="number" min="1" max="30" value={plan.quantity} onChange={(e) => updatePlan("quantity", Number(e.target.value))} /></span><i>✎</i></label><label><span><small>GIFT TYPE</small><select value={plan.category} onChange={(e) => updatePlan("category", e.target.value)}><option>Home & design</option><option>Food & treats</option><option>Art & stationery</option><option>Open to ideas</option></select></span><i>⌄</i></label><label><span><small>WHAT IT SHOULD FEEL LIKE</small><select value={plan.preference} onChange={(e) => updatePlan("preference", e.target.value)}><option>Thoughtful and personal</option><option>Thoughtful and useful</option><option>Practical and useful</option><option>Fun and distinctly local</option></select></span><i>⌄</i></label></section>
+      <section className="budget-editor"><div><span><small>GIFT BUDGET</small><b>CAD ${plan.budget}</b></span><em>Bag transfer estimated separately</em></div><input type="range" min="40" max="300" step="10" value={plan.budget} onChange={(e) => updatePlan("budget", Number(e.target.value))} /><div className="range-values"><span>$40</span><span>$300</span></div></section>
+      <section className="preferences"><div><span><b>Local makers only</b><small>Prioritize Toronto and Canadian brands</small></span><Toggle label="Local makers only" on={plan.localOnly} onChange={(v) => updatePlan("localOnly", v)} /></div><div><span><b>Easy to take home</b><small>Flag heavy, fragile and chilled handling</small></span><Toggle label="Easy to take home" on={plan.easyPack} onChange={(v) => updatePlan("easyPack", v)} /></div><div><span><b>Hands-free hotel transfer</b><small>Carry purchases from partner stores to {trip.hotel}</small></span><Toggle label="Hands-free hotel transfer" on={plan.hotelDelivery} onChange={(v) => updatePlan("hotelDelivery", v)} /></div></section>
+      <div className="plan-impact"><div><i>⌁</i><span><small>ROUTE</small><b>{estimates.stops} stores · +13 min</b></span></div><div><i>▣</i><span><small>TRANSFER</small><b>{plan.hotelDelivery ? "Hotel-ready stops" : "Carry purchases"}</b></span></div></div><button className="main-button" onClick={() => { setApprovedPlan({ ...plan }); go("picks"); }}><span>Find stores along my route<small>You will buy each item directly in store</small></span><i>→</i></button><button className="back-to-chat" onClick={() => go("chat")}>Keep talking to Trail</button>
+    </div>}
 
-          <section className="starter-section"><div className="section-label"><b>Try a starting point</b><span>Tap to customize</span></div><div className="starter-list">{starters.map((item) => <button key={item.title} onClick={() => startChat(item.prompt)}><i>{item.icon}</i><span><b>{item.title}</b><small>{item.prompt}</small></span><em>›</em></button>)}</div></section>
+    {screen === "picks" && <div className="screen picks-screen"><Header title="Route & stores" back={() => go("review")} action={<button className="text-action" onClick={() => go("review")}>Edit</button>} /><div className="approved-banner"><i>✓</i><span><small>ROUTE READY</small><b>{activePlan.recipient} · CAD ${activePlan.budget} gift budget</b></span></div>
+      <div className="result-title"><p>TRAIL’S HANDS-FREE ROUTE · {city.toUpperCase()}</p><h1>Find it locally.<br /><em>Send it ahead.</em></h1><span>Three real store stops across {trip.areas.join(" → ")}. You buy in person; Trail transfers purchased bags to your hotel.</span></div>
+      <div className="result-route"><div><i>YOU</i><span /><i>1</i><span /><i>2</i><span /><i>H</i></div><b>{estimates.minutes} min shopping · only +13 min off today’s route</b><small>Hotel bag transfer supported from all planned stops</small></div>
+      <div className="product-list route-product-list">{products.map((item, index) => <article key={item.name}><div className={`product-art ${item.color}`}>{item.mark}</div><div><small>STOP 0{index + 1} · {item.area.toUpperCase()} · {item.detour}</small><h2>Look for: {item.name}</h2><p><b>{item.store}</b> · {item.address}</p><em>✦ {item.reason}</em><footer><span>{item.closes}</span><span>{item.confidence}</span><span className="transfer-chip">▣ {item.transfer}</span></footer></div><strong>${item.price - 6}–{item.price + 6}</strong></article>)}</div>
+      <div className="offline-note"><b>You buy in person.</b><span>Prices are estimates. Confirm availability and pay the store directly.</span></div><button className="main-button dark" onClick={() => go("shop")}><span>Start my hands-free shopping route<small>Visit stores, record purchases, send bags to the hotel</small></span><i>→</i></button>
+    </div>}
 
-          <section className="how-it-works"><b>One conversation, one ready plan</b><div><span><i>1</i>Tell Trail what matters</span><span><i>2</i>Edit the plan draft</span><span><i>3</i>Approve & shop</span></div></section>
-        </div>}
+    {screen === "shop" && <div className="screen shop-screen"><Header title="Shop in store" back={() => go("picks")} action={<span className="budget-pill">${remaining} left</span>} /><div className="shop-summary"><span><small>TODAY’S ROUTE</small><b>{boughtEntries.length}/{products.length} stops bought</b><em>{bagCount} purchased bag{bagCount === 1 ? "" : "s"} · {trip.freeTime} still out</em></span><strong>${spent}<small>spent</small></strong></div>
+      <div className="shop-route-line">{products.map((item, index) => { const status = purchases[index]?.status ?? "planned"; return <article className={status} key={item.name}><i>{status === "bought" ? "✓" : index + 1}</i><div><small>{item.area} · {item.detour}</small><h2>{item.store}</h2><p>Look for {item.name}</p><em>{item.closes} · {item.transfer}</em><div className="visit-actions">{status !== "bought" && <button onClick={() => markBought(index)}>Bought in store</button>}<button className="secondary" onClick={() => setPurchase(index, { status: "unavailable" })}>{status === "unavailable" ? "Find nearby alternative" : "Not found"}</button><button className="quiet" onClick={() => setPurchase(index, { status: "skipped" })}>Skip</button></div>{status === "bought" && <button className="purchase-receipt" onClick={() => setEditingPurchase(index)}>${purchases[index].actualPrice} · {purchases[index].bags} bag · {purchases[index].handling} · Edit</button>}{status === "unavailable" && <p className="alert-copy">Not available. Trail can replace this with a nearby stop in the same budget.</p>}</div></article>; })}</div>
+      {boughtEntries.length > 0 && <section className="handsfree-trigger"><div><i>▣</i><span><small>KEEP EXPLORING HANDS-FREE</small><b>{bagCount} bag{bagCount === 1 ? "" : "s"} · {trip.freeTime} left outside</b><em>Standard, fragile and chilled handling available</em></span></div><button onClick={() => go("drop")}>Send purchased bags to {trip.hotel} →</button></section>}
+      {editingPurchase !== null && <div className="modal-backdrop"><section className="purchase-sheet" role="dialog" aria-label="Record in-store purchase"><header><span><small>BOUGHT IN STORE</small><b>{products[editingPurchase].store}</b></span><button aria-label="Close purchase record" onClick={() => setEditingPurchase(null)}>×</button></header><label>Actual amount paid<input type="number" value={purchases[editingPurchase]?.actualPrice ?? products[editingPurchase].price} onChange={(e) => setPurchase(editingPurchase, { actualPrice: Number(e.target.value) })} /></label><div className="sheet-pair"><label>Quantity<input type="number" min="1" value={purchases[editingPurchase]?.quantity ?? 1} onChange={(e) => setPurchase(editingPurchase, { quantity: Number(e.target.value) })} /></label><label>Shopping bags<input type="number" min="1" value={purchases[editingPurchase]?.bags ?? 1} onChange={(e) => setPurchase(editingPurchase, { bags: Number(e.target.value) })} /></label></div><label>Handling<select value={purchases[editingPurchase]?.handling ?? products[editingPurchase].handling} onChange={(e) => setPurchase(editingPurchase, { handling: e.target.value as Purchase["handling"] })}><option>Standard</option><option>Heavy</option><option>Fragile</option><option>Chilled</option></select></label><div className="sheet-impact"><span>Gift budget after purchase</span><b>CAD ${Math.max(0, activePlan.budget - (spent || products[editingPurchase].price))}</b></div><button className="main-button" onClick={confirmPurchase}><span>Save purchase<small>Update budget and bag transfer options</small></span><i>✓</i></button></section></div>}
+    </div>}
 
-        {screen === "chat" && <div className="screen chat-screen">
-          <Header title="Ask Trail" back={() => go("home")} action={<button className="text-action" onClick={() => go("review")}>View draft</button>} />
-          <div className="chat-status"><i>✦</i><span><b>Trail AI</b><small>Using 2 past trips · {trip.areas.length} planned areas</small></span><em>MEMORY ON</em></div>
-          <div className="memory-strip"><span><small>TRAIL REMEMBERS</small><b>Local makers · useful gifts · easy to pack</b></span><button onClick={() => go("profile")}>Why?</button></div>
-          <div className="messages">{messages.map((message, index) => <div className={`message ${message.role}`} key={`${message.role}-${index}`}>{message.role === "ai" && <i>✦</i>}<p>{message.text}</p></div>)}</div>
-          <div className="quick-replies"><button onClick={() => sendMessage("Keep it local and easy to pack.")}>Local + packable</button><button onClick={() => sendMessage("Please deliver the bags to my hotel.")}>Hotel delivery</button><button onClick={() => sendMessage("My total budget is CAD 80.")}>Budget $80</button></div>
-          <div className="live-draft"><span><small>LIVE DRAFT</small><b>{plan.recipient} · {plan.category}</b></span><strong>${plan.budget}</strong><button onClick={() => go("review")}>Review →</button></div>
-          <form className="chat-input" onSubmit={submit}><button type="button" aria-label="Add attachment">＋</button><input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Tell Trail more…" aria-label="Message Trail" /><button type="submit" aria-label="Send message">↑</button></form>
-        </div>}
+    {screen === "drop" && <div className="screen drop-screen"><Header title="Hotel bag transfer" back={() => go("shop")} action={<span className="draft-badge">{Math.max(1, bagCount)} {Math.max(1, bagCount) === 1 ? "BAG" : "BAGS"}</span>} /><div className="bag-visual"><i>TRAIL</i><i>LOCAL</i><span>✓</span></div><div className="drop-copy"><p>YOUR PURCHASES · YOUR HOTEL</p><h1>Leave the bags.<br /><em>Keep exploring.</em></h1><span>You paid the stores directly. Trail only carries your sealed, purchased bags to {trip.hotel}.</span></div>
+      <section className="handling-list"><header><span><small>TRANSFER CHECK</small><b>Safe handling for every bag</b></span><em>ELIGIBLE</em></header><div><span><i>◇</i><b>Fragile</b><small>Store-packed · seal photo</small></span><span><i>❄</i><b>Chilled</b><small>Ice pack · safe until 7:30 PM</small></span><span><i>H</i><b>Hotel</b><small>Front desk confirmed</small></span></div></section>
+      <div className="drop-pass"><div><span>BAG TRANSFER PASS</span><b>TR–2718</b></div><div className="barcode" /><small>{trip.hotel} · arrives 6:30–7:00 PM · CAD $12</small></div><div className="ownership-note">For items you already bought. TRAIL does not order products from the store.</div><button className="main-button dark" onClick={() => { setDeliveryStep(1); go("tracking"); }}><span>Confirm hotel bag transfer<small>Seal bags and start secure tracking</small></span><i>→</i></button>
+    </div>}
 
-        {screen === "review" && <div className="screen review-screen">
-          <Header title="Plan draft" back={() => go("chat")} action={<span className="draft-badge">AI DRAFT</span>} />
-          <div className="review-intro"><div className="spark">✦</div><span><p>READY TO REVIEW</p><h1>I built this around<br />what you told me.</h1><small>Change any detail. Recommendations update with your plan.</small></span></div>
+    {screen === "tracking" && <div className="screen tracking-screen"><Header action={<button className="text-action light" onClick={() => go("home")}>Done</button>} />{bagCount === 0 ? <section className="bags-empty"><i>▣</i><p>HANDS-FREE WHEN YOU NEED IT</p><h1>No purchased bags yet.</h1><span>Visit a recommended store and mark an item as bought. Then Trail can carry the sealed bag to {trip.hotel}.</span><button onClick={() => go(approvedPlan ? "shop" : "picks")}>Go to my shopping route →</button></section> : <><div className="free-hands"><div>✓</div><p>{deliveryStep === 3 ? "RECEIVED BY YOUR HOTEL" : "PURCHASED BAGS ON THE MOVE"}</p><h1>{deliveryStep === 3 ? "Waiting safely at the hotel." : "Your hands are free."}</h1><span>{deliveryStep === 3 ? `Front desk at ${trip.hotel} checked every seal.` : "Keep exploring. Trail will tell you when your purchases arrive."}</span></div><div className="tracking-card"><div><span>TR–2718 · {bagCount} purchased {bagCount === 1 ? "bag" : "bags"}</span><b>{deliveryStep === 1 ? "Partner handoff" : deliveryStep === 2 ? "On the way" : "Hotel received"}</b></div><section>{["Sealed", "Collected", "On route", "At hotel"].map((label, index) => <span className={index <= deliveryStep ? "done" : ""} key={label}><i>{index < deliveryStep ? "✓" : ""}</i><small>{label}</small></span>)}</section><footer><span>{deliveryStep === 3 ? "Hotel receipt" : "Estimated arrival"}</span><b>{deliveryStep === 3 ? "Front desk · 6:42 PM" : "6:30–7:00 PM"}</b></footer>{deliveryStep < 3 && <button onClick={() => setDeliveryStep((value) => Math.min(3, value + 1))}>Preview next status →</button>}</div>{boughtEntries.some(([, item]) => item.handling === "Chilled") && <div className="cold-chain"><i>❄</i><span><b>Chilled bag protected</b><small>Ice-pack window safe through hotel handoff</small></span></div>}</>}</div>}
 
-          <div className="confidence"><span><b>6 details understood</b><small>Recipient, budget, type, time, packing, delivery</small></span><strong>92%</strong></div>
+    {screen === "profile" && <div className="screen profile-screen"><Header title="Trips" back={() => go("home")} action={<button className="text-action" onClick={() => go("home")}>Save</button>} /><section className="profile-intro"><div className="profile-mark">SY</div><span><p>SOO’S TRAVEL MEMORY</p><h1>{city}<br /><em>{tripDates}</em></h1><small>Plan routes, send purchases to your hotel, and reuse what Trail learns.</small></span></section><section className="trip-card"><header><span><small>CURRENT TRIP</small><b>{trip.city}, {trip.country}</b></span><i>⌖</i></header><div className="trip-area-preview">{trip.areas.map((area) => <span key={area}>{area}</span>)}</div><footer><span>{trip.companions}</span><b>{trip.freeTime} to shop</b></footer></section>
+      <section className="ai-memory-card"><header><i>✦</i><span><small>TRAIL MEMORY</small><b>What I know about you</b></span><em>2 TRIPS</em></header><div><span>Local over generic</span><span>Useful over decorative</span><span>Hands-free when possible</span></div><p>Trail uses approved patterns to rank gifts and handling. You still control every route and transfer.</p></section><div className="profile-section-label"><b>Current trip</b><span>Where stores and bags should connect</span></div>
+      <section className="profile-form"><div className="date-pair destination-pair"><label><small>COUNTRY</small><input value={trip.country} onChange={(e) => updateTrip("country", e.target.value)} /></label><label><small>CITY</small><input value={trip.city} onChange={(e) => updateTrip("city", e.target.value)} /></label></div><div className="date-pair"><label><small>ARRIVE</small><input type="date" value={trip.startDate} onChange={(e) => updateTrip("startDate", e.target.value)} /></label><label><small>LEAVE</small><input type="date" value={trip.endDate} onChange={(e) => updateTrip("endDate", e.target.value)} /></label></div><label><span><small>HOTEL</small><input value={trip.hotel} onChange={(e) => updateTrip("hotel", e.target.value)} /></span><i>H</i></label><label><span><small>HOTEL ADDRESS</small><input value={trip.hotelAddress} onChange={(e) => updateTrip("hotelAddress", e.target.value)} /></span><i>⌂</i></label><label><span><small>TRAVELING WITH</small><input value={trip.companions} onChange={(e) => updateTrip("companions", e.target.value)} /></span><i>◎</i></label><label><span><small>SHOPPING TIME</small><select value={trip.freeTime} onChange={(e) => updateTrip("freeTime", e.target.value)}><option>1 hour</option><option>2 hours</option><option>3 hours</option><option>Half day</option><option>Full day</option></select></span><i>⌄</i></label></section>
+      <section className="area-planner"><header><span><small>AREAS I’LL VISIT</small><b>Match stores to my itinerary</b></span><strong>{trip.areas.length}</strong></header><div className="area-chips">{trip.areas.map((area) => <button key={area} onClick={() => updateTrip("areas", trip.areas.filter((item) => item !== area))}>{area}<i>×</i></button>)}</div><form onSubmit={(event) => { event.preventDefault(); addArea(); }}><input value={areaDraft} onChange={(event) => setAreaDraft(event.target.value)} placeholder="Add a neighborhood or area…" aria-label="Area to visit" /><button type="submit" disabled={!areaDraft.trim()}>＋ Add</button></form><p>Trail places stores along these areas and carries purchases to your saved hotel.</p></section><div className="profile-link"><i>▣</i><span><b>Route and hotel connected</b><small>Stores around {trip.areas.join(", ")} → bag transfer to {trip.hotel}.</small></span></div>
+      <div className="profile-section-label history-label"><b>Past trips</b><span>{pastTrips.length} trips remembered</span></div><section className="trip-history">{pastTrips.map((item) => <article className={expandedTrip === item.id ? "expanded" : ""} key={item.id}><button onClick={() => setExpandedTrip(expandedTrip === item.id ? null : item.id)}><i className={item.color}>{item.city.charAt(0)}</i><span><small>{item.dates}</small><b>{item.city}, {item.country}</b><em>{item.purchases}</em></span><strong>CAD ${item.spend}</strong><b>{expandedTrip === item.id ? "⌃" : "⌄"}</b></button>{expandedTrip === item.id && <div><div>{item.areas.map((area) => <span key={area}>{area}</span>)}</div><p><i>✦</i>{item.insight}</p><button onClick={() => { updatePlan("preference", "Practical and useful"); go("chat"); }}>Use this taste now →</button></div>}</article>)}</section><button className="main-button" onClick={() => go("home")}><span>Save trip profile<small>Apply the itinerary and hotel across Trail</small></span><i>✓</i></button>
+    </div>}
 
-          <section className="settings-card">
-            <label><span><small>SHOPPING FOR</small><input value={plan.recipient} onChange={(e) => updatePlan("recipient", e.target.value)} /></span><i>✎</i></label>
-            <label><span><small>NUMBER OF GIFTS</small><input type="number" min="1" max="30" value={plan.quantity} onChange={(e) => updatePlan("quantity", Number(e.target.value))} /></span><i>✎</i></label>
-            <label><span><small>GIFT TYPE</small><select value={plan.category} onChange={(e) => updatePlan("category", e.target.value)}><option>Home & design</option><option>Food & treats</option><option>Art & stationery</option><option>Open to ideas</option></select></span><i>⌄</i></label>
-            <label><span><small>WHAT IT SHOULD FEEL LIKE</small><select value={plan.preference} onChange={(e) => updatePlan("preference", e.target.value)}><option>Thoughtful and personal</option><option>Thoughtful and useful</option><option>Practical and useful</option><option>Fun and distinctly local</option></select></span><i>⌄</i></label>
-          </section>
-
-          <section className="budget-editor"><div><span><small>TOTAL BUDGET</small><b>CAD ${plan.budget}</b></span><em>Includes ${estimates.reserve} delivery reserve</em></div><input type="range" min="40" max="300" step="10" value={plan.budget} onChange={(e) => updatePlan("budget", Number(e.target.value))} /><div className="range-values"><span>$40</span><span>$300</span></div></section>
-
-          <section className="preferences"><div><span><b>Local makers only</b><small>Prioritize Toronto and Canadian brands</small></span><Toggle label="Local makers only" on={plan.localOnly} onChange={(v) => updatePlan("localOnly", v)} /></div><div><span><b>Easy to pack</b><small>Avoid fragile or bulky items</small></span><Toggle label="Easy to pack" on={plan.easyPack} onChange={(v) => updatePlan("easyPack", v)} /></div><div><span><b>Deliver bags to hotel</b><small>Drop everything at the final store</small></span><Toggle label="Hotel delivery" on={plan.hotelDelivery} onChange={(v) => updatePlan("hotelDelivery", v)} /></div></section>
-
-          <div className="plan-impact"><div><i>⌖</i><span><small>ROUTE</small><b>{estimates.stops} stores · {estimates.minutes} min</b></span></div><div><i>◇</i><span><small>RESULT</small><b>{Math.max(3, plan.quantity)} matched picks</b></span></div></div>
-          <button className="main-button" onClick={approvePlan}><span>Approve & build my plan<small>You can still change products afterwards</small></span><i>→</i></button>
-          <button className="back-to-chat" onClick={() => go("chat")}>Keep talking to Trail</button>
-        </div>}
-
-        {screen === "picks" && <div className="screen picks-screen">
-          <Header title="Your plan" back={() => go("review")} action={<button className="text-action" onClick={() => go("review")}>Edit</button>} />
-          <div className="approved-banner"><i>✓</i><span><small>PLAN APPROVED</small><b>{activePlan.recipient} · ${activePlan.budget}</b></span></div>
-          <div className="result-title"><p>TRAIL’S BEST MATCH · {city.toUpperCase()}</p><h1>{activePlan.category}<br /><em>picked for you.</em></h1><span>Matched to {trip.areas.join(", ")}. {activePlan.preference}. {activePlan.easyPack ? "All picks are easy to pack." : "A mix of sizes is included."}</span></div>
-          <div className="result-route"><div><i>YOU</i><span /><i>1</i><span /><i>2</i><span /><i>DROP</i></div><b>{estimates.minutes} min · {estimates.stops} focused stops</b><small>Ends where bag delivery starts</small></div>
-          <div className="product-list">{products.map((item, index) => <article key={item.name}><div className={`product-art ${item.color}`}>{item.mark}</div><div><small>{item.area.toUpperCase()} · OPTION 0{index + 1}</small><h2>{item.name}</h2><p><b>{item.store}</b> · {item.walk}</p><em>✦ {item.reason}</em></div><strong>${item.price}</strong></article>)}</div>
-          <button className="main-button dark" onClick={() => go("drop")}><span>Start this shopping plan<small>{activePlan.hotelDelivery ? "Bag drop included at the final store" : "Carry purchases with you"}</small></span><i>→</i></button>
-        </div>}
-
-        {screen === "drop" && <div className="screen drop-screen">
-          <Header title="Bag drop" back={() => go("picks")} action={<span className="draft-badge">3 BAGS</span>} />
-          <div className="bag-visual"><i>TRAIL</i><i>LOCAL</i><span>✓</span></div><div className="drop-copy"><p>SHOPPING COMPLETE</p><h1>Leave the bags.<br /><em>Keep the day.</em></h1><span>Your approved plan ends at Blue Banana Market. Show the pass and leave every bag together.</span></div>
-          <div className="drop-pass"><div><span>BAG DROP PASS</span><b>TR–2718</b></div><div className="barcode" /><small>Deliver to The Annex Hotel · CAD $9</small></div>
-          <button className="main-button dark" onClick={() => { setDeliveryStep(1); go("tracking"); }}><span>I dropped off my bags<small>Start secure delivery tracking</small></span><i>→</i></button>
-        </div>}
-
-        {screen === "tracking" && <div className="screen tracking-screen">
-          <Header action={<button className="text-action light" onClick={() => go("home")}>Done</button>} />
-          <div className="free-hands"><div>✦</div><p>BAGS ON THE MOVE</p><h1>{deliveryStep === 3 ? "Delivered to your hotel." : "Your hands are free."}</h1><span>{deliveryStep === 3 ? "Your bags are waiting safely at the front desk." : "Keep exploring. Trail will tell you when they arrive."}</span></div>
-          <div className="tracking-card"><div><span>TR–2718 · 3 bags</span><b>{deliveryStep === 1 ? "Driver pickup" : deliveryStep === 2 ? "On the way" : "Delivered"}</b></div><section>{["Dropped", "Picked up", "On route", "At hotel"].map((label, index) => <span className={index <= deliveryStep ? "done" : ""} key={label}><i>{index < deliveryStep ? "✓" : ""}</i><small>{label}</small></span>)}</section><footer><span>Estimated arrival</span><b>{deliveryStep === 3 ? "6:42 PM" : "6:30–7:00 PM"}</b></footer>{deliveryStep < 3 && <button onClick={() => setDeliveryStep((value) => Math.min(3, value + 1))}>Preview next status →</button>}</div>
-        </div>}
-
-        {screen === "profile" && <div className="screen profile-screen">
-          <Header title="Travel profile" back={() => go("home")} action={<button className="text-action" onClick={() => go("home")}>Save</button>} />
-          <section className="profile-intro"><div className="profile-mark">SY</div><span><p>SOO’S TRAVEL MEMORY</p><h1>{city}<br /><em>{tripDates}</em></h1><small>One current plan, two past trips, and preferences Trail can reuse.</small></span></section>
-
-          <section className="trip-card"><header><span><small>CURRENT TRIP</small><b>{trip.city}, {trip.country}</b></span><i>⌖</i></header><div className="trip-route"><span><i>●</i><b>{trip.startDate}</b><small>Arrive</small></span><em /><span><i>●</i><b>{trip.endDate}</b><small>Leave</small></span></div><div className="trip-area-preview">{trip.areas.map((area) => <span key={area}>{area}</span>)}</div><footer><span>{trip.companions}</span><b>{trip.freeTime} to shop</b></footer></section>
-
-          <section className="ai-memory-card"><header><i>✦</i><span><small>TRAIL MEMORY</small><b>What I know about you</b></span><em>2 TRIPS</em></header><div><span>Local over generic</span><span>Useful over decorative</span><span>Packable quality</span></div><p>Trail uses these patterns to rank recommendations. You still approve every plan.</p></section>
-
-          <div className="profile-section-label"><b>Current trip</b><span>Where recommendations should fit</span></div>
-          <section className="profile-form">
-            <div className="date-pair destination-pair"><label><small>COUNTRY</small><input value={trip.country} onChange={(e) => updateTrip("country", e.target.value)} /></label><label><small>CITY</small><input value={trip.city} onChange={(e) => updateTrip("city", e.target.value)} /></label></div>
-            <div className="date-pair"><label><small>ARRIVE</small><input type="date" value={trip.startDate} onChange={(e) => updateTrip("startDate", e.target.value)} /></label><label><small>LEAVE</small><input type="date" value={trip.endDate} onChange={(e) => updateTrip("endDate", e.target.value)} /></label></div>
-            <label><span><small>HOTEL</small><input value={trip.hotel} onChange={(e) => updateTrip("hotel", e.target.value)} /></span><i>H</i></label>
-            <label><span><small>HOTEL ADDRESS</small><input value={trip.hotelAddress} onChange={(e) => updateTrip("hotelAddress", e.target.value)} /></span><i>⌂</i></label>
-            <label><span><small>TRAVELING WITH</small><input value={trip.companions} onChange={(e) => updateTrip("companions", e.target.value)} /></span><i>◎</i></label>
-            <label><span><small>SHOPPING TIME</small><select value={trip.freeTime} onChange={(e) => updateTrip("freeTime", e.target.value)}><option>1 hour</option><option>2 hours</option><option>3 hours</option><option>Half day</option><option>Full day</option></select></span><i>⌄</i></label>
-          </section>
-
-          <section className="area-planner"><header><span><small>AREAS I’LL VISIT</small><b>Match shopping to my itinerary</b></span><strong>{trip.areas.length}</strong></header><div className="area-chips">{trip.areas.map((area) => <button key={area} onClick={() => removeArea(area)}>{area}<i>×</i></button>)}</div><form onSubmit={(event) => { event.preventDefault(); addArea(); }}><input value={areaDraft} onChange={(event) => setAreaDraft(event.target.value)} placeholder="Add a neighborhood or area…" aria-label="Area to visit" /><button type="submit" disabled={!areaDraft.trim()}>＋ Add</button></form><p>Trail will place store recommendations inside or near these areas.</p></section>
-
-          <div className="profile-link"><i>✦</i><span><b>Connected to your route</b><small>Trail now searches around {trip.areas.join(", ")} and sends bags to {trip.hotel}.</small></span></div>
-          <section className="profile-budget"><span><small>ACTIVE GIFT PLAN</small><b>{plan.recipient}</b><em>{plan.category} · {plan.quantity} gift{plan.quantity === 1 ? "" : "s"}</em></span><strong>CAD ${plan.budget}</strong><button onClick={() => go("review")}>Edit plan →</button></section>
-
-          <div className="profile-section-label history-label"><b>Past trips</b><span>{pastTrips.length} trips remembered</span></div>
-          <section className="trip-history">{pastTrips.map((item) => <article className={expandedTrip === item.id ? "expanded" : ""} key={item.id}><button onClick={() => setExpandedTrip(expandedTrip === item.id ? null : item.id)}><i className={item.color}>{item.city.charAt(0)}</i><span><small>{item.dates}</small><b>{item.city}, {item.country}</b><em>{item.purchases}</em></span><strong>CAD ${item.spend}</strong><b>{expandedTrip === item.id ? "⌃" : "⌄"}</b></button>{expandedTrip === item.id && <div><div>{item.areas.map((area) => <span key={area}>{area}</span>)}</div><p><i>✦</i>{item.insight}</p><button onClick={() => { updatePlan("preference", "Practical and useful"); go("chat"); }}>Use this taste in my current plan →</button></div>}</article>)}</section>
-          <button className="main-button" onClick={() => go("home")}><span>Save trip profile<small>Apply these details across Trail</small></span><i>✓</i></button>
-        </div>}
-
-        <nav className={screen === "tracking" ? "tab-bar dark-tabs" : "tab-bar"}><button className={screen === "home" ? "active" : ""} onClick={() => go("home")}><i>⌂</i><span>Home</span></button><button className={screen === "chat" ? "active" : ""} onClick={() => go("chat")}><i>✦</i><span>Ask AI</span></button><button className={screen === "review" || screen === "picks" ? "active" : ""} onClick={() => go(approvedPlan ? "picks" : "review")}><i>⌁</i><span>Plan</span></button><button className={screen === "tracking" ? "active" : ""} onClick={() => go("tracking")}><i>⌖</i><span>Track</span></button><button className={screen === "profile" ? "active" : ""} onClick={() => go("profile")}><i>◎</i><span>Profile</span></button></nav>
-        <div className="home-indicator" />
-      </section>
-    </main>
-  );
+    <nav className={screen === "tracking" ? "tab-bar dark-tabs" : "tab-bar"}><button className={screen === "home" ? "active" : ""} onClick={() => go("home")}><i>⌂</i><span>Today</span></button><button className={screen === "chat" || screen === "review" ? "active" : ""} onClick={() => go("chat")}><i>✦</i><span>Ask</span></button><button className={screen === "picks" || screen === "shop" ? "active" : ""} onClick={() => go(approvedPlan ? "shop" : "picks")}><i>⌁</i><span>Shop</span></button><button className={screen === "drop" || screen === "tracking" ? "active" : ""} onClick={() => go(boughtEntries.length ? "drop" : "tracking")}><i>▣</i><span>Bags</span></button><button className={screen === "profile" ? "active" : ""} onClick={() => go("profile")}><i>◎</i><span>Trips</span></button></nav><div className="home-indicator" />
+  </section></main>;
 }

@@ -2,8 +2,9 @@
 
 import { FormEvent, useMemo, useState } from "react";
 
-type Screen = "home" | "chat" | "review" | "picks" | "drop" | "tracking";
+type Screen = "home" | "chat" | "review" | "picks" | "drop" | "tracking" | "profile";
 type Message = { role: "ai" | "user"; text: string };
+type Trip = { destination: string; startDate: string; endDate: string; hotel: string; hotelAddress: string; companions: string; freeTime: string };
 type Plan = {
   recipient: string;
   quantity: number;
@@ -26,6 +27,16 @@ const initialPlan: Plan = {
   localOnly: true,
   easyPack: true,
   hotelDelivery: true,
+};
+
+const initialTrip: Trip = {
+  destination: "Toronto, Canada",
+  startDate: "2026-08-12",
+  endDate: "2026-08-16",
+  hotel: "The Annex Hotel",
+  hotelAddress: "296 Brunswick Ave",
+  companions: "Solo trip",
+  freeTime: "3 hours",
 };
 
 const starters = [
@@ -54,6 +65,7 @@ function Toggle({ on, onChange, label }: { on: boolean; onChange: (value: boolea
 
 export default function Home() {
   const [screen, setScreen] = useState<Screen>("home");
+  const [trip, setTrip] = useState<Trip>(initialTrip);
   const [plan, setPlan] = useState<Plan>(initialPlan);
   const [approvedPlan, setApprovedPlan] = useState<Plan | null>(null);
   const [messages, setMessages] = useState<Message[]>([
@@ -112,6 +124,7 @@ export default function Home() {
   };
 
   const updatePlan = <K extends keyof Plan>(key: K, value: Plan[K]) => setPlan((current) => ({ ...current, [key]: value }));
+  const updateTrip = <K extends keyof Trip>(key: K, value: Trip[K]) => setTrip((current) => ({ ...current, [key]: value }));
 
   const approvePlan = () => {
     setApprovedPlan({ ...plan });
@@ -119,6 +132,8 @@ export default function Home() {
   };
 
   const activePlan = approvedPlan ?? plan;
+  const city = trip.destination.split(",")[0];
+  const tripDates = `${new Date(`${trip.startDate}T00:00:00`).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}–${new Date(`${trip.endDate}T00:00:00`).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}`;
   const products = productTemplates.map((item, index) => ({ ...item, price: Math.max(18, Math.round((activePlan.budget - estimates.reserve) * [.48, .31, .21][index])) }));
 
   return (
@@ -127,8 +142,8 @@ export default function Home() {
         <div className="status-bar"><span>9:41</span><div><i /><i /><b /></div></div>
 
         {screen === "home" && <div className="screen home-screen">
-          <Header action={<button className="avatar" aria-label="Open profile">SY</button>} />
-          <section className="home-hero"><div className="ai-orbit"><i>✦</i><span>AI gift planner</span></div><p>TORONTO · 3 HOURS FREE</p><h1>What do you want<br />to bring <em>home?</em></h1><span>Talk it through. Trail turns your idea into a budget, store route, and bag-delivery plan you can edit before approving.</span></section>
+          <Header action={<button className="avatar" aria-label="Open profile" onClick={() => go("profile")}>SY</button>} />
+          <section className="home-hero"><div className="ai-orbit"><i>✦</i><span>AI gift planner</span></div><p>{city.toUpperCase()} · {trip.freeTime.toUpperCase()} FREE</p><h1>What do you want<br />to bring <em>home?</em></h1><span>Talk it through. Trail turns your idea into a budget, store route, and bag-delivery plan you can edit before approving.</span></section>
 
           <button className="ask-card" onClick={() => startChat()}><div className="trail-face">✦</div><span><small>ASK TRAIL</small><b>Describe the gift in your own words</b><em>“Something thoughtful for my mom under $80…”</em></span><i>→</i></button>
 
@@ -190,7 +205,28 @@ export default function Home() {
           <div className="tracking-card"><div><span>TR–2718 · 3 bags</span><b>{deliveryStep === 1 ? "Driver pickup" : deliveryStep === 2 ? "On the way" : "Delivered"}</b></div><section>{["Dropped", "Picked up", "On route", "At hotel"].map((label, index) => <span className={index <= deliveryStep ? "done" : ""} key={label}><i>{index < deliveryStep ? "✓" : ""}</i><small>{label}</small></span>)}</section><footer><span>Estimated arrival</span><b>{deliveryStep === 3 ? "6:42 PM" : "6:30–7:00 PM"}</b></footer>{deliveryStep < 3 && <button onClick={() => setDeliveryStep((value) => Math.min(3, value + 1))}>Preview next status →</button>}</div>
         </div>}
 
-        <nav className={screen === "tracking" ? "tab-bar dark-tabs" : "tab-bar"}><button className={screen === "home" ? "active" : ""} onClick={() => go("home")}><i>⌂</i><span>Home</span></button><button className={screen === "chat" ? "active" : ""} onClick={() => go("chat")}><i>✦</i><span>Ask AI</span></button><button className={screen === "review" || screen === "picks" ? "active" : ""} onClick={() => go(approvedPlan ? "picks" : "review")}><i>⌁</i><span>Plan</span></button><button className={screen === "tracking" ? "active" : ""} onClick={() => go("tracking")}><i>⌖</i><span>Track</span></button></nav>
+        {screen === "profile" && <div className="screen profile-screen">
+          <Header title="Trip profile" back={() => go("home")} action={<button className="text-action" onClick={() => go("home")}>Save</button>} />
+          <section className="profile-intro"><div className="profile-mark">SY</div><span><p>THIS SHOPPING PLAN IS FOR</p><h1>{city}<br /><em>{tripDates}</em></h1><small>Trip details keep store routes, timing, and hotel delivery relevant.</small></span></section>
+
+          <section className="trip-card"><header><span><small>CURRENT TRIP</small><b>{trip.destination}</b></span><i>⌖</i></header><div className="trip-route"><span><i>●</i><b>{trip.startDate}</b><small>Arrive</small></span><em /><span><i>●</i><b>{trip.endDate}</b><small>Leave</small></span></div><footer><span>{trip.companions}</span><b>{trip.freeTime} to shop</b></footer></section>
+
+          <div className="profile-section-label"><b>Plan context</b><span>Used across Trail</span></div>
+          <section className="profile-form">
+            <label><span><small>DESTINATION</small><input value={trip.destination} onChange={(e) => updateTrip("destination", e.target.value)} /></span><i>⌖</i></label>
+            <div className="date-pair"><label><small>ARRIVE</small><input type="date" value={trip.startDate} onChange={(e) => updateTrip("startDate", e.target.value)} /></label><label><small>LEAVE</small><input type="date" value={trip.endDate} onChange={(e) => updateTrip("endDate", e.target.value)} /></label></div>
+            <label><span><small>HOTEL</small><input value={trip.hotel} onChange={(e) => updateTrip("hotel", e.target.value)} /></span><i>H</i></label>
+            <label><span><small>HOTEL ADDRESS</small><input value={trip.hotelAddress} onChange={(e) => updateTrip("hotelAddress", e.target.value)} /></span><i>⌂</i></label>
+            <label><span><small>TRAVELING WITH</small><input value={trip.companions} onChange={(e) => updateTrip("companions", e.target.value)} /></span><i>◎</i></label>
+            <label><span><small>SHOPPING TIME</small><select value={trip.freeTime} onChange={(e) => updateTrip("freeTime", e.target.value)}><option>1 hour</option><option>2 hours</option><option>3 hours</option><option>Half day</option><option>Full day</option></select></span><i>⌄</i></label>
+          </section>
+
+          <div className="profile-link"><i>✦</i><span><b>Connected to your plan</b><small>Trail searches near {city}, protects your {trip.freeTime} window, and sends bags to {trip.hotel}.</small></span></div>
+          <section className="profile-budget"><span><small>ACTIVE GIFT PLAN</small><b>{plan.recipient}</b><em>{plan.category} · {plan.quantity} gift{plan.quantity === 1 ? "" : "s"}</em></span><strong>CAD ${plan.budget}</strong><button onClick={() => go("review")}>Edit plan →</button></section>
+          <button className="main-button" onClick={() => go("home")}><span>Save trip profile<small>Apply these details across Trail</small></span><i>✓</i></button>
+        </div>}
+
+        <nav className={screen === "tracking" ? "tab-bar dark-tabs" : "tab-bar"}><button className={screen === "home" ? "active" : ""} onClick={() => go("home")}><i>⌂</i><span>Home</span></button><button className={screen === "chat" ? "active" : ""} onClick={() => go("chat")}><i>✦</i><span>Ask AI</span></button><button className={screen === "review" || screen === "picks" ? "active" : ""} onClick={() => go(approvedPlan ? "picks" : "review")}><i>⌁</i><span>Plan</span></button><button className={screen === "tracking" ? "active" : ""} onClick={() => go("tracking")}><i>⌖</i><span>Track</span></button><button className={screen === "profile" ? "active" : ""} onClick={() => go("profile")}><i>◎</i><span>Profile</span></button></nav>
         <div className="home-indicator" />
       </section>
     </main>

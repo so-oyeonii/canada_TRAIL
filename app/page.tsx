@@ -4,7 +4,8 @@ import { FormEvent, useMemo, useState } from "react";
 
 type Screen = "home" | "chat" | "review" | "picks" | "drop" | "tracking" | "profile";
 type Message = { role: "ai" | "user"; text: string };
-type Trip = { destination: string; startDate: string; endDate: string; hotel: string; hotelAddress: string; companions: string; freeTime: string };
+type Trip = { country: string; city: string; areas: string[]; startDate: string; endDate: string; hotel: string; hotelAddress: string; companions: string; freeTime: string };
+type PastTrip = { id: string; city: string; country: string; dates: string; areas: string[]; purchases: string; spend: number; insight: string; color: string };
 type Plan = {
   recipient: string;
   quantity: number;
@@ -30,7 +31,9 @@ const initialPlan: Plan = {
 };
 
 const initialTrip: Trip = {
-  destination: "Toronto, Canada",
+  country: "Canada",
+  city: "Toronto",
+  areas: ["Kensington Market", "Queen West", "Distillery District"],
   startDate: "2026-08-12",
   endDate: "2026-08-16",
   hotel: "The Annex Hotel",
@@ -38,6 +41,11 @@ const initialTrip: Trip = {
   companions: "Solo trip",
   freeTime: "3 hours",
 };
+
+const pastTrips: PastTrip[] = [
+  { id: "tokyo", city: "Tokyo", country: "Japan", dates: "Apr 3–9, 2025", areas: ["Kichijoji", "Kuramae", "Ginza"], purchases: "Stationery · tea · ceramics", spend: 184, insight: "You chose small, useful objects from independent makers.", color: "peach" },
+  { id: "copenhagen", city: "Copenhagen", country: "Denmark", dates: "Sep 12–16, 2024", areas: ["Nørrebro", "Vesterbro"], purchases: "Home design · chocolate", spend: 142, insight: "You preferred local design and paid more for packable quality.", color: "blue" },
+];
 
 const starters = [
   { icon: "M", title: "A gift for my mom", prompt: "I want a thoughtful local gift for my mom under CAD 80." },
@@ -66,10 +74,12 @@ function Toggle({ on, onChange, label }: { on: boolean; onChange: (value: boolea
 export default function Home() {
   const [screen, setScreen] = useState<Screen>("home");
   const [trip, setTrip] = useState<Trip>(initialTrip);
+  const [areaDraft, setAreaDraft] = useState("");
+  const [expandedTrip, setExpandedTrip] = useState<string | null>(null);
   const [plan, setPlan] = useState<Plan>(initialPlan);
   const [approvedPlan, setApprovedPlan] = useState<Plan | null>(null);
   const [messages, setMessages] = useState<Message[]>([
-    { role: "ai", text: "Hi, I’m Trail. Tell me who you’re shopping for and what would make the gift feel right." },
+    { role: "ai", text: "Hi, I’m Trail. I remember that you prefer useful, packable finds from local makers. Tell me who you’re shopping for in Toronto this time." },
   ]);
   const [input, setInput] = useState("");
   const [deliveryStep, setDeliveryStep] = useState(1);
@@ -125,6 +135,13 @@ export default function Home() {
 
   const updatePlan = <K extends keyof Plan>(key: K, value: Plan[K]) => setPlan((current) => ({ ...current, [key]: value }));
   const updateTrip = <K extends keyof Trip>(key: K, value: Trip[K]) => setTrip((current) => ({ ...current, [key]: value }));
+  const addArea = () => {
+    const area = areaDraft.trim();
+    if (!area || trip.areas.includes(area)) return;
+    updateTrip("areas", [...trip.areas, area]);
+    setAreaDraft("");
+  };
+  const removeArea = (area: string) => updateTrip("areas", trip.areas.filter((item) => item !== area));
 
   const approvePlan = () => {
     setApprovedPlan({ ...plan });
@@ -132,9 +149,9 @@ export default function Home() {
   };
 
   const activePlan = approvedPlan ?? plan;
-  const city = trip.destination.split(",")[0];
+  const city = trip.city;
   const tripDates = `${new Date(`${trip.startDate}T00:00:00`).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}–${new Date(`${trip.endDate}T00:00:00`).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}`;
-  const products = productTemplates.map((item, index) => ({ ...item, price: Math.max(18, Math.round((activePlan.budget - estimates.reserve) * [.48, .31, .21][index])) }));
+  const products = productTemplates.map((item, index) => ({ ...item, area: trip.areas[index % Math.max(1, trip.areas.length)] ?? city, price: Math.max(18, Math.round((activePlan.budget - estimates.reserve) * [.48, .31, .21][index])) }));
 
   return (
     <main className="stage">
@@ -154,7 +171,8 @@ export default function Home() {
 
         {screen === "chat" && <div className="screen chat-screen">
           <Header title="Ask Trail" back={() => go("home")} action={<button className="text-action" onClick={() => go("review")}>View draft</button>} />
-          <div className="chat-status"><i>✦</i><span><b>Trail AI</b><small>Building your gift plan</small></span><em>LIVE</em></div>
+          <div className="chat-status"><i>✦</i><span><b>Trail AI</b><small>Using 2 past trips · {trip.areas.length} planned areas</small></span><em>MEMORY ON</em></div>
+          <div className="memory-strip"><span><small>TRAIL REMEMBERS</small><b>Local makers · useful gifts · easy to pack</b></span><button onClick={() => go("profile")}>Why?</button></div>
           <div className="messages">{messages.map((message, index) => <div className={`message ${message.role}`} key={`${message.role}-${index}`}>{message.role === "ai" && <i>✦</i>}<p>{message.text}</p></div>)}</div>
           <div className="quick-replies"><button onClick={() => sendMessage("Keep it local and easy to pack.")}>Local + packable</button><button onClick={() => sendMessage("Please deliver the bags to my hotel.")}>Hotel delivery</button><button onClick={() => sendMessage("My total budget is CAD 80.")}>Budget $80</button></div>
           <div className="live-draft"><span><small>LIVE DRAFT</small><b>{plan.recipient} · {plan.category}</b></span><strong>${plan.budget}</strong><button onClick={() => go("review")}>Review →</button></div>
@@ -186,9 +204,9 @@ export default function Home() {
         {screen === "picks" && <div className="screen picks-screen">
           <Header title="Your plan" back={() => go("review")} action={<button className="text-action" onClick={() => go("review")}>Edit</button>} />
           <div className="approved-banner"><i>✓</i><span><small>PLAN APPROVED</small><b>{activePlan.recipient} · ${activePlan.budget}</b></span></div>
-          <div className="result-title"><p>TRAIL’S BEST MATCH</p><h1>{activePlan.category}<br /><em>picked for you.</em></h1><span>{activePlan.preference}. {activePlan.easyPack ? "All picks are easy to pack." : "A mix of sizes is included."}</span></div>
+          <div className="result-title"><p>TRAIL’S BEST MATCH · {city.toUpperCase()}</p><h1>{activePlan.category}<br /><em>picked for you.</em></h1><span>Matched to {trip.areas.join(", ")}. {activePlan.preference}. {activePlan.easyPack ? "All picks are easy to pack." : "A mix of sizes is included."}</span></div>
           <div className="result-route"><div><i>YOU</i><span /><i>1</i><span /><i>2</i><span /><i>DROP</i></div><b>{estimates.minutes} min · {estimates.stops} focused stops</b><small>Ends where bag delivery starts</small></div>
-          <div className="product-list">{products.map((item, index) => <article key={item.name}><div className={`product-art ${item.color}`}>{item.mark}</div><div><small>OPTION 0{index + 1}</small><h2>{item.name}</h2><p><b>{item.store}</b> · {item.walk}</p><em>✦ {item.reason}</em></div><strong>${item.price}</strong></article>)}</div>
+          <div className="product-list">{products.map((item, index) => <article key={item.name}><div className={`product-art ${item.color}`}>{item.mark}</div><div><small>{item.area.toUpperCase()} · OPTION 0{index + 1}</small><h2>{item.name}</h2><p><b>{item.store}</b> · {item.walk}</p><em>✦ {item.reason}</em></div><strong>${item.price}</strong></article>)}</div>
           <button className="main-button dark" onClick={() => go("drop")}><span>Start this shopping plan<small>{activePlan.hotelDelivery ? "Bag drop included at the final store" : "Carry purchases with you"}</small></span><i>→</i></button>
         </div>}
 
@@ -206,14 +224,16 @@ export default function Home() {
         </div>}
 
         {screen === "profile" && <div className="screen profile-screen">
-          <Header title="Trip profile" back={() => go("home")} action={<button className="text-action" onClick={() => go("home")}>Save</button>} />
-          <section className="profile-intro"><div className="profile-mark">SY</div><span><p>THIS SHOPPING PLAN IS FOR</p><h1>{city}<br /><em>{tripDates}</em></h1><small>Trip details keep store routes, timing, and hotel delivery relevant.</small></span></section>
+          <Header title="Travel profile" back={() => go("home")} action={<button className="text-action" onClick={() => go("home")}>Save</button>} />
+          <section className="profile-intro"><div className="profile-mark">SY</div><span><p>SOO’S TRAVEL MEMORY</p><h1>{city}<br /><em>{tripDates}</em></h1><small>One current plan, two past trips, and preferences Trail can reuse.</small></span></section>
 
-          <section className="trip-card"><header><span><small>CURRENT TRIP</small><b>{trip.destination}</b></span><i>⌖</i></header><div className="trip-route"><span><i>●</i><b>{trip.startDate}</b><small>Arrive</small></span><em /><span><i>●</i><b>{trip.endDate}</b><small>Leave</small></span></div><footer><span>{trip.companions}</span><b>{trip.freeTime} to shop</b></footer></section>
+          <section className="trip-card"><header><span><small>CURRENT TRIP</small><b>{trip.city}, {trip.country}</b></span><i>⌖</i></header><div className="trip-route"><span><i>●</i><b>{trip.startDate}</b><small>Arrive</small></span><em /><span><i>●</i><b>{trip.endDate}</b><small>Leave</small></span></div><div className="trip-area-preview">{trip.areas.map((area) => <span key={area}>{area}</span>)}</div><footer><span>{trip.companions}</span><b>{trip.freeTime} to shop</b></footer></section>
 
-          <div className="profile-section-label"><b>Plan context</b><span>Used across Trail</span></div>
+          <section className="ai-memory-card"><header><i>✦</i><span><small>TRAIL MEMORY</small><b>What I know about you</b></span><em>2 TRIPS</em></header><div><span>Local over generic</span><span>Useful over decorative</span><span>Packable quality</span></div><p>Trail uses these patterns to rank recommendations. You still approve every plan.</p></section>
+
+          <div className="profile-section-label"><b>Current trip</b><span>Where recommendations should fit</span></div>
           <section className="profile-form">
-            <label><span><small>DESTINATION</small><input value={trip.destination} onChange={(e) => updateTrip("destination", e.target.value)} /></span><i>⌖</i></label>
+            <div className="date-pair destination-pair"><label><small>COUNTRY</small><input value={trip.country} onChange={(e) => updateTrip("country", e.target.value)} /></label><label><small>CITY</small><input value={trip.city} onChange={(e) => updateTrip("city", e.target.value)} /></label></div>
             <div className="date-pair"><label><small>ARRIVE</small><input type="date" value={trip.startDate} onChange={(e) => updateTrip("startDate", e.target.value)} /></label><label><small>LEAVE</small><input type="date" value={trip.endDate} onChange={(e) => updateTrip("endDate", e.target.value)} /></label></div>
             <label><span><small>HOTEL</small><input value={trip.hotel} onChange={(e) => updateTrip("hotel", e.target.value)} /></span><i>H</i></label>
             <label><span><small>HOTEL ADDRESS</small><input value={trip.hotelAddress} onChange={(e) => updateTrip("hotelAddress", e.target.value)} /></span><i>⌂</i></label>
@@ -221,8 +241,13 @@ export default function Home() {
             <label><span><small>SHOPPING TIME</small><select value={trip.freeTime} onChange={(e) => updateTrip("freeTime", e.target.value)}><option>1 hour</option><option>2 hours</option><option>3 hours</option><option>Half day</option><option>Full day</option></select></span><i>⌄</i></label>
           </section>
 
-          <div className="profile-link"><i>✦</i><span><b>Connected to your plan</b><small>Trail searches near {city}, protects your {trip.freeTime} window, and sends bags to {trip.hotel}.</small></span></div>
+          <section className="area-planner"><header><span><small>AREAS I’LL VISIT</small><b>Match shopping to my itinerary</b></span><strong>{trip.areas.length}</strong></header><div className="area-chips">{trip.areas.map((area) => <button key={area} onClick={() => removeArea(area)}>{area}<i>×</i></button>)}</div><form onSubmit={(event) => { event.preventDefault(); addArea(); }}><input value={areaDraft} onChange={(event) => setAreaDraft(event.target.value)} placeholder="Add a neighborhood or area…" aria-label="Area to visit" /><button type="submit" disabled={!areaDraft.trim()}>＋ Add</button></form><p>Trail will place store recommendations inside or near these areas.</p></section>
+
+          <div className="profile-link"><i>✦</i><span><b>Connected to your route</b><small>Trail now searches around {trip.areas.join(", ")} and sends bags to {trip.hotel}.</small></span></div>
           <section className="profile-budget"><span><small>ACTIVE GIFT PLAN</small><b>{plan.recipient}</b><em>{plan.category} · {plan.quantity} gift{plan.quantity === 1 ? "" : "s"}</em></span><strong>CAD ${plan.budget}</strong><button onClick={() => go("review")}>Edit plan →</button></section>
+
+          <div className="profile-section-label history-label"><b>Past trips</b><span>{pastTrips.length} trips remembered</span></div>
+          <section className="trip-history">{pastTrips.map((item) => <article className={expandedTrip === item.id ? "expanded" : ""} key={item.id}><button onClick={() => setExpandedTrip(expandedTrip === item.id ? null : item.id)}><i className={item.color}>{item.city.charAt(0)}</i><span><small>{item.dates}</small><b>{item.city}, {item.country}</b><em>{item.purchases}</em></span><strong>CAD ${item.spend}</strong><b>{expandedTrip === item.id ? "⌃" : "⌄"}</b></button>{expandedTrip === item.id && <div><div>{item.areas.map((area) => <span key={area}>{area}</span>)}</div><p><i>✦</i>{item.insight}</p><button onClick={() => { updatePlan("preference", "Practical and useful"); go("chat"); }}>Use this taste in my current plan →</button></div>}</article>)}</section>
           <button className="main-button" onClick={() => go("home")}><span>Save trip profile<small>Apply these details across Trail</small></span><i>✓</i></button>
         </div>}
 

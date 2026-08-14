@@ -1,0 +1,138 @@
+"use client";
+
+import { FormEvent, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "../../lib/supabase/client";
+import { splitBudget } from "./budget";
+import "./onboarding.css";
+
+const FREE_TIME = ["1 hour", "2 hours", "3 hours", "Half day", "Full day"];
+const CURRENCIES = ["CAD", "USD", "EUR", "JPY", "KRW", "GBP"];
+const STEPS = ["Where", "When", "Base", "Budget"];
+
+export default function NewTripForm({ email }: { email: string }) {
+  const router = useRouter();
+  const [step, setStep] = useState(0);
+  const [country, setCountry] = useState("");
+  const [city, setCity] = useState("");
+  const [areas, setAreas] = useState<string[]>([]);
+  const [areaDraft, setAreaDraft] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [hotel, setHotel] = useState("");
+  const [hotelAddress, setHotelAddress] = useState("");
+  const [companions, setCompanions] = useState("Solo trip");
+  const [freeTime, setFreeTime] = useState("3 hours");
+  const [currency, setCurrency] = useState("CAD");
+  const [total, setTotal] = useState(250);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const buckets = useMemo(() => splitBudget(total), [total]);
+  const datesValid = !startDate || !endDate || endDate >= startDate;
+  const canContinue = [Boolean(country.trim() && city.trim()), datesValid, Boolean(hotel.trim()), total >= 40][step];
+
+  const addArea = () => {
+    const area = areaDraft.trim();
+    if (!area || areas.includes(area)) return;
+    setAreas([...areas, area]);
+    setAreaDraft("");
+  };
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (saving || !canContinue) return;
+    setSaving(true); setError("");
+    const supabase = createClient();
+    const { data: session } = await supabase.auth.getUser();
+    const userId = session.user?.id;
+    if (!userId) { setError("Your session expired. Sign in again."); setSaving(false); return; }
+
+    const { data: trip, error: tripError } = await supabase.from("trips").insert({
+      user_id: userId,
+      status: "planning",
+      country: country.trim(),
+      city: city.trim(),
+      areas,
+      start_date: startDate || null,
+      end_date: endDate || null,
+      hotel_name: hotel.trim(),
+      hotel_address: hotelAddress.trim(),
+      companions,
+      free_time: freeTime,
+      currency,
+    }).select("id").single();
+
+    if (tripError || !trip) { setError(tripError?.message ?? "Could not save the trip."); setSaving(false); return; }
+
+    // The wallet is created with the trip: a plan whose three buckets already add
+    // up, so no later screen has to invent a budget the traveler never approved.
+    const { error: planError } = await supabase.from("plans").insert({
+      trip_id: trip.id,
+      user_id: userId,
+      status: "draft",
+      total_cents: buckets.total * 100,
+      planned_cents: buckets.planned * 100,
+      delivery_reserve_cents: buckets.reserve * 100,
+      flexible_cents: buckets.flexible * 100,
+    });
+
+    if (planError) { setError(planError.message); setSaving(false); return; }
+
+    router.push("/");
+    router.refresh();
+  };
+
+  return <div className="stage"><div className="phone"><div className="screen onboarding-screen">
+    <header className="app-header"><div className="brand"><span>T</span><b>TRAIL</b></div><div className="header-action"><span className="draft-badge">{email}</span></div></header>
+
+    <div className="onboarding-progress">{STEPS.map((label, index) => <span key={label} className={index <= step ? "on" : ""}><i /><small>{label}</small></span>)}</div>
+
+    <form className="onboarding-form" onSubmit={submit}>
+      {step === 0 && <>
+        <div className="onboarding-intro"><p>STEP 1 · WHERE</p><h1>Where are you<br />travelling?</h1><small>Trail matches stores to the neighbourhoods you will actually walk through.</small></div>
+        <div className="date-pair"><label><small>COUNTRY</small><input value={country} onChange={(e) => setCountry(e.target.value)} placeholder="Canada" autoFocus /></label><label><small>CITY</small><input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Toronto" /></label></div>
+        <section className="area-planner"><header><span><small>AREAS I’LL VISIT</small><b>Optional — add them any time</b></span><strong>{areas.length}</strong></header>
+          <div className="area-chips">{areas.map((area) => <button type="button" key={area} onClick={() => setAreas(areas.filter((item) => item !== area))}>{area}<i>×</i></button>)}</div>
+          <div className="area-add"><input value={areaDraft} onChange={(e) => setAreaDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addArea(); } }} placeholder="Kensington Market…" aria-label="Area to visit" /><button type="button" onClick={addArea} disabled={!areaDraft.trim()}>＋ Add</button></div>
+        </section>
+      </>}
+
+      {step === 1 && <>
+        <div className="onboarding-intro"><p>STEP 2 · WHEN</p><h1>How long are<br />you there?</h1><small>Used to work out which day each stop belongs to. You can leave dates empty for now.</small></div>
+        <div className="date-pair"><label><small>ARRIVE</small><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></label><label><small>LEAVE</small><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} /></label></div>
+        {!datesValid && <p className="form-error">The leaving date is before the arrival date.</p>}
+        <label className="stacked"><small>TIME FREE FOR SHOPPING</small><select value={freeTime} onChange={(e) => setFreeTime(e.target.value)}>{FREE_TIME.map((option) => <option key={option}>{option}</option>)}</select></label>
+        <label className="stacked"><small>TRAVELLING WITH</small><input value={companions} onChange={(e) => setCompanions(e.target.value)} placeholder="Solo trip" /></label>
+      </>}
+
+      {step === 2 && <>
+        <div className="onboarding-intro"><p>STEP 3 · BASE</p><h1>Where should<br />bags go?</h1><small>Your hotel is the delivery address for every bag you send from a partner store.</small></div>
+        <label className="stacked"><small>HOTEL</small><input value={hotel} onChange={(e) => setHotel(e.target.value)} placeholder="The Annex Hotel" autoFocus /></label>
+        <label className="stacked"><small>HOTEL ADDRESS</small><input value={hotelAddress} onChange={(e) => setHotelAddress(e.target.value)} placeholder="296 Brunswick Ave" /></label>
+        <div className="ownership-note">Trail keeps the address for delivery only. It is never sent to the stores you visit or to the AI.</div>
+      </>}
+
+      {step === 3 && <>
+        <div className="onboarding-intro"><p>STEP 4 · BUDGET</p><h1>One budget for<br />the whole trip.</h1><small>Trail splits it so the delivery fee is protected before you start spending.</small></div>
+        <label className="stacked"><small>CURRENCY</small><select value={currency} onChange={(e) => setCurrency(e.target.value)}>{CURRENCIES.map((option) => <option key={option}>{option}</option>)}</select></label>
+        <div className="budget-editor"><div><span><small>TOTAL SHOPPING BUDGET</small><b>{currency} ${total}</b></span></div><input type="range" min="40" max="1000" step="10" value={total} onChange={(e) => setTotal(Number(e.target.value))} /><div className="range-values"><span>40</span><span>1000</span></div></div>
+        <section className="bucket-preview">
+          <span><i className="planned" /><small>Planned for gifts</small><b>{currency} ${buckets.planned}</b></span>
+          <span><i className="reserve" /><small>Protected for delivery</small><b>{currency} ${buckets.reserve}</b></span>
+          <span><i className="flex" /><small>Flexible</small><b>{currency} ${buckets.flexible}</b></span>
+        </section>
+        <div className="ownership-note">Only the planned amount is spendable while you shop. Moving money out of flexible needs your approval.</div>
+      </>}
+
+      {error && <p className="form-error">{error}</p>}
+
+      <div className="onboarding-actions">
+        {step > 0 && <button type="button" className="back-to-chat" onClick={() => setStep(step - 1)}>Back</button>}
+        {step < STEPS.length - 1
+          ? <button type="button" className="main-button" disabled={!canContinue} onClick={() => setStep(step + 1)}><span>Continue<small>{STEPS[step + 1]}</small></span><i>→</i></button>
+          : <button type="submit" className="main-button dark" disabled={saving || !canContinue}><span>{saving ? "Saving your trip…" : "Create my trip"}<small>You can change any of this later</small></span><i>✓</i></button>}
+      </div>
+    </form>
+  </div></div></div>;
+}

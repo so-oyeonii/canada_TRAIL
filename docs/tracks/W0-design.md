@@ -618,3 +618,66 @@ W0에서 만들지는 않지만, W0의 토큰이 이걸 지탱해야 하므로 �
 | 설치 프롬프트 | `beforeinstallprompt` 후킹, Account에 `Install Trail` 행. 자동 모달 금지 |
 
 **오프라인 표시가 SVG 스프라이트에 의존하면 안 된다**는 점이 §4.2의 캐시 전략과 직결된다. 매장 안에서 신호가 끊긴 상태가 이 앱의 정상 상태다.
+
+---
+
+## 8. 적용 결과 (T0 · 2026-08-15)
+
+**범위: CSS 6개 파일만.** `app/page.tsx` 등 TSX는 한 줄도 건드리지 않았다(다른 트랙과 충돌 방지). 따라서 §4의 SVG 아이콘 교체는 이번에 하지 않았고, 유니코드 아이콘이 들어가는 **자리의 크기·색 대비만** 정리했다.
+
+바꾼 파일: `app/globals.css` · `app/handsfree.css` · `app/profile.css` · `app/login/login.css` · `app/onboarding/onboarding.css` · `app/workflow/workflow.css`
+
+### 8.1 전/후 수치
+
+| 항목 | 전 | 후 |
+| --- | ---: | ---: |
+| `font-size` 선언 (6파일 합) | 250 (전부 px 리터럴) | 279 (277개가 `--fs-*` 토큰) |
+| 그중 10px 미만 | **185 (74%)** | **0** |
+| 그중 12px 미만(대문자 라벨 제외) | 196 | **0** |
+| 최소 본문 / 최소 라벨 | 5px / 5px | **12px / 10px** |
+| 인터랙티브 규칙 44px 미달 | **35 / 42** | **0** (네이티브 체크박스·라디오 시각 사각형 24px는 44px 라벨 안, `.toggle`은 52×32 + `::after` 확장 44) |
+| 하드코딩 hex (distinct / 사용) | **153 / 178** | **41 / 42 — 전부 `:root` 안** |
+| `var(--…)` 사용 | 226 | **1362** |
+| 색 대비 미달 텍스트 선언 | **60 / 197 (30%)** | **0** (토큰 조합 101쌍 전수 계산) |
+| 네이비 표면 포커스링 대비 | **2.82 ✗** | **8.27** (`--focus-on-dark`) |
+| `--muted` 텍스트 사용 | 46 | **0** (장식용 1회만 남김 — `.message.typing` 점) |
+
+### 8.2 표면별 색 토큰 (계산값, WCAG 2.x 상대휘도)
+
+밝은 표면: `--ink` 15.01/paper · **`--muted-strong #5a6a6f`** 5.19/paper, 5.64/white, 4.85/soft · **`--accent #2f6f7d`** 5.24/paper, 5.69/white, 4.91/lime-soft, 4.98/blue-soft, 5.11/peach-soft.
+네이비 계열(`--navy` `--navy-soft` `--navy-deep` `--navy-chip`): **`--muted-on-dark #a3b6ba`** 6.29/navy, 5.46/navy-soft, 6.71/navy-deep · `--lime` 9.76/navy, 6.97/navy-chip · `--white` 12.20~14.15.
+라임 계열 표면: **`--lime-ink #41601c`** 6.21/lime-soft, 6.59/lime-tint, 5.30/lime, 7.20/white. `--lime` 위 텍스트는 `--navy`(9.76) 또는 `--lime-ink`만 허용.
+상태색: `--danger #b23b2a`(white 5.91) · `--danger-ink #8f3a2e`(danger-soft 6.53, peach-soft 6.71) · `--warn-ink #8a4f22`(warn-soft 6.10) · `--success #1f6b4d`(white 6.42).
+비텍스트: `--line-strong #859089` 3.31/white, 3.05/paper · `--line-on-dark #6d858b` 3.39/navy · `--focus #347d8d` 4.33/paper · `--focus-on-dark #90d7eb` 8.27/navy. **전부 3:1 통과.**
+
+포커스링은 표면별로 갈랐다: 기본 `--focus`, `.tracking-screen`·`.dark-tabs`·`.budget-editor input`·`.cold-chain`·`.sheet-impact` 하위는 `--focus-on-dark`. `.tab-bar button`은 `outline-offset:-2px`(투명 배경 잘림 방지). **아웃라인 제거는 어디에도 없다.**
+
+### 8.3 390px 폭 재검증 (Ubuntu TTF 실측)
+
+| 텍스트 | 크기 | 실측 폭 | 가용폭 | 판정 |
+| --- | --- | ---: | ---: | --- |
+| `Keep your hands free.` | 32R ls-.03 | 297.1 | 358 / 343 | 통과 (320에서도 2행 랩) |
+| 탭 라벨 최장 `Today` | 10B | 30.3 | 44 타깃 × 5 = 244 ≤ 288(320뷰포트) | 통과 |
+| 추적 스텝 `Collected` | 10R | 43.3 | 4열 77.8 | 통과 |
+| `Look for: Maple butter tin` | 15B | 185.6 | 198 | 통과 |
+| `Craft Ontario Shop · 1106 Queen St W` | 12R | 205.5 | 198 | 2행 랩 (허용) |
+| `Update budget and bag transfer options` | 12R | 219.3 | 300 | 통과 |
+| `Toronto, Canada` / `Nov 2024 · 4 days` | 13B / 10B | 102.4 / 91.7 | 183 | 통과 |
+| `Store packing and seal photo required` | 12R | 207.0 | 3열이면 94 ✗ → **1열 334 ✓** | `.handling-list>div`를 모바일 1열로 전환, ≥600에서 3열 복원 |
+| `Standard · fragile · chilled` | 13B | 158.4 | `.handsfree-proof` 2열 내부 143 | `b{white-space:nowrap}` **삭제**해 2행 랩으로 해소. 카피 단축(`Fragile · chilled`)은 TSX라 T3 |
+
+### 8.4 남은 밀도 비용
+
+`.route-product-list article`이 가장 크다. footer 칩 3개(10px)와 `.store-actions` 버튼 3개(44px)가 198px 텍스트 열에서 각각 2~3행으로 랩되어 카드가 126px → 약 280px가 된다. **CSS만으로는 여기까지가 한계다** — 근본 해결은 카드 그리드를 바꾸는 마크업 작업(T3)이다. 히어로(`.home-hero`)는 213 → 218px로 +5px에 그쳐 §2.5의 예측과 일치한다.
+
+### 8.5 이번에 못 고친 것 (T3으로)
+
+1. **유니코드 아이콘 18종 75회 → SVG 스프라이트.** 마크업 필요. 현재는 자리 크기(15~20px)와 색(`--accent`/`--lime-ink`/`--muted-strong`)만 정리했다. 취급 등급 `❄ ◇ ▣`은 여전히 "눈송이/마름모"로 낭독된다.
+2. **`aria-label` / `role="switch"` / `.visually-hidden` 부착.** 마크업.
+3. **카피 단축** — `Standard · fragile · chilled` → `Fragile · chilled`, `.handsfree-proof`의 3층 → 2층 축약.
+4. **`.stage`/`.phone` 액자 제거와 `.app` 그리드 래퍼**(§3, W0a a2~a6). `.status-bar`·`.home-indicator` 삭제, `position:absolute` 6개 재배치(`.chat-input{bottom:80px}`·`.attachment-chip{bottom:148px}`·`.app-toast{bottom:88px}`의 마법 상수는 아직 살아 있다), `.modal-backdrop`을 `fixed`로. 전부 마크업/포함블록이 함께 바뀌어야 한다.
+5. **`--app-max` 브레이크포인트(600/900/1200) 본체.** 토큰(`--app-max` `--tab-h` `--tap`)은 심어뒀지만 중앙 정렬 컨테이너가 `.app` 래퍼에 걸려 있다.
+6. **`prefers-color-scheme` 다크 팔레트.** §6 이견 6대로 토큰화만 끝냈다(이제 141종이 아니라 41개 토큰만 바꾸면 된다).
+7. `app/workflow/workflow.css`의 `.wf-header h1{42px}` 1건만 리터럴 px로 남겼다 — 데스크톱 보드 전용 제목이라 `--fs-display`(32) 위 계단이 없다.
+
+검증: `npm run lint` 통과 · `npx next build` 통과 · `npm test` 29/30(실패 1건은 `tests/trail-state.test.ts`의 Node TS 파싱 문제로 **이 변경 전부터 동일하게 실패**). 이 환경에 헤드리스 브라우저가 없어 스크린샷 대신 **폰트 advance width 실측(§8.3)과 대비 전수 계산(§8.2)**으로 375/768/1280을 수치 검증했다.

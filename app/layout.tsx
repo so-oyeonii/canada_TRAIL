@@ -9,7 +9,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   // No maximumScale: pinch zoom is how a traveler reads a 10px label in daylight.
   viewportFit: "cover",
-  themeColor: "#12333c",
+  themeColor: "#12343d", // matches --navy
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -33,5 +33,5 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><head><script src="https://mcp.figma.com/mcp/html-to-design/capture.js" async /></head><body>{children}</body></html>;
+  return <html lang="en"><body>{children}</body></html>;
 }

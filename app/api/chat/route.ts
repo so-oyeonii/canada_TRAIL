@@ -1,15 +1,18 @@
-import { briefContext, inferPlanPatch, sanitizePatch, FALLBACK_REPLY, PLAN_KEYS, PLAN_SCHEMA, SYSTEM_PROMPT, type ChatErrorCode, type ChatReply, type ChatTurn, type Plan, type PlanPatch, type TripContext } from "../../trail-brief";
+import { briefContext, composeTurn, emptyReply, inferPlanPatch, tripCurrency, FALLBACK_REPLY, SYSTEM_PROMPT, TURN_SCHEMA, type ChatErrorCode, type ChatReply, type ChatTurn, type KnownRecipient, type ModelTurn, type Plan, type PlanPatch, type TripContext, type TurnContext } from "../../trail-brief";
 
 export const dynamic = "force-dynamic";
 
 const DEFAULT_MODEL = "gpt-5.6-luna";
-const MAX_HISTORY = 12;
+/** Four turns, not twelve: the candidate block (W6b) has to fit in the same context window. */
+const MAX_HISTORY = 4;
 const MAX_TURN_CHARS = 500;
 const MAX_BODY_BYTES = 32 * 1024;
 const RATE_WINDOW_MS = 60_000;
 const RATE_LIMIT = 12;
 
-type ChatPayload = { message?: string; plan?: Plan; trip?: TripContext; history?: ChatTurn[] };
+/** The client still owns the brief until T3 wires `GET /api/state` into this route. Everything it
+ *  sends is treated as untrusted input and re-derived through the sanitizers before it is used. */
+type ChatPayload = { message?: string; plan?: Plan; trip?: TripContext; history?: ChatTurn[]; recipients?: KnownRecipient[]; plannedUnits?: number; unallocatedUnits?: number; planApproved?: boolean; hasPurchases?: boolean };
 
 /** Per-instance counter. Interim protection only — replaced by a session check once auth lands (P2). */
 const hits = new Map<string, number[]>();
@@ -36,8 +39,29 @@ function sameOrigin(request: Request) {
 }
 
 function fail(code: ChatErrorCode, message: string, suggested: PlanPatch = {}) {
-  const body: ChatReply = { reply: message, patch: {}, suggested, rejected: [], source: "fallback", errorCode: code };
-  return Response.json(body);
+  return Response.json(emptyReply(message, "fallback", code, suggested) satisfies ChatReply);
+}
+
+/** One recipient list, however the client described it. A legacy payload carries a single name in
+ *  `plan.recipient`; the refs are minted here so the model only ever sees r1, r2 … and never a uuid. */
+function buildContext(payload: ChatPayload): TurnContext {
+  const trip = payload.trip as TripContext;
+  const plan = payload.plan;
+  const supplied = (payload.recipients ?? []).slice(0, 8).map((person, index) => ({ ...person, ref: `r${index + 1}` }));
+  const recipients: KnownRecipient[] = supplied.length ? supplied : plan?.recipient ? [{ ref: "r1", label: plan.recipient, relationship: plan.recipient, groupSize: plan.quantity, allocation: plan.budget }] : [];
+  const plannedUnits = payload.plannedUnits ?? plan?.budget ?? 0;
+  const allocated = recipients.reduce((sum, person) => sum + (person.allocation ?? 0) * (person.allocationBasis === "per_person" ? person.groupSize ?? 1 : 1), 0);
+  return {
+    trip,
+    recipients,
+    brief: plan ? { category: plan.category as never, preference: plan.preference as never, localOnly: plan.localOnly, easyPack: plan.easyPack, hotelDelivery: plan.hotelDelivery } : {},
+    plannedUnits,
+    unallocatedUnits: payload.unallocatedUnits ?? Math.max(0, plannedUnits - allocated),
+    totalKnown: plannedUnits > 0,
+    scopeResolved: plannedUnits > 0,
+    planApproved: !!payload.planApproved,
+    hasPurchases: !!payload.hasPurchases,
+  };
 }
 
 export async function POST(request: Request) {
@@ -58,7 +82,7 @@ export async function POST(request: Request) {
 
   const message = payload.message?.trim().slice(0, MAX_TURN_CHARS) ?? "";
   if (!message) return Response.json({ error: "message is required" }, { status: 400 });
-  if (!payload.plan || !payload.trip) return Response.json({ error: "plan and trip are required" }, { status: 400 });
+  if (!payload.trip?.city) return Response.json({ error: "trip is required" }, { status: 400 });
 
   const apiKey = process.env.OPENAI_API_KEY;
   const model = process.env.OPENAI_MODEL || DEFAULT_MODEL;
@@ -66,6 +90,7 @@ export async function POST(request: Request) {
   const suggested = inferPlanPatch(message);
   if (!apiKey) return fail("no_key", FALLBACK_REPLY, suggested);
 
+  const context = buildContext(payload);
   const history = (payload.history ?? []).slice(-MAX_HISTORY).map((turn) => ({ role: turn.role === "ai" ? ("assistant" as const) : ("user" as const), content: `${turn.text}`.slice(0, MAX_TURN_CHARS) }));
 
   try {
@@ -78,12 +103,12 @@ export async function POST(request: Request) {
         reasoning_effort: "none",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
-          { role: "system", content: briefContext(payload.plan, payload.trip) },
+          { role: "system", content: briefContext(context) },
           ...history,
           { role: "user", content: message },
         ],
-        response_format: { type: "json_schema", json_schema: { name: "trail_brief_turn", strict: true, schema: PLAN_SCHEMA } },
-        max_completion_tokens: 800,
+        response_format: { type: "json_schema", json_schema: { name: "trail_brief_turn", strict: true, schema: TURN_SCHEMA } },
+        max_completion_tokens: 900,
       }),
       signal: AbortSignal.timeout(20_000),
     });
@@ -103,22 +128,19 @@ export async function POST(request: Request) {
     const content = choice?.message?.content;
     if (!content) return fail("parse_failed", FALLBACK_REPLY, suggested);
 
-    let parsed: { reply?: string; patch?: unknown; clear?: unknown };
+    let parsed: ModelTurn;
     try {
-      parsed = JSON.parse(content) as { reply?: string; patch?: unknown; clear?: unknown };
+      parsed = JSON.parse(content) as ModelTurn;
     } catch {
       return fail("parse_failed", FALLBACK_REPLY, suggested);
     }
 
-    const { patch, rejected } = sanitizePatch(parsed.patch);
-    // `clear` lets the model undo a field the traveler just ruled out. It is the only way a
-    // negated message ("not chocolate") can reach the brief.
-    // A key can arrive in both `patch` and `clear`; the filled value wins, otherwise the
-    // turn would set a field and erase it in the same breath.
-    const clear = Array.isArray(parsed.clear) ? parsed.clear.filter((key): key is string => typeof key === "string" && (PLAN_KEYS as string[]).includes(key) && !(key in patch)) : [];
-    const reply = typeof parsed.reply === "string" && parsed.reply.trim() ? parsed.reply.trim().slice(0, 600) : FALLBACK_REPLY;
-    const body: ChatReply & { clear: string[] } = { reply, patch, suggested: {}, rejected, clear, source: "model" };
-    return Response.json(body);
+    // Every rule about what the model may say lives in composeTurn, so it is tested as a function
+    // rather than trusted as a paragraph of prompt.
+    const body = composeTurn(parsed, context);
+    // Only the phrase is kept, never the sentence around it: that sentence is traveler text.
+    if (body.hits?.length) console.warn("Trail AI unlisted phrase", body.errorCode, body.hits.length, tripCurrency(context.trip));
+    return Response.json(body satisfies ChatReply);
   } catch (error) {
     const timedOut = error instanceof Error && error.name === "TimeoutError";
     console.error("Trail AI request failed", timedOut ? "timeout" : "network");

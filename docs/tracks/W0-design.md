@@ -349,7 +349,7 @@ body{margin:0;min-height:100dvh;background:var(--paper);color:var(--ink);font-fa
    - `.chat-input{position:absolute;bottom:80px}` → `.app` 그리드의 마지막 행 위 `sticky;bottom:0`, `bottom:80px` 하드코딩 제거. `.attachment-chip{bottom:136px}`도 같이 — 이 두 값은 탭바 76px에 종속된 마법의 상수다
    - `.modal-backdrop{position:absolute;inset:0}` → `position:fixed;inset:0` (뷰포트 기준으로 바뀌어야 스크롤 중에도 덮는다)
    - `.app-toast{position:absolute;bottom:88px}` → `position:fixed;bottom:calc(var(--tab-h) + env(safe-area-inset-bottom) + 12px)`
-3. **safe-area 활성화 선행.** `app/layout.tsx`의 `viewport`에 `viewportFit:"cover"`를 넣기 전까지 `env(safe-area-inset-*)`는 전부 0이다. 이 한 줄이 없으면 나머지 safe-area 작업이 전부 무의미하다. 동시에 `maximumScale:1` 삭제(핀치줌 허용).
+3. **safe-area는 이제 살아 있다.** `viewportFit:"cover"`가 없으면 `env(safe-area-inset-*)`는 전부 0이다 — **2026-08-15에 반영되었음을 확인했다.** 따라서 기존 `max(43px,env(safe-area-inset-top))`·`max(21px,env(safe-area-inset-bottom))`가 처음으로 실제 값을 갖는다. 노치 기기에서 여백이 늘어난 것처럼 보이는 게 정상이고, **W0a의 기준 스크린샷은 이 상태에서 다시 찍어야 한다.** 새 코드는 `max()`가 아니라 `calc(기본값 + env())`를 쓴다 — `max()`는 인셋이 기본값보다 작을 때 여백이 늘지 않아, safe-area의 목적(노치·홈바 회피)을 부분적으로만 달성한다.
 4. **`--app-max` 브레이크포인트**
    ```
    기본(≤599)      --app-max: 100%          내용폭 = 뷰포트
@@ -377,8 +377,9 @@ BUILD_PLAN "결정 대기 4번(데모 화면이 노트북인지 폰인지)"은 �
 액자 제거는 "규칙 6개 지우기"가 아니라 **포함블록이 바뀌는 작업**이다. 순서를 지키지 않으면 오버레이 6개가 동시에 튄다.
 
 ```
-1. viewportFit:"cover" 추가 + maximumScale 삭제        (layout.tsx, 2줄)
-   → 이 시점에 기존 env() 4곳이 처음으로 살아난다. 여기서 하단 여백 변화를 먼저 확인
+1. [완료 · 2026-08-15] viewportFit:"cover" 추가 + maximumScale 삭제   (layout.tsx)
+   → 기존 env() 4곳이 여기서 처음 살아난다. 375/노치 기기 스크린샷을 다시 찍어 기준선으로 삼는다
+1b. layout.tsx head의 Figma CDN <script> 삭제                        (아직 남아 있음 — 확인함)
 2. .app 래퍼 도입. .stage/.phone은 남겨둔 채 .app을 병렬로 추가하고
    page.tsx / login / onboarding 세 곳의 최상위만 교체         (3파일, 각 1줄)
 3. .status-bar / .home-indicator 마크업+CSS 삭제           (여기서 상단 43px 패딩 재계산)
@@ -394,11 +395,13 @@ BUILD_PLAN "결정 대기 4번(데모 화면이 노트북인지 폰인지)"은 �
 
 ## 4. 아이콘 전환
 
-### 4.1 전수 목록 (`app/**/*.tsx`, 82회 / 15종)
+### 4.1 전수 목록 — 앱 화면 3파일 기준 **18종 / 75회**
+
+집계 대상은 `app/page.tsx` · `app/login/page.tsx` · `app/onboarding/new-trip-form.tsx`. `/workflow`(쇼케이스)와 `app/api/*`는 제외했다.
 
 | 글자 | U+ | 회수 | 쓰이는 곳 | 스크린리더 낭독 | 의도 |
 | --- | --- | ---: | --- | --- | --- |
-| `→` | 2192 | 40 | 버튼 후미, 워크플로 화살표 | "오른쪽 화살표" 또는 무시 | 진행 |
+| `→` | 2192 | 20 | 버튼 후미, 워크플로 화살표 | "오른쪽 화살표" 또는 무시 | 진행 |
 | `✦` | 2726 | 10 | AI 마커(`.ai-orbit` `.chat-status` `.message.ai` `.review-intro .spark` `.ai-memory-card`), **탭바 Ask** | "네 꼭짓점 별" | Trail AI |
 | `✓` | 2713 | 9 | 완료 상태, 저장됨, 배송 단계 done | "체크 표시" | 완료 |
 | `▣` | 25A3 | 8 | 가방/이송, **탭바 Bags**, transfer-chip, 취급=Standard | "속 채운 사각형" | 가방·이송 |
@@ -436,9 +439,11 @@ app/icon.tsx                export function Icon({name,size=20}:{name:IconName;s
 - `stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round` 통일. 색은 CSS가 결정한다.
 - 아이콘 기본 20px, 탭바 24px, 히어로 28px. **3사이즈만** 허용.
 
-### 4.3 심볼 목록 (17개)
+### 4.3 심볼 목록 (19개)
 
-`home` `sparkle`(AI) `route` `bag` `trips` `check` `chevron-down` `chevron-right` `chevron-left` `arrow-right` `arrow-up` `plus` `pencil` `refresh` `pin` `snowflake`(냉장) `fragile`(깨진 잔)
+`home` `sparkle`(AI) `route` `bag` `trips` `check` `chevron-up` `chevron-down` `chevron-left` `chevron-right` `arrow-right` `arrow-up` `plus` `close`(시트 닫기) `pencil` `refresh` `pin` `snowflake`(냉장) `fragile`(깨진 잔)
+
+18종의 유니코드가 19개 심볼이 되는 이유: `▣`가 **가방(탭바·이송)** 과 **취급=Standard** 두 뜻으로 쓰이고 있어 분리해야 하고(`bag` / 취급 기본값은 아이콘 없이 텍스트), 시트 닫기 버튼이 지금 아이콘 없이 문자에 기대고 있어 `close`가 새로 필요하다.
 
 `snowflake`/`fragile`/`bag`은 **국제 물류 픽토그램 관례**를 따른다(깨진 잔 = fragile, 눈결정 = keep refrigerated). 여행자가 매장에서 본 포장 표기와 같은 그림이어야 한다.
 
@@ -477,7 +482,7 @@ W0a는 화면 로직·카피·컴포넌트를 **전혀** 건드리지 않는다.
 
 | # | 파일 | 작업 | 크기 |
 | --- | --- | --- | --- |
-| b1 | `app/globals.css` `:root` | `--fs-*` 9개 · `--lh-*` · `--sp-1..8`(4px 배수) · `--muted-strong` `--accent` `--accent-on-w` `--line-strong` `--focus` `--tab-h` `--app-max` 추가 | S |
+| b1 | `app/globals.css` `:root` | `--fs-*` 9개 · `--lh-*` · `--sp-1..8`(4px 배수) · **`--muted-strong` `--muted-on-dark` `--accent` `--line-strong` `--focus` `--focus-on-dark`**(§2.3 표) · `--tab-h` `--app-max` 추가 | S |
 | b2 | `docs/tracks/W0-design.md` | 스케일·색 사용 규칙 확정 (본 문서 §2가 그 명세) | — |
 
 **b1이 끝나는 순간 W3·W4의 새 화면은 새 스케일 위에 작성할 수 있다.** 액자가 아직 남아 있어도 상관없다.
@@ -486,8 +491,8 @@ W0a는 화면 로직·카피·컴포넌트를 **전혀** 건드리지 않는다.
 
 | # | 파일 | 작업 | 크기 |
 | --- | --- | --- | --- |
-| c1 | `public/icons.svg` · `app/icon.tsx` | 스프라이트 17개 + `<Icon>` 컴포넌트 | M |
-| c2 | `app/page.tsx` | 유니코드 82회 치환 + `aria-label` / `.visually-hidden` 부착 | M |
+| c1 | `public/icons.svg` · `app/icon.tsx` | 스프라이트 19개 + `<Icon>` 컴포넌트 | M |
+| c2 | `app/page.tsx` | 유니코드 **70회**(3파일 합 75회 중) 치환 + `aria-label` / `.visually-hidden` 부착 | M |
 | c3 | `app/login/page.tsx` · `app/onboarding/new-trip-form.tsx` | 동일 | S |
 | c4 | `app/globals.css` | `.icon` 규칙 · `i{font-size}` 아이콘용 선언 12개 정리 | S |
 
@@ -603,11 +608,11 @@ W0에서 만들지는 않지만, W0의 토큰이 이걸 지탱해야 하므로 �
 
 | 항목 | 명세 |
 | --- | --- |
-| 매니페스트 | `display:standalone` · `theme_color:#12343d`(=`--navy`) · `background_color:#f5f6f1`(=`--paper`) · `start_url:/` |
+| 매니페스트 | `display:standalone` · `theme_color:#12343d`(=`--navy`) · `background_color:#f5f6f1`(=`--paper`) · `start_url:/`<br>**주의: 현재 `layout.tsx`의 `themeColor`는 `#12333c`로 `--navy #12343d`와 다르다.** 어느 토큰도 아닌 유령 값이다. 매니페스트를 만들 때 두 값이 갈라지지 않도록 W0b에서 `--navy`로 통일한다 |
 | 아이콘 | 192/512 + maskable 512. 마크는 `.brand>span`의 라임-온-네이비 각진 모서리(9/9/9/3) 도형을 그대로 승격 |
 | 스플래시 | `--paper` 바탕 + 중앙 마크. **애니메이션 없음**(`prefers-reduced-motion` 예외 처리 불필요하게) |
 | 오프라인 화면 | `--paper` 바탕. 아이콘 없이 32px 제목 + 13px 본문. **"오프라인이지만 QR 패스와 오늘의 경로는 그대로 씁니다"** — 이게 이 앱의 오프라인 화면이 말해야 할 유일한 문장 |
-| **동기화 대기 칩** | 상단 sticky, `--yellow` 배경 / `--ink` 텍스트 (9.16:1 상당). 11px B `Waiting to sync · 3 changes` = **실측 140.6px, 358px 안에 여유**. `role="status"` + `aria-live="polite"` |
+| **동기화 대기 칩** | 상단 sticky, `--yellow` 배경 / `--ink` 텍스트 (**11.27:1**, 계산 확인). 11px B `Waiting to sync · 3 changes` = **실측 140.6px, 358px 안에 여유**. `role="status"` + `aria-live="polite"` |
 | **오프라인 배지** | 탭바 위 sticky, `--blue` 배경 / `--navy` (8.27:1). 아이콘 없이 텍스트만 — 오프라인에서 스프라이트가 안 뜰 수 있으므로 **오프라인 표시 자체는 SVG에 의존하면 안 된다** |
 | QR 패스 | 오프라인에서도 떠야 하므로 `<img>`가 아니라 인라인 SVG 또는 캔버스. 배경 반드시 `#ffffff` 실색(투명 금지 — 다크 대응 시 스캔 실패) |
 | 설치 프롬프트 | `beforeinstallprompt` 후킹, Account에 `Install Trail` 행. 자동 모달 금지 |

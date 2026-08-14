@@ -1,12 +1,12 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { describePatch, errorMessage, rejectionMessage, type ChatReply, type Plan, type PlanKey, type PlanPatch } from "./trail-brief";
 
 type Screen = "home" | "chat" | "review" | "picks" | "shop" | "drop" | "tracking" | "profile";
 type Message = { role: "ai" | "user"; text: string };
 type Trip = { country: string; city: string; areas: string[]; startDate: string; endDate: string; hotel: string; hotelAddress: string; companions: string; freeTime: string };
 type PastTrip = { id: string; city: string; country: string; dates: string; areas: string[]; purchases: string; spend: number; insight: string; color: string };
-type Plan = { recipient: string; quantity: number; category: string; budget: number; preference: string; time: string; localOnly: boolean; easyPack: boolean; hotelDelivery: boolean };
 type PurchaseStatus = "planned" | "bought" | "unavailable" | "skipped";
 type Purchase = { status: PurchaseStatus; actualPrice: number; quantity: number; bags: number; handling: "Standard" | "Heavy" | "Fragile" | "Chilled" };
 type TransferStatus = "none" | "draft" | "active" | "completed";
@@ -46,6 +46,8 @@ export default function Home() {
   const [approvedPlan, setApprovedPlan] = useState<Plan | null>(null);
   const [messages, setMessages] = useState<Message[]>([{ role: "ai", text: "Hi, I’m Trail. Tell me who you’re shopping for and where today takes you. I’ll find gift stops along your route and get the bags back to your hotel." }]);
   const [input, setInput] = useState("");
+  const [thinking, setThinking] = useState(false);
+  const [suggestion, setSuggestion] = useState<PlanPatch | null>(null);
   const [deliveryStep, setDeliveryStep] = useState(0);
   const [purchases, setPurchases] = useState<Record<number, Purchase>>({});
   const [editingPurchase, setEditingPurchase] = useState<number | null>(null);
@@ -76,12 +78,31 @@ export default function Home() {
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(""), 2400); };
   const updatePlan = <K extends keyof Plan>(key: K, value: Plan[K]) => { setPlan((current) => ({ ...current, [key]: value })); if (approvedPlan) setRouteDirty(true); };
   const updateTrip = <K extends keyof Trip>(key: K, value: Trip[K]) => setTrip((current) => ({ ...current, [key]: value }));
-  const inferPlan = (text: string) => { const lower = text.toLowerCase(); setPlan((current) => { const next = { ...current }; const amount = text.match(/(?:cad|\$)\s?(\d+)|(\d+)\s?(?:cad|dollars?)/i); if (amount) next.budget = Number(amount[1] || amount[2]); if (/mom|mother/.test(lower)) { next.recipient = "My mom"; next.quantity = 1; } if (/friend/.test(lower)) { next.recipient = "My friends"; next.quantity = /two|2/.test(lower) ? 2 : 1; } if (/team|lab|cowork/.test(lower)) { next.recipient = "My lab team"; next.quantity = 12; } if (/food|snack|chocolate|treat|share/.test(lower)) next.category = "Food & treats"; if (/design|home|ceramic|useful/.test(lower)) next.category = "Home & design"; if (/hotel|deliver|hands.free|heavy|chill|ice/.test(lower)) next.hotelDelivery = true; if (/meaningful|thoughtful/.test(lower)) next.preference = "Thoughtful and personal"; if (/practical|useful/.test(lower)) next.preference = "Practical and useful"; return next; }); if (approvedPlan) setRouteDirty(true); };
-  const sendMessage = (text: string) => { const clean = text.trim(); if (!clean) return; inferPlan(clean); setMessages((current) => [...current, { role: "user", text: clean }, { role: "ai", text: "Got it. I’m balancing the gift, budget, today’s neighborhoods, and how each purchase can travel safely to your hotel." }]); setInput(""); };
+  const applyPatch = (patch: PlanPatch) => { if (!patch || !Object.keys(patch).length) return; setPlan((current) => ({ ...current, ...patch })); if (approvedPlan) setRouteDirty(true); };
+  const clearFields = (keys: PlanKey[]) => { if (!keys.length) return; setPlan((current) => ({ ...current, ...Object.fromEntries(keys.map((key) => [key, initialPlan[key]])) })); if (approvedPlan) setRouteDirty(true); };
+  const acceptSuggestion = () => { if (!suggestion) return; applyPatch(suggestion); setSuggestion(null); notify("Added to your brief"); };
+  const sendMessage = async (text: string) => {
+    const clean = text.trim(); if (!clean || thinking) return;
+    const history = messages.slice(-12);
+    setMessages((current) => [...current, { role: "user", text: clean }]); setInput(""); setSuggestion(null); setThinking(true);
+    try {
+      const response = await fetch("/api/chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: clean, plan, trip, history }) });
+      const data = (await response.json()) as ChatReply & { clear?: PlanKey[] };
+      applyPatch(data.patch); clearFields(data.clear ?? []);
+      setMessages((current) => [...current, { role: "ai", text: data.reply }]);
+      if (data.suggested && Object.keys(data.suggested).length) setSuggestion(data.suggested);
+      const rejection = rejectionMessage(data.rejected ?? []);
+      if (rejection) setMessages((current) => [...current, { role: "ai", text: rejection }]);
+      else if (data.errorCode) notify(errorMessage(data.errorCode));
+    } catch {
+      setMessages((current) => [...current, { role: "ai", text: "I could not reach Trail AI just now. Your brief is unchanged." }]); notify("Trail AI is offline");
+    } finally { setThinking(false); }
+  };
   const submit = (event: FormEvent) => { event.preventDefault(); sendMessage(input); };
   const startChat = (prompt?: string) => { go("chat"); if (prompt) window.setTimeout(() => sendMessage(prompt), 50); };
   const addArea = () => { const area = areaDraft.trim(); if (!area || trip.areas.includes(area)) return; updateTrip("areas", [...trip.areas, area]); setAreaDraft(""); notify(`${area} added to this trip`); };
-  const setPurchase = (index: number, patch: Partial<Purchase>) => setPurchases((current) => ({ ...current, [index]: { status: "planned", actualPrice: products[index].price, quantity: 1, bags: 1, handling: products[index].handling, ...current[index], ...patch } }));
+  const purchaseDefaults = (index: number): Purchase => ({ status: "planned", actualPrice: products[index].price, quantity: 1, bags: 1, handling: products[index].handling });
+  const setPurchase = (index: number, patch: Partial<Purchase>) => setPurchases((current) => ({ ...current, [index]: { ...purchaseDefaults(index), ...current[index], ...patch } }));
   const openPurchase = (index: number) => { setEditingPurchase(index); setPurchaseDraft(purchases[index] ? { ...purchases[index] } : { status: "bought", actualPrice: products[index].price, quantity: 1, bags: 1, handling: products[index].handling }); setPurchaseError(""); };
   const closePurchase = () => { setEditingPurchase(null); setPurchaseDraft(null); setPurchaseError(""); };
   const confirmPurchase = () => { if (editingPurchase === null || !purchaseDraft) return; if (!Number.isFinite(purchaseDraft.actualPrice) || purchaseDraft.actualPrice <= 0 || purchaseDraft.quantity < 1 || purchaseDraft.bags < 1) { setPurchaseError("Enter a positive total, quantity and bag count."); return; } setPurchases((current) => ({ ...current, [editingPurchase]: { ...purchaseDraft, status: "bought" } })); setSelectedBags((current) => ({ ...current, [editingPurchase]: true })); closePurchase(); notify(`Purchase saved · budget ${activePlan.budget - (spent + purchaseDraft.actualPrice)} CAD`); };
@@ -105,10 +126,10 @@ export default function Home() {
 
     {screen === "chat" && <div className="screen chat-screen"><Header title="Ask Trail" back={() => go("home")} action={<button className="text-action" onClick={() => go("review")}>View brief</button>} />
       <div className="chat-status"><i>✦</i><span><b>Trail AI · prototype</b><small>{trip.areas.length} areas · transfer checked after purchase</small></span><em>{memoryEnabled ? "MEMORY ON" : "MEMORY OFF"}</em></div><div className="memory-strip"><span><small>{memoryEnabled ? "TRAIL REMEMBERS" : "TRAIL MEMORY IS OFF"}</small><b>{memoryEnabled ? "Local makers · useful gifts · easy to carry home" : "Recommendations use this trip only"}</b></span><button onClick={() => setMemoryOpen(true)}>Why?</button></div>
-      <div className="messages">{messages.map((message, index) => <div className={`message ${message.role}`} key={`${message.role}-${index}`}>{message.role === "ai" && <i>✦</i>}<p>{message.text}</p></div>)}</div>
-      <div className="quick-replies"><button onClick={() => sendMessage("Find stores along Kensington and Queen West.")}>Along my route</button><button onClick={() => sendMessage("I want hotel bag transfer for anything heavy, fragile or chilled.")}>Hands-free all day</button><button onClick={() => sendMessage("My total budget is CAD 80.")}>Budget $80</button></div>
+      <div className="messages">{messages.map((message, index) => <div className={`message ${message.role}`} key={`${message.role}-${index}`}>{message.role === "ai" && <i>✦</i>}<p>{message.text}</p></div>)}{thinking && <div className="message ai typing"><i>✦</i><p><span /><span /><span /></p></div>}</div>
+      {suggestion && <div className="suggestion-chip"><span><small>I UNDERSTOOD</small><b>{describePatch(suggestion).join(" · ")}</b></span><button onClick={acceptSuggestion}>Add to brief</button><button className="ghost" onClick={() => setSuggestion(null)} aria-label="Dismiss suggestion">×</button></div>}<div className="quick-replies"><button onClick={() => sendMessage("Find stores along Kensington and Queen West.")}>Along my route</button><button onClick={() => sendMessage("I want hotel bag transfer for anything heavy, fragile or chilled.")}>Hands-free all day</button><button onClick={() => sendMessage("My total budget is CAD 80.")}>Budget $80</button></div>
       <div className="live-draft"><span><small>SHOPPING BRIEF</small><b>{plan.recipient} · {plan.category}</b></span><strong>${plan.budget}</strong><button onClick={() => go("review")}>Review →</button></div>
-      {attachmentName && <div className="attachment-chip">Reference: {attachmentName}<button onClick={() => setAttachmentName("")} aria-label="Remove attachment">×</button></div>}<form className="chat-input" onSubmit={submit}><input id="trail-reference" className="visually-hidden" type="file" accept="image/*" onChange={attachImage} /><button type="button" aria-label="Add reference photo" onClick={() => document.getElementById("trail-reference")?.click()}>＋</button><input value={input} onChange={(event) => setInput(event.target.value)} placeholder="What do you want to bring home?" aria-label="Message Trail" /><button type="submit" aria-label="Send message" disabled={!input.trim()}>↑</button></form>
+      {attachmentName && <div className="attachment-chip">Reference: {attachmentName}<button onClick={() => setAttachmentName("")} aria-label="Remove attachment">×</button></div>}<form className="chat-input" onSubmit={submit}><input id="trail-reference" className="visually-hidden" type="file" accept="image/*" onChange={attachImage} /><button type="button" aria-label="Add reference photo" onClick={() => document.getElementById("trail-reference")?.click()}>＋</button><input value={input} onChange={(event) => setInput(event.target.value)} placeholder="What do you want to bring home?" aria-label="Message Trail" /><button type="submit" aria-label="Send message" disabled={!input.trim() || thinking}>↑</button></form>
       {memoryOpen && <div className="modal-backdrop"><section className="memory-sheet" role="dialog" aria-label="Why Trail remembers"><header><span><small>{memoryEnabled ? "APPROVED TRAVEL MEMORY" : "TRAVEL MEMORY OFF"}</small><b>Why Trail knows this</b></span><button aria-label="Close memory details" onClick={() => setMemoryOpen(false)}>×</button></header><p>{memoryEnabled ? "Tokyo 2025 and Copenhagen 2024 show repeated choices: independent makers, useful objects, and packable quality." : "Trail is not reusing past-trip preferences. Current trip details still shape this shopping route."}</p>{memoryEnabled && <div><span>Local over generic</span><span>Useful over decorative</span><span>Hands-free when helpful</span></div>}<button className="main-button" onClick={() => { setMemoryOpen(false); go("profile"); }}><span>Review trips and memory<small>Edit, enable or forget these preferences</small></span><i>→</i></button></section></div>}
     </div>}
 

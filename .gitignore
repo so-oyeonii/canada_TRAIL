@@ -42,3 +42,14 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+
+# cloudflare local secrets
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+
+# env examples (values are placeholders)
+!.env.example
+
+# typescript build cache
+*.tsbuildinfo

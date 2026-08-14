@@ -26,5 +26,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|fonts|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ttf|woff2?)$).*)"],
+  // Static assets, the service worker and the manifest must not trigger a session read:
+  // every one of them would otherwise cost an auth round trip and set a cookie.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|fonts|sw.js|manifest.webmanifest|.*\.(?:svg|png|jpg|jpeg|gif|webp|ttf|woff2?|js|webmanifest)$).*)"],
 };

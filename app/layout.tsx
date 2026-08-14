@@ -7,7 +7,8 @@ import "./handsfree.css";
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  // No maximumScale: pinch zoom is how a traveler reads a 10px label in daylight.
+  viewportFit: "cover",
   themeColor: "#12333c",
 };
 

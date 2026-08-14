@@ -46,7 +46,7 @@ export type Buckets = { totalCents: number; plannedCents: number; deliveryReserv
 export type BudgetOverrun = { allocatedUnits: number; plannedUnits: number; overUnits: number };
 export type RejectReason = "out_of_range" | "unknown_value" | "empty" | "unknown_recipient" | "ref_on_add" | "equal_value_conflict" | "ambiguous_scope" | "ambiguous_basis" | "duplicate_self" | "currency_locked" | "plan_approved" | "unlisted_store";
 export type Rejection = { field: string; given: unknown; reason: RejectReason };
-export type ChatErrorCode = "no_key" | "upstream_5xx" | "upstream_429" | "timeout" | "truncated" | "refused" | "parse_failed" | "rate_limited" | "bad_origin" | "too_large" | "unlisted_name" | "confirming_language" | "reserve_leak";
+export type ChatErrorCode = "no_key" | "upstream_5xx" | "upstream_429" | "timeout" | "truncated" | "refused" | "parse_failed" | "rate_limited" | "bad_origin" | "too_large" | "unlisted_name" | "confirming_language" | "reserve_leak" | "unauthenticated";
 export type TripContext = { city: string; country: string; areas?: string[]; hotel?: string; freeTime?: string; companions?: string; currency?: string; dayCount?: number; hotelTransfer?: "verified" | "unverified" | "none" };
 export type ChatTurn = { role: "ai" | "user"; text: string };
 /** Everything the traveler must tap before it is true. Nothing in here has touched the draft. */
@@ -506,6 +506,7 @@ export function errorMessage(code: ChatErrorCode) {
   if (code === "upstream_429" || code === "rate_limited") return "Trail AI is busy — try again in a moment.";
   if (code === "refused") return "I can't help with that one. Tell me about the gift instead.";
   if (code === "truncated") return "That answer got cut off. Could you ask again more briefly?";
+  if (code === "unauthenticated") return "Sign in to talk to Trail — your plan is saved to your account.";
   if (code === "unlisted_name") return "Trail has no curated stores in this city yet, so store names are left out.";
   if (code === "confirming_language" || code === "reserve_leak") return "Nothing is confirmed — open Trail ▸ Gifts to approve the draft.";
   return "Trail AI is offline — your brief is unchanged.";

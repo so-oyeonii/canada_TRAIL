@@ -2,8 +2,8 @@
  *  rules that matter here (which plan wins, what counts as spent, which transfer
  *  is the live one) are testable without a database. */
 
-import type { PaymentRow, PlanRow, PurchaseRow, ReceiptRow, RecipientRow, StopRow, StoreRow, TransferEventRow, TransferItemRow, TransferRow, TripListRow, TripRow, UserRow } from "./rows";
-import type { Payment, Plan, Purchase, Receipt, Recipient, SourceLabels, Stop, TrailState, TransferEvent, TransferItem, TransferSummary, TravelerProfile, Trip, TripSummary, Wallet, Transfer, DropoffStore, Inquiry } from "./types";
+import type { IssueRow, PaymentRow, PlanRow, PurchaseRow, ReceiptRow, RecipientRow, StopRow, StoreRow, TransferEventRow, TransferItemRow, TransferRow, TripListRow, TripRow, UserRow } from "./rows";
+import type { Payment, Plan, Purchase, Receipt, Recipient, SourceLabels, Stop, TrailState, TransferEvent, TransferIssue, TransferItem, TransferSummary, TravelerProfile, Trip, TripSummary, Wallet, Transfer, DropoffStore, Inquiry } from "./types";
 import { EMPTY_WALLET } from "./types.ts";
 
 /** A transfer is still the traveler's current one until it is delivered or
@@ -16,9 +16,9 @@ export function shapeUser(row: UserRow | null, id: string, email: string): Trave
 }
 
 export function shapeTrip(row: TripRow): Trip {
-  // hotelId waits on the `hotels` table T5 adds; the field exists now so the
-  // front end does not change shape twice.
-  return { id: row.id, status: row.status, country: row.country, city: row.city, areas: row.areas ?? [], startDate: row.start_date, endDate: row.end_date, hotelId: null, hotelName: row.hotel_name, hotelAddress: row.hotel_address, hotelVerifiedAt: row.hotel_verified_at, companions: row.companions, freeTime: row.free_time, currency: row.currency };
+  // hotelId is null until 0011 is applied and the trip is linked to a `hotels`
+  // row; the delivery policy for that hotel is what decides `hotel_refuses`.
+  return { id: row.id, status: row.status, country: row.country, city: row.city, areas: row.areas ?? [], startDate: row.start_date, endDate: row.end_date, hotelId: row.hotel_id ?? null, hotelName: row.hotel_name, hotelAddress: row.hotel_address, hotelVerifiedAt: row.hotel_verified_at, companions: row.companions, freeTime: row.free_time, currency: row.currency };
 }
 
 /** The approved plan if there is one, otherwise the newest draft. Superseded
@@ -39,7 +39,7 @@ export function shapeRecipient(row: RecipientRow): Recipient {
 }
 
 export function shapePurchase(row: PurchaseRow): Purchase {
-  return { id: row.id, stopId: row.stop_id, actualPriceCents: row.actual_price_cents, quantity: row.quantity, bags: row.bags, handling: row.handling, currency: row.currency, note: row.note, unplannedLabel: row.unplanned_label, recordedAt: row.recorded_at, voidedAt: row.voided_at, voidReason: row.void_reason };
+  return { id: row.id, stopId: row.stop_id, actualPriceCents: row.actual_price_cents, quantity: row.quantity, bags: row.bags, handling: row.handling, currency: row.currency, note: row.note, unplannedLabel: row.unplanned_label, clientKey: row.client_key ?? null, recordedAt: row.recorded_at, voidedAt: row.voided_at, voidReason: row.void_reason };
 }
 
 export function shapeStop(row: StopRow): Stop {
@@ -53,7 +53,13 @@ function shapeInquiry(row: NonNullable<StopRow["store_inquiries"]>[number]): Inq
 }
 
 function shapeStore(row: StoreRow | null): DropoffStore | null {
-  return row ? { id: row.id, name: row.name, address: row.address, area: row.area, dropoffCutoff: row.dropoff_cutoff, lat: row.lat, lng: row.lng } : null;
+  // `accepted_handling` decides `handling_unsupported`, so an absent column is
+  // read as Standard only — never as "this counter takes anything".
+  return row ? { id: row.id, name: row.name, address: row.address, area: row.area, dropoffCutoff: row.dropoff_cutoff, lat: row.lat, lng: row.lng, acceptedHandling: row.accepted_handling ?? ["Standard"], maxWeightGrams: row.max_weight_grams ?? null, timezone: row.timezone ?? "America/Toronto", partnerNote: row.partner_note ?? "" } : null;
+}
+
+function shapeIssue(row: IssueRow): TransferIssue {
+  return { id: row.id, kind: row.kind, status: row.status, description: row.description, reportedAt: row.reported_at, resolvedAt: row.resolved_at };
 }
 
 function shapeItem(row: TransferItemRow): TransferItem {
@@ -75,7 +81,7 @@ function shapeReceipt(row: ReceiptRow): Receipt {
 export function shapeTransfer(row: TransferRow): Transfer {
   const events = (row.transfer_events ?? []).slice().sort((a, b) => a.seq - b.seq).map(shapeEvent);
   const payment = (row.payments ?? []).slice().sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null;
-  return { id: row.id, status: row.status, referenceCode: row.reference_code, hotelName: row.hotel_name, hotelAddress: row.hotel_address, bagCount: row.bag_count, weightGrams: row.weight_grams, feeCents: row.fee_cents, currency: row.currency, etaStart: row.eta_start, etaEnd: row.eta_end, dropoffCutoffAt: row.dropoff_cutoff_at, confirmedAt: row.confirmed_at, deliveredAt: row.delivered_at, ineligibleCode: null, ineligibleReason: row.ineligible_reason, handoffFailureCode: null, passExpiresAt: null, source: row.source, createdAt: row.created_at, dropoffStore: shapeStore(row.dropoff_store), items: (row.bag_transfer_items ?? []).map(shapeItem), events, payment: payment ? shapePayment(payment) : null, receipt: (row.receipts ?? [])[0] ? shapeReceipt((row.receipts ?? [])[0]) : null, issues: [] };
+  return { id: row.id, status: row.status, referenceCode: row.reference_code, hotelName: row.hotel_name, hotelAddress: row.hotel_address, bagCount: row.bag_count, weightGrams: row.weight_grams, feeCents: row.fee_cents, currency: row.currency, etaStart: row.eta_start, etaEnd: row.eta_end, dropoffCutoffAt: row.dropoff_cutoff_at, confirmedAt: row.confirmed_at, deliveredAt: row.delivered_at, ineligibleCode: row.ineligible_code ?? null, ineligibleReason: row.ineligible_reason, handoffFailureCode: row.handoff_failure_code ?? null, passExpiresAt: row.pass_expires_at ?? null, source: row.source, createdAt: row.created_at, dropoffStore: shapeStore(row.dropoff_store), items: (row.bag_transfer_items ?? []).map(shapeItem), events, payment: payment ? shapePayment(payment) : null, receipt: (row.receipts ?? [])[0] ? shapeReceipt((row.receipts ?? [])[0]) : null, issues: (row.transfer_issues ?? []).slice().sort((a, b) => b.reported_at.localeCompare(a.reported_at)).map(shapeIssue) };
 }
 
 export function shapeTransferSummary(row: TransferRow): TransferSummary {

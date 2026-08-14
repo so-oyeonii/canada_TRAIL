@@ -26,7 +26,7 @@ export default function LoginPage() {
     }
   };
 
-  return <div className="stage"><div className="phone"><div className="screen login-screen">
+  return <div className="app-shell"><main className="app-main login-screen">
     <div className="login-brand"><span>T</span><b>TRAIL</b></div>
     <div className="login-intro">
       <p>SHOP LOCAL · TRAVEL LIGHT</p>
@@ -55,5 +55,5 @@ export default function LoginPage() {
     )}
 
     <p className="login-note">Trail stores your trip, purchases and bag transfers so a lost phone does not lose your record. Nothing is shared with the stores you visit.</p>
-  </div></div></div>;
+  </main></div>;
 }

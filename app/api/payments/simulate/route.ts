@@ -1,3 +1,5 @@
+import { getTraveler } from "../../../../lib/supabase/server";
+
 export const dynamic = "force-dynamic";
 
 /** Simulated card processing for the delivery fee.
@@ -28,6 +30,7 @@ function sameOrigin(request: Request) {
 
 export async function POST(request: Request) {
   if (!sameOrigin(request)) return Response.json({ error: "bad_origin" }, { status: 403 });
+  if (!(await getTraveler())) return Response.json({ error: "unauthenticated" }, { status: 401 });
 
   let payload: PaymentPayload;
   try {
@@ -46,8 +49,6 @@ export async function POST(request: Request) {
   // reachable while the flow is still a simulation.
   const failed = payload.outcome === "fail";
 
-  // A real processor takes a moment; without this the failure screen flashes past.
-  await new Promise((resolve) => setTimeout(resolve, 900));
 
   const reference = `TRL-PAY-${(amountCents * 7919 + method.length).toString(36).toUpperCase().slice(-6)}`;
 

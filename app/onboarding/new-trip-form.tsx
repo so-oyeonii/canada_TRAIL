@@ -83,7 +83,7 @@ export default function NewTripForm({ email }: { email: string }) {
     router.refresh();
   };
 
-  return <div className="stage"><div className="phone"><div className="screen onboarding-screen">
+  return <div className="app-shell"><main className="app-main onboarding-screen">
     <header className="app-header"><div className="brand"><span>T</span><b>TRAIL</b></div><div className="header-action"><span className="draft-badge">{email}</span></div></header>
 
     <div className="onboarding-progress">{STEPS.map((label, index) => <span key={label} className={index <= step ? "on" : ""}><i /><small>{label}</small></span>)}</div>
@@ -134,5 +134,5 @@ export default function NewTripForm({ email }: { email: string }) {
           : <button type="submit" className="main-button dark" disabled={saving || !canContinue}><span>{saving ? "Saving your trip…" : "Create my trip"}<small>You can change any of this later</small></span><i>✓</i></button>}
       </div>
     </form>
-  </div></div></div>;
+  </main></div>;
 }

@@ -1,5 +1,7 @@
 import { briefContext, composeTurn, emptyReply, inferPlanPatch, tripCurrency, FALLBACK_REPLY, SYSTEM_PROMPT, TURN_SCHEMA, type ChatErrorCode, type ChatReply, type ChatTurn, type KnownRecipient, type ModelTurn, type Plan, type PlanPatch, type TripContext, type TurnContext } from "../../trail-brief";
 
+import { getTraveler } from "../../../lib/supabase/server";
+
 export const dynamic = "force-dynamic";
 
 const DEFAULT_MODEL = "gpt-5.6-luna";
@@ -67,8 +69,11 @@ function buildContext(payload: ChatPayload): TurnContext {
 export async function POST(request: Request) {
   if (!sameOrigin(request)) return fail("bad_origin", FALLBACK_REPLY);
 
-  const forwarded = request.headers.get("x-forwarded-for") ?? "";
-  if (rateLimited(forwarded.split(",")[0].trim() || "anonymous")) return fail("rate_limited", FALLBACK_REPLY);
+  // Sign-in is the gate. x-forwarded-for is caller-supplied, so keying the limit on it
+  // let anyone reset their own quota by changing one header.
+  const traveler = await getTraveler();
+  if (!traveler) return fail("unauthenticated", FALLBACK_REPLY);
+  if (rateLimited(traveler.id)) return fail("rate_limited", FALLBACK_REPLY);
 
   const raw = await request.text();
   if (raw.length > MAX_BODY_BYTES) return fail("too_large", FALLBACK_REPLY);

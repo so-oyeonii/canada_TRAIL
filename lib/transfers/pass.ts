@@ -18,8 +18,13 @@ export const PASS_PREFIX = "TRLP1";
 export const PASS_MAX_HOURS = 24;
 export const PASS_GRACE_HOURS = 3;
 
-export type PassPayload = { v: 1; t: string; j: string; iat: number; exp: number; n: number };
-export type PassVerdict = { ok: true; payload: PassPayload } | { ok: false; reason: "malformed" | "bad_signature" | "pass_expired" | "pass_replaced" };
+/** `k` separates the two things this format carries: the pass a traveler shows,
+ *  and the 15-minute session a partner terminal gets back for scanning it. Without
+ *  it a stolen pass would also authorise the counter-side calls. */
+export type PassKind = "pass" | "scan";
+export type PassPayload = { v: 1; k: PassKind; t: string; j: string; iat: number; exp: number; n: number };
+export type PassVerdict = { ok: true; payload: PassPayload } | { ok: false; reason: "malformed" | "bad_signature" | "pass_expired" | "pass_replaced" | "wrong_kind" };
+export const SCAN_SESSION_MINUTES = 15;
 
 const encoder = new TextEncoder();
 
@@ -59,12 +64,20 @@ export async function signPass(payload: PassPayload, secret: string) {
 
 export async function issuePass(input: { transferId: string; jti: string; issuedAt: Date; cutoffAt: Date | null; bagCount: number; secret: string }) {
   const iat = Math.floor(input.issuedAt.getTime() / 1000);
-  const payload: PassPayload = { v: 1, t: input.transferId, j: input.jti, iat, exp: passExpirySeconds(input.issuedAt, input.cutoffAt), n: input.bagCount };
+  const payload: PassPayload = { v: 1, k: "pass", t: input.transferId, j: input.jti, iat, exp: passExpirySeconds(input.issuedAt, input.cutoffAt), n: input.bagCount };
   const token = await signPass(payload, input.secret);
   return { token, payload, tokenHash: await sha256Hex(token), expiresAt: new Date(payload.exp * 1000).toISOString(), issuedAt: new Date(iat * 1000).toISOString() };
 }
 
-export async function verifyPass(token: string, secret: string, now: Date, storedHash?: string | null): Promise<PassVerdict> {
+/** Proof that this terminal actually scanned the bag in front of it, good for
+ *  the few minutes it takes to attach tags and confirm the count. */
+export async function issueScanSession(transferId: string, jti: string, now: Date, secret: string) {
+  const iat = Math.floor(now.getTime() / 1000);
+  const payload: PassPayload = { v: 1, k: "scan", t: transferId, j: jti, iat, exp: iat + SCAN_SESSION_MINUTES * 60, n: 0 };
+  return { token: await signPass(payload, secret), expiresAt: new Date(payload.exp * 1000).toISOString() };
+}
+
+export async function verifyPass(token: string, secret: string, now: Date, storedHash?: string | null, kind: PassKind = "pass"): Promise<PassVerdict> {
   const parts = typeof token === "string" ? token.split(".") : [];
   if (parts.length !== 3 || parts[0] !== PASS_PREFIX) return { ok: false, reason: "malformed" };
 
@@ -77,6 +90,7 @@ export async function verifyPass(token: string, secret: string, now: Date, store
   let payload: PassPayload;
   try { payload = JSON.parse(new TextDecoder().decode(fromB64url(parts[1]))) as PassPayload; } catch { return { ok: false, reason: "malformed" }; }
   if (payload?.v !== 1 || typeof payload.t !== "string" || typeof payload.exp !== "number" || typeof payload.iat !== "number") return { ok: false, reason: "malformed" };
+  if ((payload.k ?? "pass") !== kind) return { ok: false, reason: "wrong_kind" };
 
   const seconds = Math.floor(now.getTime() / 1000);
   if (seconds >= payload.exp || seconds + 60 < payload.iat) return { ok: false, reason: "pass_expired" };

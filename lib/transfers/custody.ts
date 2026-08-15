@@ -64,3 +64,25 @@ export function nextSimulatedEvent(status: TransferStatus, lastEventType: Transf
   const step = SIMULATED_CHAIN.find((s) => s.status === status && (s.after === null || s.after === lastEventType));
   return step ? { eventType: step.eventType, actor: step.actor } : null;
 }
+
+/** What a traveler's claim is allowed to do to a delivery in this state.
+ *
+ *  RLS already refuses the events that are somebody else's claim; this decides
+ *  the ones that are the traveler's but arrive in the wrong order, and it exists
+ *  so the answer is a named 409 instead of a policy refusal the screen cannot
+ *  explain. Dropping bags off for a delivery nobody confirmed, and cancelling a
+ *  run whose bags a partner is already holding, are both that. */
+export type EventVerdict = { ok: true } | { ok: false; status: number; code: string };
+
+const OK: EventVerdict = { ok: true };
+const NO = (code: string, status = 409): EventVerdict => ({ ok: false, status, code });
+
+export function travelerEventVerdict(eventType: TravelerEvent, status: TransferStatus): EventVerdict {
+  if (TERMINAL.includes(status)) return NO("transfer_closed");
+  if (eventType === "cancelled") return status === "draft" || status === "awaiting_payment" || status === "paid" ? OK : NO("too_late_to_cancel");
+  if (status === "draft") return NO("not_confirmed");
+  // A confirmed delivery can be dropped off; whether it is paid for is the
+  // partner terminal's decision at the counter, and it reads that from the scan.
+  if (eventType === "dropped_off") return ["awaiting_payment", "paid", "dropped_off"].includes(status) ? OK : NO("already_collected");
+  return OK;                                                // delayed and seal_issue stay reportable, failed handoffs included
+}

@@ -75,3 +75,25 @@ export function etaWindow(cutoff: Date) {
 /** Chilled items are the one thing the delivery cannot simply hold overnight. */
 export const CHILLED_HOURS = 4;
 export function chilledDeadline(purchasedAt: Date) { return new Date(purchasedAt.getTime() + CHILLED_HOURS * 3600_000); }
+
+/** The price list in force right now. Rows are appended, never edited, so a
+ *  quote given yesterday can still be explained; the newest row whose
+ *  `effective_from` has passed is the one that applies. */
+export function pickPricing<T extends PricingRow & { effective_from: string }>(rows: T[] | null, now: Date): T | null {
+  const live = (rows ?? []).filter((r) => Date.parse(r.effective_from) <= now.getTime());
+  return live.slice().sort((a, b) => Date.parse(b.effective_from) - Date.parse(a.effective_from))[0] ?? null;
+}
+
+/** Whether the counter is open right now, from `store_hours` rows.
+ *
+ *  The weekday is the store's, not the device's: at 22:00 in Toronto it is
+ *  already tomorrow in UTC, and reading Tuesday's hours on a Monday evening
+ *  sends a traveler to a shut door. A store with no rows for today is closed —
+ *  guessing "probably open" is how the delivery becomes impossible at 18:05. */
+export function isOpenNow(now: Date, timeZone: string, hours: { weekday: number; opens: string; closes: string }[]): boolean {
+  const today = hours.find((h) => h.weekday === weekdayInZone(now, timeZone));
+  if (!today) return false;
+  const day = dayInZone(now, timeZone);
+  const opens = zonedInstant(day, today.opens, timeZone), closes = zonedInstant(day, today.closes, timeZone);
+  return now >= opens && now < closes;
+}

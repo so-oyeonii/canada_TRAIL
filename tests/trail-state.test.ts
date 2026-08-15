@@ -71,7 +71,7 @@ test("spend with no stop still counts against the budget", () => {
 });
 
 test("with no plan the wallet reports real spend and refuses to invent a budget", () => {
-  const wallet = computeWallet(null, [], [{ id: "p", stopId: null, actualPriceCents: 4200, quantity: 1, bags: 1, handling: "Standard", currency: "CAD", note: null, unplannedLabel: "Tote", recordedAt: "", voidedAt: null, voidReason: null }]);
+  const wallet = computeWallet(null, [], [{ id: "p", stopId: null, actualPriceCents: 4200, quantity: 1, bags: 1, handling: "Standard", currency: "CAD", note: null, unplannedLabel: "Tote", clientKey: null, recordedAt: "", voidedAt: null, voidReason: null }]);
   assert.equal(wallet.spentCents, 4200);
   assert.equal(wallet.plannedCents, 0);
   assert.equal(wallet.overPlan, false);

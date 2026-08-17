@@ -2,8 +2,8 @@
  *  rules that matter here (which plan wins, what counts as spent, which transfer
  *  is the live one) are testable without a database. */
 
-import type { IssueRow, PaymentRow, PlanRow, PurchaseRow, ReceiptRow, RecipientRow, StopRow, StoreRow, TransferEventRow, TransferItemRow, TransferRow, TripListRow, TripRow, UserRow } from "./rows";
-import type { Payment, Plan, Purchase, Receipt, Recipient, SourceLabels, Stop, TrailState, TransferEvent, TransferIssue, TransferItem, TransferSummary, TravelerProfile, Trip, TripSummary, Wallet, Transfer, DropoffStore, Inquiry } from "./types";
+import type { BudgetChangeRow, IssueRow, PaymentRow, PlanRow, PurchaseRow, ReceiptRow, RecipientRow, StopRow, StoreRow, TransferEventRow, TransferItemRow, TransferRow, TripListRow, TripRow, UserRow } from "./rows";
+import type { Allocation, BudgetChange, BudgetSnapshot, Payment, Plan, Purchase, Receipt, Recipient, SourceLabels, Stop, TrailState, TransferEvent, TransferIssue, TransferItem, TransferSummary, TravelerProfile, Trip, TripSummary, Wallet, Transfer, DropoffStore, Inquiry } from "./types";
 import { EMPTY_WALLET } from "./types.ts";
 
 /** A transfer is still the traveler's current one until it is delivered or
@@ -34,8 +34,34 @@ export function shapePlan(row: PlanRow | null): Plan | null {
   return { id: row.id, status: row.status, version: row.version, totalCents: row.total_cents, plannedCents: row.planned_cents, deliveryReserveCents: row.delivery_reserve_cents, flexibleCents: row.flexible_cents, category: row.category, preference: row.preference, localOnly: row.local_only, easyPack: row.easy_pack, hotelDelivery: row.hotel_delivery, approvedAt: row.approved_at, allocations: (row.plan_allocations ?? []).map((a) => ({ recipientId: a.recipient_id, amountCents: a.amount_cents, bucket: a.bucket })) };
 }
 
-export function shapeRecipient(row: RecipientRow): Recipient {
-  return { id: row.id, name: row.name, relationship: row.relationship, groupSize: row.group_size, priority: row.priority, isSelf: row.is_self, isOptional: row.is_optional, preferenceNote: row.preference_note, equalValueGroup: row.equal_value_group };
+/** `allocationCents` is joined on from the live plan rather than stored twice.
+ *  Absent means unallocated, and that is not the same number as zero: zero is a
+ *  decision the traveller made, absent is one nobody has made yet. */
+export function shapeRecipient(row: RecipientRow, allocation: number | null = null): Recipient {
+  return { id: row.id, name: row.name, relationship: row.relationship, groupSize: row.group_size, priority: row.priority, isSelf: row.is_self, isOptional: row.is_optional, preferenceNote: row.preference_note, equalValueGroup: row.equal_value_group, allocationCents: allocation, createdAt: row.created_at };
+}
+
+const BUDGET_KINDS = new Set(["allocation_overrun", "bucket_move", "total_change", "reserve_release"]);
+const isCents = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && Number.isInteger(v) && v >= 0;
+
+/** The jsonb halves of a budget change are read, never trusted: RLS lets a
+ *  traveller insert their own `budget_changes` row, so a snapshot that is not the
+ *  shape this app writes comes back null and the screen shows no proposal. */
+export function shapeBudgetSnapshot(raw: unknown): BudgetSnapshot | null {
+  const row = (raw ?? {}) as Record<string, unknown>;
+  const plan = (row.plan ?? null) as Record<string, unknown> | null;
+  if (typeof row.kind !== "string" || !BUDGET_KINDS.has(row.kind) || !plan) return null;
+  const keys = ["totalCents", "plannedCents", "deliveryReserveCents", "flexibleCents"] as const;
+  if (!keys.every((k) => isCents(plan[k]))) return null;
+  const allocations = Array.isArray(row.allocations)
+    ? row.allocations.filter((a): a is Allocation => !!a && typeof a === "object" && typeof (a as Allocation).recipientId === "string" && isCents((a as Allocation).amountCents)).map((a) => ({ recipientId: a.recipientId, amountCents: a.amountCents, bucket: (a.bucket ?? "planned") as Allocation["bucket"] }))
+    : null;
+  return { kind: row.kind as BudgetSnapshot["kind"], plan: { totalCents: plan.totalCents as number, plannedCents: plan.plannedCents as number, deliveryReserveCents: plan.deliveryReserveCents as number, flexibleCents: plan.flexibleCents as number }, allocations };
+}
+
+export function shapeBudgetChange(row: BudgetChangeRow): BudgetChange {
+  const after = shapeBudgetSnapshot(row.after_state);
+  return { id: row.id, planId: row.plan_id, kind: after?.kind ?? "bucket_move", status: row.status, proposedBy: row.proposed_by, reason: row.reason, before: shapeBudgetSnapshot(row.before_state), after, createdAt: row.created_at, decidedAt: row.decided_at };
 }
 
 export function shapePurchase(row: PurchaseRow): Purchase {
@@ -112,7 +138,7 @@ export function computeWallet(plan: Plan | null, stops: Stop[], unplanned: Purch
   const spentCents = stops.reduce((sum, s) => sum + live(s.purchase), 0) + unplanned.reduce((sum, p) => sum + live(p), 0);
   if (!plan) return { ...EMPTY_WALLET, spentCents };
   const allocated = plan.allocations.filter((a) => a.bucket === "planned").reduce((sum, a) => sum + a.amountCents, 0);
-  return { totalCents: plan.totalCents, plannedCents: plan.plannedCents, reserveCents: plan.deliveryReserveCents, flexibleCents: plan.flexibleCents, spentCents, spendableCents: plan.plannedCents - spentCents, unallocatedCents: plan.plannedCents - allocated, overPlan: spentCents > plan.plannedCents };
+  return { totalCents: plan.totalCents, plannedCents: plan.plannedCents, reserveCents: plan.deliveryReserveCents, flexibleCents: plan.flexibleCents, spentCents, spendableCents: plan.plannedCents - spentCents, unallocatedCents: plan.plannedCents - allocated, allocatedCents: allocated, overPlan: spentCents > plan.plannedCents };
 }
 
 /** Timestamps are compared as instants, not strings: PostgREST trims trailing
@@ -128,7 +154,7 @@ export function shapeState(input: { user: UserRow | null; userId: string; email:
   const user = shapeUser(input.user, input.userId, input.email);
   const trips = (input.list ?? []).map(shapeTripSummary);
   const row = input.trip;
-  if (!row) return { serverTime, stateVersion: newestTimestamp(input.list.map((t) => t.updated_at), serverTime), user, activeTripId: null, trips, trip: null, plan: null, wallet: EMPTY_WALLET, recipients: [], stops: [], unplannedPurchases: [], transfer: null, pastTransfers: [], labels: { stops: null, transfer: null, payment: null } };
+  if (!row) return { serverTime, stateVersion: newestTimestamp(input.list.map((t) => t.updated_at), serverTime), user, activeTripId: null, trips, trip: null, plan: null, wallet: EMPTY_WALLET, recipients: [], budgetChanges: [], pendingBudgetChange: null, stops: [], unplannedPurchases: [], transfer: null, pastTransfers: [], labels: { stops: null, transfer: null, payment: null } };
 
   const planRow = pickPlan(row.plans);
   const plan = shapePlan(planRow);
@@ -136,7 +162,14 @@ export function shapeState(input: { user: UserRow | null; userId: string; email:
   const unplannedPurchases = (row.unplanned_purchases ?? []).filter((p) => p.stop_id === null).map(shapePurchase);
   const { transfer, pastTransfers } = splitTransfers(row.bag_transfers);
   const labels: SourceLabels = { stops: stops[0]?.source ?? null, transfer: transfer?.source ?? null, payment: transfer?.payment ? transfer.source : null };
+  // Recipients arrive in creation order (`r1`, `r2` … resolve against it), and the
+  // allocation they carry is the live plan's, so an old draft's split never shows.
+  const byRecipient = new Map((plan?.allocations ?? []).filter((a) => a.bucket === "planned").map((a) => [a.recipientId, a.amountCents]));
+  const recipients = (row.recipients ?? []).slice().sort((a, b) => a.created_at.localeCompare(b.created_at)).map((r) => shapeRecipient(r, byRecipient.has(r.id) ? byRecipient.get(r.id)! : null));
+  const budgetChanges = ((planRow?.budget_changes ?? []) as BudgetChangeRow[]).slice().sort((a, b) => b.created_at.localeCompare(a.created_at)).map(shapeBudgetChange);
+  const pendingBudgetChange = budgetChanges.find((c) => c.status === "proposed") ?? null;
+
   const stateVersion = newestTimestamp([row.updated_at, planRow?.updated_at, ...(row.stops ?? []).map((s) => s.updated_at), ...(row.stops ?? []).flatMap((s) => (s.purchases ?? []).map((p) => p.updated_at)), ...(row.unplanned_purchases ?? []).map((p) => p.updated_at), ...(row.bag_transfers ?? []).map((t) => t.updated_at), ...input.list.map((t) => t.updated_at)], serverTime);
 
-  return { serverTime, stateVersion, user, activeTripId: row.id, trips, trip: shapeTrip(row), plan, wallet: computeWallet(plan, stops, unplannedPurchases), recipients: (row.recipients ?? []).map(shapeRecipient), stops, unplannedPurchases, transfer, pastTransfers, labels };
+  return { serverTime, stateVersion, user, activeTripId: row.id, trips, trip: shapeTrip(row), plan, wallet: computeWallet(plan, stops, unplannedPurchases), recipients, budgetChanges, pendingBudgetChange, stops, unplannedPurchases, transfer, pastTransfers, labels };
 }

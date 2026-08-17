@@ -60,7 +60,7 @@ test("a replacement is a new stop, and the stop it replaced leaves the route", (
 
 test("the wallet never adds the delivery reserve to what can be spent", () => {
   const state = build({ stops: [stopRow(STOP_A, 0, { status: "bought", purchases: [purchaseRow("p-1", STOP_A, 17600)] })] });
-  assert.deepEqual(state.wallet, { totalCents: 25000, plannedCents: 21000, reserveCents: 900, flexibleCents: 3100, spentCents: 17600, spendableCents: 3400, unallocatedCents: 7000, overPlan: false });
+  assert.deepEqual(state.wallet, { totalCents: 25000, plannedCents: 21000, reserveCents: 900, flexibleCents: 3100, spentCents: 17600, spendableCents: 3400, unallocatedCents: 7000, allocatedCents: 14000, overPlan: false });
 });
 
 test("spend with no stop still counts against the budget", () => {

@@ -27,6 +27,11 @@ export type PaymentStatus = "reserved" | "authorized" | "captured" | "failed" | 
 export type InquiryStatus = "open" | "in_stock" | "out_of_stock" | "no_answer" | "expired";
 export type DataSource = "sample" | "simulated" | "live";
 export type BudgetBucket = "planned" | "delivery_reserve" | "flexible";
+/** `plan_actor` in the database. Only `approval` may write a `stage='approved'`
+ *  plan event — the `ai_cannot_approve` check refuses anything else. */
+export type PlanActor = "user_edit" | "ai_patch" | "regex_suggestion" | "system_clamp" | "approval" | "revert";
+export type BudgetChangeStatus = "proposed" | "approved" | "rejected";
+export type BudgetChangeKind = "allocation_overrun" | "bucket_move" | "total_change" | "reserve_release";
 
 export type StopId = string;
 export type PurchaseId = string;
@@ -47,9 +52,17 @@ export type Plan = { id: string; status: PlanStatus; version: number; totalCents
 /** Computed by the server. A client that adds up spend itself drifts the moment
  *  one write is still sitting in the outbox. `reserveCents` is displayed, never
  *  added to what is spendable. */
-export type Wallet = { totalCents: number; plannedCents: number; reserveCents: number; flexibleCents: number; spentCents: number; spendableCents: number; unallocatedCents: number; overPlan: boolean };
+export type Wallet = { totalCents: number; plannedCents: number; reserveCents: number; flexibleCents: number; spentCents: number; spendableCents: number; unallocatedCents: number; allocatedCents: number; overPlan: boolean };
 
-export type Recipient = { id: string; name: string; relationship: string; groupSize: number; priority: number; isSelf: boolean; isOptional: boolean; preferenceNote: string; equalValueGroup: string | null };
+/** `allocationCents` is the recipient's slice of `planned`, resolved to a group
+ *  total — it is the plan's allocation row joined on, not a second source of
+ *  truth. Null means nobody has divided anything to them yet, which is not 0. */
+export type Recipient = { id: string; name: string; relationship: string; groupSize: number; priority: number; isSelf: boolean; isOptional: boolean; preferenceNote: string; equalValueGroup: string | null; allocationCents: number | null; createdAt: string };
+
+/** A budget move waiting for, or carrying, the traveller's tap. `after` is what
+ *  the plan becomes if it is approved; nothing in it is true until then. */
+export type BudgetSnapshot = { kind: BudgetChangeKind; plan: { totalCents: number; plannedCents: number; deliveryReserveCents: number; flexibleCents: number }; allocations: Allocation[] | null };
+export type BudgetChange = { id: string; planId: string; kind: BudgetChangeKind; status: BudgetChangeStatus; proposedBy: PlanActor; reason: string; before: BudgetSnapshot | null; after: BudgetSnapshot | null; createdAt: string; decidedAt: string | null };
 
 /** `clientKey` is only set on a purchase with no stop: it is the uuid the client
  *  chose for the bag, and what `PUT /api/purchases/unplanned/{key}` replays onto. */
@@ -102,6 +115,11 @@ export type TrailState = {
   plan: Plan | null;
   wallet: Wallet;
   recipients: Recipient[];
+  /** Newest first, decided ones included: the approval trail is the record that
+   *  makes "the traveller always approves" checkable after the fact. */
+  budgetChanges: BudgetChange[];
+  /** The one still waiting for a tap, if any. The screens gate on this. */
+  pendingBudgetChange: BudgetChange | null;
   stops: Stop[];
   /** Bought outside the plan (`purchases.stop_id is null`). Counted in the wallet:
    *  spend that has no stop still takes a traveler over budget. */
@@ -111,8 +129,8 @@ export type TrailState = {
   labels: SourceLabels;
 };
 
-export const EMPTY_WALLET: Wallet = { totalCents: 0, plannedCents: 0, reserveCents: 0, flexibleCents: 0, spentCents: 0, spendableCents: 0, unallocatedCents: 0, overPlan: false };
+export const EMPTY_WALLET: Wallet = { totalCents: 0, plannedCents: 0, reserveCents: 0, flexibleCents: 0, spentCents: 0, spendableCents: 0, unallocatedCents: 0, allocatedCents: 0, overPlan: false };
 
 export function emptyState(user: TravelerProfile, serverTime = new Date().toISOString()): TrailState {
-  return { serverTime, stateVersion: serverTime, user, activeTripId: null, trips: [], trip: null, plan: null, wallet: EMPTY_WALLET, recipients: [], stops: [], unplannedPurchases: [], transfer: null, pastTransfers: [], labels: { stops: null, transfer: null, payment: null } };
+  return { serverTime, stateVersion: serverTime, user, activeTripId: null, trips: [], trip: null, plan: null, wallet: EMPTY_WALLET, recipients: [], budgetChanges: [], pendingBudgetChange: null, stops: [], unplannedPurchases: [], transfer: null, pastTransfers: [], labels: { stops: null, transfer: null, payment: null } };
 }

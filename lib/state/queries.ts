@@ -24,10 +24,13 @@ export const tripSelect = (t5: boolean) => `
   plans!plans_trip_id_user_id_fkey (
     id, status, version, total_cents, planned_cents, delivery_reserve_cents, flexible_cents,
     category, preference, local_only, easy_pack, hotel_delivery, approved_at, updated_at,
-    plan_allocations!plan_allocations_plan_id_user_id_fkey ( recipient_id, amount_cents, bucket )
+    plan_allocations!plan_allocations_plan_id_user_id_fkey ( recipient_id, amount_cents, bucket ),
+    budget_changes!budget_changes_plan_id_user_id_fkey (
+      id, plan_id, proposed_by, reason, before_state, after_state, status, decided_at, created_at
+    )
   ),
   recipients!recipients_trip_id_user_id_fkey (
-    id, name, relationship, group_size, priority, is_self, is_optional, preference_note, equal_value_group
+    id, name, relationship, group_size, priority, is_self, is_optional, preference_note, equal_value_group, created_at
   ),
   stops!stops_trip_id_user_id_fkey (
     id, plan_id, sequence, planned_day, status, recipient_id, product_name, store_name, store_address,
@@ -87,3 +90,6 @@ export function isMissingSchema(error: { code?: string; message?: string } | nul
  *  is never filtered out — custody history does not disappear from the screen. */
 export const TRANSFER_WINDOW = 5;
 export const TRIP_LIST_WINDOW = 30;
+/** Enough approval history for the screen to show what was decided this trip.
+ *  The full trail lives in `plan_events` and is never trimmed. */
+export const BUDGET_CHANGE_WINDOW = 10;

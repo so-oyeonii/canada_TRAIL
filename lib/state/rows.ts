@@ -4,14 +4,18 @@
  *  only file allowed to translate it. Keeping the row types here means a column
  *  rename breaks the build in one place instead of leaking `any` through the app. */
 
-import type { BudgetBucket, DataSource, Handling, HandoffFailureCode, IneligibleCode, InquiryStatus, IssueKind, IssueStatus, PaymentStatus, PlanStatus, StopStatus, TransferActor, TransferEventType, TransferStatus, TripStatus } from "./types";
+import type { BudgetBucket, BudgetChangeStatus, DataSource, Handling, HandoffFailureCode, IneligibleCode, InquiryStatus, IssueKind, IssueStatus, PaymentStatus, PlanActor, PlanStatus, StopStatus, TransferActor, TransferEventType, TransferStatus, TripStatus } from "./types";
 
 export type UserRow = { id: string; email: string | null; display_name: string | null; home_currency: string | null; locale: string | null; memory_enabled: boolean | null; first_run_done_at?: string | null };
 
 export type AllocationRow = { recipient_id: string; amount_cents: number; bucket: BudgetBucket };
-export type PlanRow = { id: string; status: PlanStatus; version: number; total_cents: number; planned_cents: number; delivery_reserve_cents: number; flexible_cents: number; category: string; preference: string; local_only: boolean; easy_pack: boolean; hotel_delivery: boolean; approved_at: string | null; updated_at: string; plan_allocations: AllocationRow[] | null };
+export type PlanRow = { id: string; status: PlanStatus; version: number; total_cents: number; planned_cents: number; delivery_reserve_cents: number; flexible_cents: number; category: string; preference: string; local_only: boolean; easy_pack: boolean; hotel_delivery: boolean; approved_at: string | null; updated_at: string; plan_allocations: AllocationRow[] | null; budget_changes?: BudgetChangeRow[] | null };
 
-export type RecipientRow = { id: string; name: string; relationship: string; group_size: number; priority: number; is_self: boolean; is_optional: boolean; preference_note: string; equal_value_group: string | null };
+/** The two jsonb columns are written by the server, but RLS also lets a traveller
+ *  insert their own row, so `shape.ts` reads them as unknown and validates. */
+export type BudgetChangeRow = { id: string; plan_id: string; proposed_by: PlanActor; reason: string; before_state: unknown; after_state: unknown; status: BudgetChangeStatus; decided_at: string | null; created_at: string };
+
+export type RecipientRow = { id: string; name: string; relationship: string; group_size: number; priority: number; is_self: boolean; is_optional: boolean; preference_note: string; equal_value_group: string | null; created_at: string };
 
 /** The columns marked optional are the ones added by migrations 0009–0012. They
  *  stay optional until those files are applied, because `loadTrailState` drops

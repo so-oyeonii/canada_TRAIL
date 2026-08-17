@@ -8,7 +8,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { TripListRow, TripRow, UserRow } from "./rows";
 import type { TrailState } from "./types";
-import { isMissingSchema, TRANSFER_WINDOW, TRIP_LIST_SELECT, TRIP_LIST_WINDOW, tripSelect, USER_SELECT } from "./queries.ts";
+import { BUDGET_CHANGE_WINDOW, isMissingSchema, TRANSFER_WINDOW, TRIP_LIST_SELECT, TRIP_LIST_WINDOW, tripSelect, USER_SELECT } from "./queries.ts";
 import { shapeState } from "./shape.ts";
 
 export class StateLoadError extends Error { step: string; detail: string; constructor(step: string, detail: string) { super(`${step}: ${detail}`); this.step = step; this.detail = detail; } }
@@ -29,6 +29,9 @@ function tripQuery(db: SupabaseClient, userId: string, t5: boolean) {
     .eq("user_id", userId)                                  // redundant under RLS; this is what puts trips_user_idx to work
     .is("recipients.archived_at", null)
     .is("unplanned_purchases.stop_id", null)
+    .order("created_at", { referencedTable: "recipients", ascending: true })   // r1, r2 … are this order
+    .order("created_at", { referencedTable: "plans.budget_changes", ascending: false })
+    .limit(BUDGET_CHANGE_WINDOW, { referencedTable: "plans.budget_changes" })
     .order("sequence", { referencedTable: "stops", ascending: true })
     .order("created_at", { referencedTable: "bag_transfers", ascending: false })
     .order("seq", { referencedTable: "bag_transfers.transfer_events", ascending: true })

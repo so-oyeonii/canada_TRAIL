@@ -28,23 +28,25 @@
 
 **실제 계정으로 검증한 것**: 로그아웃 시 전 탭이 `/login`으로, 로그인 후 여행 없으면 `/onboarding`으로. 파리 여행을 등록하면 **파리로 나온다**(전엔 하드코딩 토론토). 지갑 `200 + 15 + 35 = 250`이고 쇼핑 가능액은 `200`(예비비·flexible 미포함).
 
-## ⚠️ 다음 세션에서 **가장 먼저** 확인할 것
+## ⚠️ 다음 세션에서 **가장 먼저** 할 것 — 승인 게이트 우회 구멍
 
-**T4 서버 절반이 백그라운드에서 돌던 중에 대화가 끝났다.** 결과 보고를 못 받았으므로:
+T4 서버(수령인·배분·예산 변경 라우트)는 **완료돼 커밋됐다**(테스트 199개 통과). 그 작업 중에 플랫폼 담당이 실재하는 구멍을 하나 보고했다:
 
-```bash
-git status --short          # 새 파일이 있으면 T4 서버 작업 산출물
-npm run lint && npm test && npx next build
-```
+**`plans` · `plan_allocations` · `budget_changes`의 RLS 정책이 소유자 `for all`이라, 브라우저에서 supabase-js로 직접 `plans.status='approved'`나 `planned_cents`를 쓸 수 있다.** 즉 "사용자가 승인한다"는 제품 헌법 1조를 **API가 정직해서** 지키고 있을 뿐 DB가 강제하지 않는다. 이송 쪽에서 같은 종류의 구멍을 0003·0004로 막았는데 여기는 아직이다.
 
-통과하면 커밋하고, 실패하면 그 지점부터 이어가면 된다. T4 서버가 만들려던 것:
-`POST/PATCH/DELETE /api/recipients` · `PUT /api/plans/[id]/allocations` · `POST /api/budget-changes` (+`/approve` `/reject`) · `POST /api/recipients/apply` · `/api/state`에 `recipients`·`allocations` 추가.
+바로 못 막은 이유가 두 개다:
+1. `app/onboarding/new-trip-form.tsx:91`이 **브라우저에서 `plans`를 INSERT**한다 → 온보딩을 서버 라우트로 옮기는 게 선행
+2. 승인 경로(`app/api/budget-changes/[id]/approve`)가 **세션 클라이언트**로 `plans`를 UPDATE한다 → 지금 권한을 조이면 승인이 깨진다
+
+**고치는 순서**: ① 온보딩의 trip+plan 생성을 `POST /api/trips` 서버 라우트로 이동 → ② 승인 3쓰기를 `security definer` RPC 한 방으로 (PostgREST에 트랜잭션이 없어 지금은 절대값 재적용으로 안전하게 만들어 둔 상태) → ③ `plans`·`budget_changes`의 UPDATE를 `authenticated`에서 회수하는 마이그레이션 `0013`.
+
+방어책은 이미 들어가 있다 — `approve`가 저장된 `after_state`를 재검증하고 `stale_proposal`을 거절한다.
 
 ## 남은 것
 
 | 순서 | 작업 | 크기 | 비고 |
 | --- | --- | --- | --- |
-| 1 | **T4 화면** — 수령인별 계획 화면, AI 제안 탭해서 적용, **예산 초과 승인 화면** | L | 데모 경로의 마지막 큰 조각 |
+| 1 | **T4 화면** — 수령인별 계획 화면, AI 제안 탭해서 적용, **예산 초과 승인 화면** | L | 서버는 끝났다. 화면만 남았고 데모 경로의 마지막 큰 조각 |
 | 2 | **T6 결제 정합** — `payments` 행 기록, 환불, 예비비 부족 승인 UI | M | 지금 시뮬레이션이 DB에 안 쓴다 |
 | 3 | **T7 웹앱** — manifest · 서비스워커 · **오프라인 QR 패스** · 설치 | M | 조각별로 선행이 다름 |
 | 4 | **카탈로그** — 매장·상품 실데이터 | L | **너만 할 수 있다.** 이게 있어야 AI의 "매장명 금지"를 푼다 |

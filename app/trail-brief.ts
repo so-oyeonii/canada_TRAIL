@@ -4,9 +4,10 @@
 
 /* ── legacy single-recipient brief ───────────────────────────────────────────
  * `app/page.tsx` still edits this flat shape. It is a lossy projection of the real
- * contract below and disappears with that screen (T3/T4). `time` is dead — it is in
- * no schema, no brief block and no PLAN_KEYS; `trips.free_time` carries it. */
-export type Plan = { recipient: string; quantity: number; category: string; budget: number; preference: string; localOnly: boolean; easyPack: boolean; hotelDelivery: boolean; /** @deprecated not part of the model contract */ time?: string };
+ * contract below and disappears with that screen (T3/T4). `time` is gone entirely
+ * now — it was in no schema, no brief block and no PLAN_KEYS; `trips.free_time`
+ * carries it, and onboarding is where it is set. */
+export type Plan = { recipient: string; quantity: number; category: string; budget: number; preference: string; localOnly: boolean; easyPack: boolean; hotelDelivery: boolean };
 export type PlanPatch = Partial<Plan>;
 export type PlanKey = keyof Plan;
 

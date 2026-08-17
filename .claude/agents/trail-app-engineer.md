@@ -9,7 +9,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash
 ## 구조
 - Next.js 16 App Router(Vercel), React 19, Tailwind 4 + 수기 CSS, 데이터는 Supabase.
 - `app/page.tsx` — `"use client"` 단일 상태머신. `Screen` 유니온으로 화면을 전환하고 `go(next)`가 스크롤을 리셋한다. 앱 상태 대부분이 여기 모여 있다.
-- `app/onboarding/` 첫 여행 등록 · `app/login/`·`app/auth/callback/` 매직링크 · `middleware.ts` 세션 갱신.
+- `app/onboarding/` 첫 여행 등록 · `app/login/`·`app/auth/callback/` 매직링크 · `proxy.ts` 세션 갱신.
 - `app/api/chat`(AI 한 턴) · `app/api/payments/simulate`(결제 시뮬레이션).
 - 서버에서 신원을 읽는 페이지·라우트는 `export const dynamic = "force-dynamic"`.
 

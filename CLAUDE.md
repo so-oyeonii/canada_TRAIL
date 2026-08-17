@@ -24,17 +24,19 @@ npm run lint
 | `app/onboarding/` | 첫 여행 등록 4단계 + 예산 3버킷 분할 |
 | `app/login/`, `app/auth/callback/` | Supabase 매직링크 로그인 |
 | `app/api/chat/` | Trail AI 한 턴 (구조화 출력, 레이트리밋, 동일 출처) |
-| `app/api/payments/simulate/` | 결제 시뮬레이션 (실제 돈 없음) |
+| `app/api/trips/` | 첫 여행 + 지갑 생성 (브라우저는 plans를 직접 쓰지 않는다) |
+| `app/api/plans/`, `app/api/recipients/`, `app/api/budget-changes/` | 수령인 · 배분 · 예산 변경 제안/승인 |
+| `app/api/payments/simulate/` | 결제 시뮬레이션 (실제 돈 없음, `payments` 행은 진짜로 쓴다) |
 | `app/trail-brief.ts` | 프롬프트 · 출력 스키마 · brief 가드 |
 | `lib/supabase/` | 브라우저 · 서버 클라이언트 (`getTraveler()`) |
-| `middleware.ts` | 세션 갱신 |
+| `proxy.ts` | 세션 갱신 (Next 16에서 `middleware.ts`를 대체) |
 | `supabase/migrations/` | 스키마와 RLS 정책 |
 | `docs/MIGRATION_PLAN.md` | 단계별 계획 (P0~P5) |
 | `docs/figma/` | 피그마 참조 프레임 25장 |
 | `docs/TRAIL_USER_FLOW_EN.md` | 제품 흐름 |
 
 ## 제품 규칙
-1. Trail은 추천·계산만 한다. **예산 변경·구매·대체품·배송은 항상 사용자가 승인**한다.
+1. Trail은 추천·계산만 한다. **예산 변경·구매·대체품·배송은 항상 사용자가 승인**한다. 마이그레이션 `0013` 이후 이건 관례가 아니라 DB 권한이다 — 브라우저는 예산 변경을 **제안**만 할 수 있고, 승인은 `service_role`만 실행하는 함수 안에서 일어난다.
 2. 구매는 사용자가 매장에서 직접 한다. TRAIL은 경로 추천과 구매한 짐의 호텔 이송까지다. `Request`는 **재고 문의**이지 주문·예약이 아니다.
 3. 실데이터가 아닌 재고·지도·이송·결제 정보는 화면에 `Sample` / `Simulated`로 표기한다.
 4. 실패 분기 네 개는 항상 살아 있어야 한다: 추천 불가 / 실제가 예산 초과 / 이송 불가 / 호텔 인계 실패.

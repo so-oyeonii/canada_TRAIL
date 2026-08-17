@@ -2,8 +2,11 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 /** Refreshes the Supabase session cookie on every navigation. Without this the
- *  access token expires mid-trip and server reads start returning nothing. */
-export async function middleware(request: NextRequest) {
+ *  access token expires mid-trip and server reads start returning nothing.
+ *
+ *  `middleware.ts` is the deprecated name for this file in Next 16; the export
+ *  and the file are both `proxy` now. Nothing about what it does changed. */
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

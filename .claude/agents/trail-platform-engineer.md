@@ -9,7 +9,7 @@ tools: Read, Write, Edit, Glob, Grep, Bash
 ## 이미 살아 있는 것 (다시 만들지 마라)
 - Supabase에 **테이블 21개가 적용돼 있다**. `supabase/migrations/0001_schema.sql`, RLS는 `0002_rls.sql`. 전 테이블 `enable` + **`force row level security`**.
 - `auth.users`에 계정이 생기면 트리거가 `app_users`를 자동 생성한다.
-- 클라이언트: `lib/supabase/client.ts`(브라우저) · `lib/supabase/server.ts`(`getTraveler()`) · `middleware.ts`(세션 갱신).
+- 클라이언트: `lib/supabase/client.ts`(브라우저) · `lib/supabase/server.ts`(`getTraveler()`) · `proxy.ts`(세션 갱신).
 - 스키마 변경은 새 마이그레이션 파일 → Supabase MCP `apply_migration` → **`get_advisors`로 보안 린트 확인**까지가 한 세트다.
 
 ## 절대 규칙

@@ -84,11 +84,12 @@ export async function POST(request: Request, ctx: Ctx) {
   if (written.error || !written.data) return json({ error: "transfer_write_failed", detail: written.error?.message ?? "no row" }, 500);
   const row = written.data as TransferRowLite;
 
-  // The approval is recorded through the *session* client: it is the traveler's
-  // consent, and it should be written as them. `stage: approved` with any other
-  // actor is refused by the schema, so an AI patch can never land here.
+  // Attributed to the traveler (`user_id`, `actor: approval`) but written with
+  // the service key: since 0013 a browser may not insert an approved plan event
+  // at all, because one it could write is one it could forge. `stage: approved`
+  // with any other actor is refused by the schema, so an AI patch never lands here.
   if (drawsFlexible && judgement.planId) {
-    await db.from("plan_events").insert({ plan_id: judgement.planId, trip_id: trip.id, user_id: uid, actor: "approval", field: "delivery_fee_from_flexible", old_value: { reserveCents: judgement.reserveCents }, new_value: { feeCents: judgement.quote.feeCents, fromFlexibleCents: shortfall }, applied: true, stage: "approved" });
+    await admin.from("plan_events").insert({ plan_id: judgement.planId, trip_id: trip.id, user_id: uid, actor: "approval", field: "delivery_fee_from_flexible", old_value: { reserveCents: judgement.reserveCents }, new_value: { feeCents: judgement.quote.feeCents, fromFlexibleCents: shortfall }, applied: true, stage: "approved" });
   }
 
   // Status is the ledger's answer: `bags_selected` is what moves the transfer to

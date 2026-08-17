@@ -2,11 +2,10 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "../../lib/supabase/client";
 import { DELIVERY_RESERVE, QUOTE_BAGS, splitBudget } from "./budget";
+import { FREE_TIME, MINOR_UNITS_BY_CURRENCY } from "../../lib/trips/input";
 import "./onboarding.css";
 
-const FREE_TIME = ["1 hour", "2 hours", "3 hours", "Half day", "Full day"];
 const CURRENCIES = ["CAD", "USD", "EUR", "JPY", "KRW", "GBP"];
 const STEPS = ["Where", "When", "Base", "Budget"];
 
@@ -42,8 +41,8 @@ export default function NewTripForm({ email }: { email: string }) {
       try {
         const response = await fetch(`/api/dropoff-points?city=${encodeURIComponent(wanted)}&bags=${QUOTE_BAGS}`, { signal: stop.signal, headers: { accept: "application/json" } });
         if (!response.ok) return;
-        const data = (await response.json()) as { quote?: { feeCents?: number } };
-        if (typeof data.quote?.feeCents === "number") { setReserve(data.quote.feeCents / 100); setQuoted(true); }
+        const data = (await response.json()) as { quote?: { feeCents?: number; currency?: string } };
+        if (typeof data.quote?.feeCents === "number") { setReserve(data.quote.feeCents / MINOR_UNITS_BY_CURRENCY(data.quote.currency)); setQuoted(true); }
       } catch { /* offline: the fallback row already covers this */ }
     }, 300);
     return () => { stop.abort(); window.clearTimeout(timer); };
@@ -64,41 +63,19 @@ export default function NewTripForm({ email }: { email: string }) {
     event.preventDefault();
     if (saving || !canContinue) return;
     setSaving(true); setError("");
-    const supabase = createClient();
-    const { data: session } = await supabase.auth.getUser();
-    const userId = session.user?.id;
-    if (!userId) { setError("Your session expired. Sign in again."); setSaving(false); return; }
 
-    const { data: trip, error: tripError } = await supabase.from("trips").insert({
-      user_id: userId,
-      status: "planning",
-      country: country.trim(),
-      city: city.trim(),
-      areas,
-      start_date: startDate || null,
-      end_date: endDate || null,
-      hotel_name: hotel.trim(),
-      hotel_address: hotelAddress.trim(),
-      companions,
-      free_time: freeTime,
-      currency,
-    }).select("id").single();
-
-    if (tripError || !trip) { setError(tripError?.message ?? "Could not save the trip."); setSaving(false); return; }
-
-    // The wallet is created with the trip: a plan whose three buckets already add
-    // up, so no later screen has to invent a budget the traveler never approved.
-    const { error: planError } = await supabase.from("plans").insert({
-      trip_id: trip.id,
-      user_id: userId,
-      status: "draft",
-      total_cents: buckets.total * 100,
-      planned_cents: buckets.planned * 100,
-      delivery_reserve_cents: buckets.reserve * 100,
-      flexible_cents: buckets.flexible * 100,
-    });
-
-    if (planError) { setError(planError.message); setSaving(false); return; }
+    // The trip and its wallet are written by `POST /api/trips`. This form used to
+    // insert both rows itself, which is exactly the grant that let a browser
+    // approve its own plan — the split and the delivery reserve are the server's.
+    try {
+      const response = await fetch("/api/trips", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ country: country.trim(), city: city.trim(), areas, startDate: startDate || null, endDate: endDate || null, hotelName: hotel.trim(), hotelAddress: hotelAddress.trim(), companions, freeTime, currency, total }),
+      });
+      const data = (await response.json().catch(() => ({}))) as { error?: string; field?: string };
+      if (!response.ok) { setError(response.status === 401 ? "Your session expired. Sign in again." : data.field ? `Check the ${data.field} field.` : "Could not save the trip."); setSaving(false); return; }
+    } catch { setError("You appear to be offline. Your trip was not saved."); setSaving(false); return; }
 
     router.push("/");
     router.refresh();

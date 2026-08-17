@@ -17,8 +17,9 @@
  *  traveller always approves" stops being a convention. */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { adminOrNull } from "../transfers/server.ts";
 import { equalValueConflicts } from "./allocations.ts";
-import { planPatch, readState, reserveLocked, sameBuckets, validateAfterState, type BudgetState } from "./changes.ts";
+import { readState, reserveLocked, sameBuckets, validateAfterState, type BudgetState } from "./changes.ts";
 import { asPeople, buckets, liveRecipients, openTransferFee, PLAN_SELECT, type PlanLite } from "../recipients/server.ts";
 
 export type ChangeRow = { id: string; plan_id: string; status: "proposed" | "approved" | "rejected"; before_state: unknown; after_state: unknown; reason: string };
@@ -56,19 +57,35 @@ export async function readyToApply(db: SupabaseClient, change: ChangeRow): Promi
   return { ok: true, plan, after, before };
 }
 
-/** Plan first, allocations second, the claim last. See the note at the top. */
-export async function applyChange(db: SupabaseClient, userId: string, change: ChangeRow, plan: PlanLite, after: BudgetState): Promise<{ error: string; detail: string } | null> {
-  const moved = await db.from("plans").update(planPatch(after.plan)).eq("id", plan.id);
-  if (moved.error) return { error: "plan_write_failed", detail: moved.error.message };
+/** The three writes of an approval, in one transaction, through the one function
+ *  a browser cannot execute.
+ *
+ *  0013 took UPDATE on `plans` and on `budget_changes` away from `authenticated`,
+ *  so this is no longer three PostgREST calls with no transaction between them —
+ *  it is `approve_budget_change`, executable only by the service key. The numbers
+ *  are still worked out and re-validated above in TypeScript; the function is a
+ *  writer, not a second rulebook.
+ *
+ *  Without a service key the tap does not half-happen: it does not happen. */
+export type Decision = { outcome: "approved" | "rejected" | "replayed" | "already_rejected" | "already_approved" | "not_found" | "plan_not_found"; planId?: string; tripId?: string };
 
-  if (after.allocations) {
-    const cleared = await db.from("plan_allocations").delete().eq("plan_id", plan.id);
-    if (cleared.error) return { error: "allocation_write_failed", detail: cleared.error.message };
-    if (after.allocations.length) {
-      const rows = after.allocations.map((a) => ({ plan_id: plan.id, recipient_id: a.recipientId, user_id: userId, amount_cents: a.amountCents, bucket: a.bucket }));
-      const written = await db.from("plan_allocations").insert(rows);
-      if (written.error) return { error: "allocation_write_failed", detail: written.error.message };
-    }
-  }
-  return null;
+export async function approveBudgetChange(changeId: string, userId: string, after: BudgetState): Promise<DecideFailure | { ok: true; decision: Decision }> {
+  return callDecision("approve_budget_change", { p_change_id: changeId, p_user_id: userId, p_plan: after.plan, p_allocations: after.allocations });
+}
+
+export async function rejectBudgetChange(changeId: string, userId: string, reason: string | null): Promise<DecideFailure | { ok: true; decision: Decision }> {
+  return callDecision("reject_budget_change", { p_change_id: changeId, p_user_id: userId, p_reason: reason ?? "" });
+}
+
+async function callDecision(fn: string, args: Record<string, unknown>): Promise<DecideFailure | { ok: true; decision: Decision }> {
+  const admin = adminOrNull();
+  if (!admin) return { ok: false, status: 503, body: { error: "decision_unavailable", detail: "SUPABASE_SERVICE_ROLE_KEY is not set" } };
+  const res = await admin.rpc(fn, args);
+  if (res.error) return { ok: false, status: 500, body: { error: "decision_write_failed", detail: res.error.message } };
+  const decision = (res.data ?? {}) as Decision;
+  if (decision.outcome === "not_found") return { ok: false, status: 404, body: { error: "budget_change_not_found" } };
+  if (decision.outcome === "plan_not_found") return { ok: false, status: 404, body: { error: "plan_not_found" } };
+  if (decision.outcome === "already_rejected") return { ok: false, status: 409, body: { error: "already_rejected" } };
+  if (decision.outcome === "already_approved") return { ok: false, status: 409, body: { error: "already_approved" } };
+  return { ok: true, decision };
 }

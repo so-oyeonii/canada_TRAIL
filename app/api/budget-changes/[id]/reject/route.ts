@@ -1,13 +1,15 @@
 import { createClient, getTraveler } from "@/lib/supabase/server";
 import { asString, json, readBody, UUID } from "@/lib/api/http";
-import { CHANGE_SELECT, type ChangeRow } from "@/lib/budget/decide";
+import { CHANGE_SELECT, rejectBudgetChange, type ChangeRow } from "@/lib/budget/decide";
 import { echoBudget } from "@/lib/recipients/server";
 
 /** Saying no. Nothing in the plan moves, and the proposal stays on the record.
  *
  *  A rejection is a decision, so it is a status transition plus a plan event —
  *  not a deleted row. "Trail suggested moving $40 out of flexible and I said no"
- *  is exactly the kind of thing that has to still be readable a week later.
+ *  is exactly the kind of thing that has to still be readable a week later. Both
+ *  writes happen in `reject_budget_change`, for the same reason the approval does:
+ *  since 0013 a browser may propose a change but never decide one.
  *
  *  Rejecting something already approved is a 409: the money has moved, and the
  *  way back is a new proposal in the other direction, not a retroactive no. */
@@ -34,13 +36,8 @@ export async function POST(request: Request, ctx: Ctx) {
   const plan = await db.from("plans").select("id, trip_id").eq("id", change.plan_id).maybeSingle();
   if (!plan.data) return json({ error: "plan_not_found" }, 404);
 
-  const decided = await db.from("budget_changes").update({ status: "rejected", decided_at: new Date().toISOString() }).eq("id", id).eq("status", "proposed").select("id").maybeSingle();
-  if (decided.error) return json({ error: "budget_change_write_failed", detail: decided.error.message }, 500);
-  const replayed = !decided.data;
+  const decided = await rejectBudgetChange(id, uid, note);
+  if (!decided.ok) return json(decided.body, decided.status);
 
-  // `applied:false`, `stage:'draft'` — a refusal is never an approval, and the
-  // ledger has to be able to tell the two apart at a glance.
-  if (!replayed) await db.from("plan_events").insert({ plan_id: change.plan_id, trip_id: plan.data.trip_id as string, user_id: uid, actor: "user_edit", field: "budget_change_rejected", old_value: change.after_state, new_value: note ? { reason: note } : null, applied: false, stage: "draft" });
-
-  return echoBudget(db, uid, traveler.email ?? "", plan.data.trip_id as string, { budgetChangeId: id, replayed });
+  return echoBudget(db, uid, traveler.email ?? "", plan.data.trip_id as string, { budgetChangeId: id, replayed: decided.decision.outcome === "replayed" });
 }

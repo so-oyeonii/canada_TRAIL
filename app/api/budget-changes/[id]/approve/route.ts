@@ -1,18 +1,25 @@
 import { createClient, getTraveler } from "@/lib/supabase/server";
 import { json, readBody, UUID } from "@/lib/api/http";
-import { applyChange, CHANGE_SELECT, readyToApply, type ChangeRow } from "@/lib/budget/decide";
-import { buckets, echoBudget } from "@/lib/recipients/server";
+import { approveBudgetChange, CHANGE_SELECT, readyToApply, type ChangeRow } from "@/lib/budget/decide";
+import { echoBudget } from "@/lib/recipients/server";
 
 /** The tap. The only route in the app that moves money inside a plan.
  *
- *  Re-approving an already approved change is a 200 with `replayed: true`, not an
- *  error: `after_state` is absolute, so the second tap in a tunnel leaves exactly
- *  the same plan. Approving something already rejected is a 409 — that is a
- *  contradiction, not a replay.
+ *  The proposal is re-validated here, against the plan as it is now, because RLS
+ *  still lets a traveller insert a `budget_changes` row by hand and the plan may
+ *  have moved since the proposal was made. What it may no longer do is *decide*
+ *  one: 0013 took UPDATE on `plans` and `budget_changes` away from
+ *  `authenticated`, and `approve_budget_change` — plan, allocations and the claim
+ *  in one transaction — is executable only with the service key.
  *
- *  The plan event written here is the app's only `actor='approval', stage='approved'`
- *  row. Nothing else can write one: `ai_cannot_approve` and
- *  `only_approval_writes_approved` in 0001 refuse every other actor at that stage. */
+ *  Re-approving an already approved change is a 200 with `replayed: true`, not an
+ *  error: the second tap in a tunnel leaves exactly the same plan. Approving
+ *  something already rejected is a 409 — that is a contradiction, not a replay.
+ *
+ *  The plan event written by that function is the app's only
+ *  `actor='approval', stage='approved'` row. Nothing else can write one:
+ *  `ai_cannot_approve` and `only_approval_writes_approved` in 0001 refuse every
+ *  other actor at that stage, and 0013 refuses the actor itself from a browser. */
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -31,23 +38,17 @@ export async function POST(request: Request, ctx: Ctx) {
   if (!found.data) return json({ error: "budget_change_not_found" }, 404);
   const change = found.data as ChangeRow;
   if (change.status === "rejected") return json({ error: "already_rejected" }, 409);
-  // Already applied. The second tap in a tunnel gets the state back, not a 409 —
-  // and re-running the apply would read as a stale proposal, because it is.
+  // Already applied. The state comes back rather than a 409, and nothing is
+  // re-run: re-validating a landed proposal would read as stale, because it is.
   if (change.status === "approved") return echoBudget(db, uid, traveler.email ?? "", await tripOf(db, change.plan_id), { budgetChangeId: id, replayed: true });
 
   const ready = await readyToApply(db, change);
   if (!ready.ok) return json(ready.body, ready.status);
 
-  const failed = await applyChange(db, uid, change, ready.plan, ready.after);
-  if (failed) return json(failed, 500);
+  const applied = await approveBudgetChange(id, uid, ready.after);
+  if (!applied.ok) return json(applied.body, applied.status);
 
-  const claimed = await db.from("budget_changes").update({ status: "approved", decided_at: new Date().toISOString() }).eq("id", id).eq("status", "proposed").select("id").maybeSingle();
-  const replayed = !claimed.data;
-
-  // Approved, applied, and attributable. `actor='approval'` is reserved for this.
-  if (!replayed) await db.from("plan_events").insert({ plan_id: ready.plan.id, trip_id: ready.plan.trip_id, user_id: uid, actor: "approval", field: ready.after.allocations ? "budget+allocations" : "budget", old_value: buckets(ready.plan), new_value: ready.after.plan, raw_value: ready.after.allocations, applied: true, stage: "approved" });
-
-  return echoBudget(db, uid, traveler.email ?? "", ready.plan.trip_id, { budgetChangeId: id, replayed });
+  return echoBudget(db, uid, traveler.email ?? "", ready.plan.trip_id, { budgetChangeId: id, replayed: applied.decision.outcome === "replayed" });
 }
 
 async function tripOf(db: Awaited<ReturnType<typeof createClient>>, planId: string) {

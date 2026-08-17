@@ -1,7 +1,7 @@
 import { createClient, getTraveler } from "@/lib/supabase/server";
 import { asIsoTime, asString, json, oneOf, readBody, UUID } from "@/lib/api/http";
 import { echoTransfer, loadTransfer } from "@/lib/transfers/context";
-import { insertEvent } from "@/lib/transfers/server";
+import { adminOrNull, insertEvent } from "@/lib/transfers/server";
 import { travelerEventVerdict, TRAVELER_EVENTS } from "@/lib/transfers/custody";
 
 /** The traveler's own claims about the delivery.
@@ -20,9 +20,10 @@ import { travelerEventVerdict, TRAVELER_EVENTS } from "@/lib/transfers/custody";
  *
  *  Cancelling costs nothing: the reserve was never moved out of the wallet, only
  *  quoted against, so a cancelled delivery restores what it was going to spend by
- *  existing no more. A captured payment is a refund, which is a status change on
- *  the payment plus its own event — never a deleted row — and `refundDue` in the
- *  answer is what tells the screen to ask for it. */
+ *  existing no more. A captured payment is refunded with it — a status change on
+ *  the payment, never a deleted row — and `refundDue` in the answer is what the
+ *  screen tells the traveler. The refund is not a second approval: the money is
+ *  theirs and the bags never moved. */
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -60,6 +61,19 @@ export async function POST(request: Request, ctx: Ctx) {
   const written = await insertEvent(db, { transferId: id, userId: uid, eventType, actor: "traveler", occurredAt, note, location, payload: eventType === "cancelled" ? { refundDue: Boolean(captured?.data) } : {}, clientEventId });
   if (written.error) return json({ error: "event_write_failed", detail: written.error.message }, 500);
 
+  // Refunded only once the cancellation is actually on the ledger, and only with
+  // the service key: `payments` is read-only to the client for the same reason it
+  // cannot mark itself paid. A missing key leaves `refundDue` true and unpaid
+  // rather than reporting a refund that never happened.
+  let refunded = false;
+  if (captured?.data && !written.duplicate) {
+    const admin = adminOrNull();
+    if (admin) {
+      const back = await admin.from("payments").update({ status: "refunded", refunded_at: new Date().toISOString() }).eq("id", captured.data.id).eq("user_id", uid).select("id").maybeSingle();
+      refunded = Boolean(back.data);
+    }
+  }
+
   const who = { userId: uid, email: traveler.email ?? "", tripId: transfer.trip_id, transferId: id };
-  return echoTransfer(db, who, { event: written.event, replayed: written.duplicate, refundDue: captured?.data ? { paymentId: captured.data.id, amountCents: captured.data.amount_cents, currency: captured.data.currency } : null }, written.duplicate ? 200 : 201);
+  return echoTransfer(db, who, { event: written.event, replayed: written.duplicate, refundDue: captured?.data ? { paymentId: captured.data.id, amountCents: captured.data.amount_cents, currency: captured.data.currency, refunded } : null }, written.duplicate ? 200 : 201);
 }

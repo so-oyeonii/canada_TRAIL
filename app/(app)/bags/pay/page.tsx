@@ -53,13 +53,15 @@ function PayScreen() {
       }
     }
     setStatus("processing");
-    const snapshot = await refresh();
-    const charge = snapshot.state?.transfer?.feeCents ?? feeCents;
+    await refresh();
     try {
-      const response = await fetch("/api/payments/simulate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ amountCents: charge, method: payMethod, outcome: forceFail ? "fail" : "succeed" }) });
-      const data = (await response.json()) as { status?: string; failureCode?: string; paymentReference?: string };
-      if (data.status !== "captured") { setStatus("failed"); setFailure(data.failureCode ?? "processing_error"); return; }
+      // The amount is not sent. The server charges the fee frozen onto the
+      // transfer when it was confirmed, so this screen cannot pay its own number.
+      const response = await fetch("/api/payments/simulate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ transferId: transfer.id, method: payMethod, outcome: forceFail ? "fail" : "succeed", clientOpId: transfer.id }) });
+      const data = (await response.json()) as { status?: string; failureCode?: string; paymentReference?: string; error?: string };
+      if (data.status !== "captured") { setStatus("failed"); setFailure(data.failureCode ?? (data.error === "payment_unavailable" ? "processing_error" : data.error ?? "processing_error")); return; }
       setPaymentRef(data.paymentReference ?? ""); setStatus("idle"); notify("Delivery paid · simulated");
+      await refresh();                                       // the `paid` event is what moves the status
       router.push("/bags/track");
     } catch { setStatus("failed"); setFailure("processing_error"); }
   };

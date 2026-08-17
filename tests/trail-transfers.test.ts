@@ -330,10 +330,22 @@ const routeSources = () => {
   return walk(root).map((path) => ({ path, source: readFileSync(path, "utf8") }));
 };
 
+/** The only routes that write a row with no owner, and therefore the only ones
+ *  that cannot pass the identity checks below.
+ *
+ *  A survey response has no `user_id` on purpose: the UX study is answered by
+ *  people with no account, and the team study is worth running only because
+ *  nobody can trace a row back to a person. Naming them here keeps the exemption
+ *  a decision rather than a hole — `tests/survey.test.ts` then pins what they
+ *  are allowed to touch instead, since the checks below cannot. */
+const OWNERLESS = ["/api/survey/route.ts", "/api/survey/export/route.ts"];
+const ownerless = (path: string) => OWNERLESS.some((tail) => path.split("\\").join("/").endsWith(tail));
+
 test("no route takes the traveler's identity from the request", () => {
   for (const { path, source } of routeSources()) {
     assert.ok(!/body\.(body\.)?user_?[Ii]d/.test(source), `${path} reads a user id out of a body`);
     assert.ok(!/userId:\s*body\./.test(source), `${path} passes a body value as an identity`);
+    if (ownerless(path)) continue;
     if (/export async function (POST|PUT|PATCH|DELETE|GET)/.test(source)) assert.ok(/getTraveler\(\)/.test(source) || /partnerAuthorised\(/.test(source), `${path} has no identity check at all`);
   }
 });
@@ -349,6 +361,7 @@ test("no route writes a transfer status: it is derived from the ledger", () => {
 
 test("the service key is never handed to a route that has not proved who is asking", () => {
   for (const { path, source } of routeSources()) {
+    if (ownerless(path)) continue;
     if (!/adminOrNull\(\)|createAdminClient\(/.test(source)) continue;
     assert.ok(/getTraveler\(\)|partnerAuthorised\(/.test(source), `${path} uses the service key with no identity check`);
     assert.ok(/\.eq\("user_id"|\.eq\("id"|insertEvent\(|handoffTransfer\(|recordEligibility\(|attachSeals\(/.test(source), `${path} uses the service key without scoping the row`);

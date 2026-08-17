@@ -55,22 +55,35 @@ revoke all on public.survey_responses from anon, authenticated;
 --   update public.survey_responses set completed = true;
 --   delete from public.survey_responses;
 
--- A finished response stays finished. The runner autosaves once per section, so
--- a tab left open on an earlier screen can post `completed: false` minutes after
--- the respondent hit submit in another tab. Rather than trust the client to
--- never do that, the flags are made monotonic here.
-create or replace function public.survey_response_keeps_completion()
+-- A response only ever moves forward. The runner autosaves once per section, so
+-- a tab left open on an earlier screen can post minutes after the respondent
+-- finished in another tab, carrying that tab's older, shorter answer set.
+--
+-- `furthest` is what identifies such a payload: the runner only ever sends
+-- `max(furthest, section + 1)` from its own state, so a save from behind the
+-- stored frontier can only have come from a stale tab. Its flags are refused
+-- here — and so is its body, which is the half that actually loses data. The
+-- answers are kept whole rather than merged with `||`: merging would resurrect
+-- a field the respondent deliberately cleared, and a survey must not remember
+-- something someone chose to erase.
+create or replace function public.survey_response_moves_forward()
 returns trigger language plpgsql security invoker set search_path = '' as $$
 begin
   new.completed    := old.completed    or new.completed;
   new.screened_out := old.screened_out or new.screened_out;
   new.submitted_at := coalesce(old.submitted_at, new.submitted_at);
   new.started_at   := old.started_at;
-  new.furthest     := greatest(old.furthest, new.furthest);
+  if new.furthest < old.furthest then
+    new.answers  := old.answers;
+    new.timings  := old.timings;
+    new.furthest := old.furthest;
+  end if;
   return new;
 end $$;
 
 drop trigger if exists survey_response_completion_is_sticky on public.survey_responses;
-create trigger survey_response_completion_is_sticky
+drop trigger if exists survey_response_only_moves_forward on public.survey_responses;
+create trigger survey_response_only_moves_forward
   before update on public.survey_responses
-  for each row execute function public.survey_response_keeps_completion();
+  for each row execute function public.survey_response_moves_forward();
+drop function if exists public.survey_response_keeps_completion();

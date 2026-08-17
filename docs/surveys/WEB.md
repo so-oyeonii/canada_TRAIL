@@ -13,25 +13,30 @@
 
 ## 1. 배포 전에 반드시 할 두 가지
 
-### ① 마이그레이션 `0014` 적용
+### ① 마이그레이션 `0014` 적용 — ✅ **완료 (2026-08-18)**
 
-Supabase SQL 에디터에서 `supabase/migrations/0014_survey_responses.sql`을 실행한다. **이걸 안 하면 설문은 정상으로 보이면서 응답이 하나도 저장되지 않는다.**
+`fzvwfseupggtjwdxvfsc` (TRAIL) 프로젝트에 적용했다. 적용 후 실제로 확인한 것:
 
-적용 후, 일반 여행자 계정으로 아래 넷이 **전부 실패하거나 0행**이어야 한다 (파일 맨 아래에도 적어뒀다):
+| 확인 | 결과 |
+| --- | --- |
+| 컬럼 11개, 응답자를 특정할 수 있는 컬럼 없음 | ✅ `id, survey_key, session_key, answers, timings, furthest, completed, screened_out, started_at, updated_at, submitted_at` |
+| RLS `enable` + `force`, 정책 0개 | ✅ |
+| `anon`·`authenticated` 권한 | ✅ 하나도 없음 |
+| `authenticated` 롤로 SELECT / INSERT / UPDATE / DELETE | ✅ **네 개 전부 `permission denied`** |
+| `anon` 롤로 SELECT / INSERT | ✅ 둘 다 `permission denied` |
+| 트리거 | ✅ `survey_response_only_moves_forward` 1개 |
 
-```sql
-select * from public.survey_responses;
-insert into public.survey_responses (survey_key, session_key) values ('ux','aaaaaaaaaaaaaaaa');
-update public.survey_responses set completed = true;
-delete from public.survey_responses;
-```
+Supabase 어드바이저가 이 테이블을 `rls_enabled_no_policy`(INFO)로 표시하는데, **그게 의도한 상태다** — 정책이 없어야 `service_role` 외 모두가 막힌다. 같은 프로젝트의 `migration_imports`·`seal_tags`도 같은 이유로 같은 표시가 붙어 있다.
+
+새 환경(프리뷰 브랜치 등)에 처음 올릴 때는 `supabase/migrations/0014_survey_responses.sql`을 그대로 실행하면 된다. 파일 아래쪽에 위 검증 SQL이 주석으로 들어 있다.
 
 ### ② `/survey`를 열어 경고가 없는지 확인
 
-경고가 보이면 링크를 뿌리지 않는다. 이 배너가 있는 이유는 §4에 적었다.
+여기에 빨간 경고가 뜨면 링크를 뿌리지 않는다. 이 배너가 있는 이유는 §4에 적었다. **현재 로컬에서는 경고 없음.**
 
 환경변수는 `SUPABASE_SERVICE_ROLE_KEY` 하나면 응답 수집이 된다.
 `SURVEY_EXPORT_TOKEN`은 CSV를 내려받을 때만 필요하고, 비어 있으면 export 라우트는 404다(수집은 계속 된다).
+로컬 `.env.local`에는 넣어뒀다. **Vercel 환경변수에도 같은 이름으로 넣어야 배포본에서 내려받을 수 있다.**
 
 ---
 
@@ -87,6 +92,10 @@ curl -H "x-survey-export-token: $SURVEY_EXPORT_TOKEN" "https://<배포주소>/ap
 그 대가로 **마이그레이션이 없는 상태가 정상 동작과 구분되지 않는다.** `/survey`의 경고 배너가 그 대가를 갚는 유일한 장치다. 링크를 뿌리기 전에 반드시 그 페이지를 연다.
 
 **중도 이탈이 저장된다.** 섹션을 넘길 때마다 서버에 쓴다. 지갑 과업에서 그만둔 사람이 이 조사에서 가장 정보가 많은 응답자이고, 마지막 버튼에서만 저장하는 폼은 그 사람을 버린다.
+
+**응답은 앞으로만 간다.** 섹션마다 저장하다 보니, 같은 설문을 두 탭에서 열어둔 사람의 **오래된 탭이 나중에 도착해 완료된 응답을 되돌릴 수 있다.** 실제로 적용 직후 이게 재현됐다 — 플래그는 안 되돌아갔는데 `answers`가 덮여서 마지막 섹션 답변이 사라졌다.
+`furthest`가 그 payload를 식별한다(러너는 자기 상태의 `max(furthest, 섹션+1)`만 보내므로, 저장된 값보다 작으면 낡은 탭이다). 그런 요청은 트리거가 본문째 무시한다.
+`answers`를 jsonb `||`로 **병합하지 않는** 이유는, 병합하면 응답자가 지운 답이 되살아나기 때문이다. 설문은 누가 지우기로 한 것을 기억하면 안 된다.
 
 **5초 화면은 다시 못 본다.** 다시 열 수 있으면 첫인상 테스트가 아니라 독해 테스트가 된다.
 

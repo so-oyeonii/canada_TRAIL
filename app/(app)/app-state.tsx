@@ -31,6 +31,12 @@ export type Quote = { feeCents: number; currency: string; includedBags: number; 
 export type PurchaseDraft = { actualPriceCents: number; quantity: number; bags: number; handling: Handling };
 export type WriteFailure = { path: string; status: number; error: string; detail: Record<string, unknown> };
 export type Reply = { ok: boolean; status: number; data: Record<string, unknown> };
+/** What a recipient form sends. Every field is optional on a PATCH, and the
+ *  route is what refuses a bad one — the screen does not pre-judge it. */
+export type RecipientDraft = { name?: string; relationship?: string; groupSize?: number; priority?: number; isSelf?: boolean; isOptional?: boolean; preferenceNote?: string; equalValueGroup?: string | null };
+/** One person's slice. `basis` is what decides whether the amount is per head or
+ *  the whole group's — a team of twelve at 39 each is not 39. */
+export type AllocationEntry = { recipientId: string; amountCents: number; basis?: "per_person" | "group_total"; bucket?: "planned" | "flexible" };
 
 export const payMethods = [{ id: "apple", label: "Apple Pay", detail: "Touch or Face ID", mark: "" }, { id: "visa", label: "Visa", detail: "Saved card ending 4242", mark: "V" }, { id: "other", label: "Another card", detail: "Add at the partner point", mark: "+" }];
 export const starters = [
@@ -38,7 +44,7 @@ export const starters = [
   { icon: "F", title: "Two equal gifts", prompt: "I need two different but equal-value gifts for my friends." },
   { icon: "T", title: "Treats for my team", prompt: "I need something easy to share with my 12-person lab team." },
 ];
-export const initialBrief: Brief = { recipient: "My mom", quantity: 1, category: "Home & design", budget: 80, preference: "Thoughtful and useful", time: "2 hours", localOnly: true, easyPack: true, hotelDelivery: true };
+export const initialBrief: Brief = { recipient: "My mom", quantity: 1, category: "Home & design", budget: 80, preference: "Thoughtful and useful", localOnly: true, easyPack: true, hotelDelivery: true };
 const greeting: Message = { role: "ai", text: "Hi, I’m Trail. Tell me who you’re shopping for and where today takes you. I’ll find gift stops along your route and get the bags back to your hotel." };
 
 /** A write the traveler has made and the server has not confirmed. Keyed by stop
@@ -213,6 +219,64 @@ function useAppState() {
   }, [call, tripId]);
 
 
+  // ── recipients, allocations, and the tap that moves money ─
+  /** None of these go through the outbox. An allocation that is over the bucket
+   *  comes back as a *proposal*, and a proposal the traveller never saw because
+   *  it was queued in a basement is the approval gate failing quietly. They are
+   *  sent, and their answer is what the screen renders. */
+  const recipients = view?.recipients ?? [];
+  const budgetChanges = view?.budgetChanges ?? [];
+  const pendingBudgetChange = view?.pendingBudgetChange ?? null;
+  const planId = serverPlan?.id ?? null;
+
+  const report = useCallback((path: string, reply: Reply) => { if (!reply.ok) setFailure({ path, status: reply.status, error: String(reply.data.error ?? "write_failed"), detail: reply.data }); return reply; }, []);
+
+  const addRecipient = useCallback(async (fields: RecipientDraft) => {
+    const reply = await call("POST", "/api/recipients", { ...(tripId ? { tripId } : {}), ...fields });
+    if (reply.ok) await refresh();
+    return report("/api/recipients", reply);
+  }, [call, refresh, report, tripId]);
+
+  const updateRecipient = useCallback(async (id: string, patch: RecipientDraft) => {
+    const reply = await call("PATCH", `/api/recipients/${id}`, patch);
+    if (reply.ok) await refresh();
+    return report(`/api/recipients/${id}`, reply);
+  }, [call, refresh, report]);
+
+  /** Archived, never deleted: the person is attached to stops and to purchases
+   *  that already happened. Their allocation goes with them. */
+  const archiveRecipient = useCallback(async (id: string) => {
+    const reply = await call("DELETE", `/api/recipients/${id}`, {});
+    if (reply.ok) await refresh();
+    return report(`/api/recipients/${id}`, reply);
+  }, [call, refresh, report]);
+
+  /** The whole split, replaced in one write. A 409 is not an error to show as a
+   *  failure — `exceeds_planned` carries the proposal body the approval screen
+   *  posts next, and `equal_value_conflict` names who disagreed. */
+  const saveAllocations = useCallback(async (entries: AllocationEntry[], reason?: string) => {
+    if (!planId) return { ok: false, status: 0, data: {} } as Reply;
+    const reply = await call("PUT", `/api/plans/${planId}/allocations`, { allocations: entries, reason: reason ?? "", clientOpId: uuid() });
+    if (reply.ok) await refresh();
+    else if (reply.status !== 409) report(`/api/plans/${planId}/allocations`, reply);
+    return reply;
+  }, [call, planId, refresh, report]);
+
+  const proposeBudgetChange = useCallback(async (proposal: Record<string, unknown>) => {
+    const reply = await call("POST", "/api/budget-changes", { ...(planId ? { planId } : {}), clientOpId: uuid(), ...proposal });
+    if (reply.ok) await refresh();
+    return report("/api/budget-changes", reply);
+  }, [call, planId, refresh, report]);
+
+  /** The tap itself. Since 0013 the plan tables refuse a browser write, so this
+   *  is the only way the numbers move — and a 503 here means the server has no
+   *  service key, not that the traveller's approval was recorded. */
+  const decideBudgetChange = useCallback(async (id: string, decision: "approve" | "reject", reason?: string) => {
+    const reply = await call("POST", `/api/budget-changes/${id}/${decision}`, decision === "reject" ? { reason: reason ?? "" } : {});
+    if (reply.ok) { await refresh(); notify(decision === "approve" ? "Budget change approved" : "Budget change declined"); }
+    return report(`/api/budget-changes/${id}/${decision}`, reply);
+  }, [call, notify, refresh, report]);
+
   /** Opening the delivery. There is one unconfirmed transfer per trip, so this is
    *  safe to press twice, and it answers with the verdict as well as the draft. */
   const openTransfer = useCallback(async (dropoffStoreId?: string | null) => {
@@ -256,10 +320,11 @@ function useAppState() {
     return reply;
   }, [call, refresh]);
 
-  /** The trip itself is edited through Supabase directly, the way onboarding
-   *  writes it: there is no trip route yet, and RLS is what proves the row is the
-   *  caller's. It is not queued — a hotel change made underground is reported as
-   *  failed rather than pretended into the cache. */
+  /** Editing a trip goes to Supabase directly and RLS is what proves the row is
+   *  the caller's. Creating one does not: `POST /api/trips` writes the trip and
+   *  its plan together, because since 0013 a plan is not something a browser may
+   *  write on its own. It is not queued — a hotel change made underground is
+   *  reported as failed rather than pretended into the cache. */
   const saveTrip = useCallback(async (patch: Record<string, unknown>) => {
     if (!tripId) return { ok: false, message: "No trip open." };
     const { error: failed } = await supabaseClient().from("trips").update(patch).eq("id", tripId);
@@ -283,6 +348,7 @@ function useAppState() {
     state: view, trip, serverPlan, wallet, currency, stops, bought, transfer, pastTransfers: view?.pastTransfers ?? [], trips: view?.trips ?? [], labels: view?.labels ?? { stops: null, transfer: null, payment: null },
     items, selectedItems, selectedBagCount, bagCount, toggleItem, deliveryStep, shoppingStarted,
     quote, points, partnerCount, eligibility, setEligibility, loadDropoffPoints,
+    recipients, budgetChanges, pendingBudgetChange, planId, addRecipient, updateRecipient, archiveRecipient, saveAllocations, proposeBudgetChange, decideBudgetChange,
     saveTrip, savePurchase, removePurchase, setStopStatus, toggleSaved, openTransfer, saveManifest, confirmTransfer, reportEvent, reportIssue, advanceSimulation,
     paymentRef, setPaymentRef, memoryEnabled, setMemoryEnabled: setMemoryOverride, notify, toast,
     plan: brief, activePlan: activeBrief, approvedPlan: approvedBrief, approvePlan: approveBrief, updatePlan: updateBrief, applyPatch, clearFields, routeDirty, setRouteDirty, estimates,

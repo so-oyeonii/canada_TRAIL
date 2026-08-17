@@ -1,9 +1,9 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "../../lib/supabase/client";
-import { splitBudget } from "./budget";
+import { DELIVERY_RESERVE, QUOTE_BAGS, splitBudget } from "./budget";
 import "./onboarding.css";
 
 const FREE_TIME = ["1 hour", "2 hours", "3 hours", "Half day", "Full day"];
@@ -27,8 +27,29 @@ export default function NewTripForm({ email }: { email: string }) {
   const [total, setTotal] = useState(250);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [reserve, setReserve] = useState(DELIVERY_RESERVE);
+  const [quoted, setQuoted] = useState(false);
 
-  const buckets = useMemo(() => splitBudget(total), [total]);
+  // The protected amount is the delivery fee, and the delivery fee is quoted by
+  // the server from `delivery_pricing` for the city being typed — never by this
+  // form. Without an answer it falls back to the same price list's default row,
+  // so the reserve can be wrong-by-city but never wrong-by-invention.
+  useEffect(() => {
+    const wanted = city.trim();
+    if (step !== 3 || !wanted) return;
+    const stop = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/dropoff-points?city=${encodeURIComponent(wanted)}&bags=${QUOTE_BAGS}`, { signal: stop.signal, headers: { accept: "application/json" } });
+        if (!response.ok) return;
+        const data = (await response.json()) as { quote?: { feeCents?: number } };
+        if (typeof data.quote?.feeCents === "number") { setReserve(data.quote.feeCents / 100); setQuoted(true); }
+      } catch { /* offline: the fallback row already covers this */ }
+    }, 300);
+    return () => { stop.abort(); window.clearTimeout(timer); };
+  }, [step, city]);
+
+  const buckets = useMemo(() => splitBudget(total, reserve), [total, reserve]);
   const datesValid = !startDate || !endDate || endDate >= startDate;
   const canContinue = [Boolean(country.trim() && city.trim()), datesValid, Boolean(hotel.trim()), total >= 40][step];
 
@@ -101,7 +122,7 @@ export default function NewTripForm({ email }: { email: string }) {
       {step === 1 && <>
         <div className="onboarding-intro"><p>STEP 2 · WHEN</p><h1>How long are<br />you there?</h1><small>Used to work out which day each stop belongs to. You can leave dates empty for now.</small></div>
         <div className="date-pair"><label><small>ARRIVE</small><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} /></label><label><small>LEAVE</small><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} /></label></div>
-        {!datesValid && <p className="form-error">The leaving date is before the arrival date.</p>}
+        {!datesValid && <p className="form-error" role="alert">The leaving date is before the arrival date.</p>}
         <label className="stacked"><small>TIME FREE FOR SHOPPING</small><select value={freeTime} onChange={(e) => setFreeTime(e.target.value)}>{FREE_TIME.map((option) => <option key={option}>{option}</option>)}</select></label>
         <label className="stacked"><small>TRAVELLING WITH</small><input value={companions} onChange={(e) => setCompanions(e.target.value)} placeholder="Solo trip" /></label>
       </>}
@@ -119,13 +140,13 @@ export default function NewTripForm({ email }: { email: string }) {
         <div className="budget-editor"><div><span><small>TOTAL SHOPPING BUDGET</small><b>{currency} ${total}</b></span></div><input type="range" min="40" max="1000" step="10" value={total} onChange={(e) => setTotal(Number(e.target.value))} /><div className="range-values"><span>40</span><span>1000</span></div></div>
         <section className="bucket-preview">
           <span><i className="planned" /><small>Planned for gifts</small><b>{currency} ${buckets.planned}</b></span>
-          <span><i className="reserve" /><small>Protected for delivery</small><b>{currency} ${buckets.reserve}</b></span>
+          <span><i className="reserve" /><small>Protected for delivery</small><b>{currency} ${buckets.reserve}</b><em>{quoted ? `Quoted for ${city.trim()}` : "Trail’s standard rate"}</em></span>
           <span><i className="flex" /><small>Flexible</small><b>{currency} ${buckets.flexible}</b></span>
         </section>
-        <div className="ownership-note">Only the planned amount is spendable while you shop. Moving money out of flexible needs your approval.</div>
+        <div className="ownership-note">Only the planned amount is spendable while you shop. The protected amount is the bag delivery fee Trail quotes for this city — it is not an estimate made on this phone. Moving money out of flexible needs your approval.</div>
       </>}
 
-      {error && <p className="form-error">{error}</p>}
+      {error && <p className="form-error" role="alert">{error}</p>}
 
       <div className="onboarding-actions">
         {step > 0 && <button type="button" className="back-to-chat" onClick={() => setStep(step - 1)}>Back</button>}

@@ -18,6 +18,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { IconAsk, IconBag, IconRoute, IconTrips } from "@/components/icons";
 import { useApp } from "./app-state";
 import { bagsHref, staleForTab, tabOf, type TabKey } from "./landing";
+import { writeFailureCopy } from "./view";
 
 const tabs: { key: TabKey; label: string; Icon: (p: { className?: string }) => React.ReactElement }[] = [
   { key: "trips", label: "Trips", Icon: IconTrips },
@@ -56,6 +57,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return <div className="app-shell" data-theme={dark ? "dark" : undefined}>
     <main className="app-main" id="main" ref={mainRef} tabIndex={-1}>{children}</main>
+    {/* Constitution: a write that has not landed says so. Pretending it saved is
+        the most dangerous thing this app could do in a shop with no signal. */}
+    {(app.queued > 0 || app.offline) && <div className="sync-chip" role="status"><b>{app.queued > 0 ? `${app.queued} change${app.queued === 1 ? "" : "s"} waiting to save` : "Offline"}</b><small>{app.offline ? "No connection. Everything you record is kept on this phone." : "Sending to Trail…"}</small>{app.queued > 0 && <button onClick={() => void app.retrySync()}>Retry now</button>}</div>}
+    {app.failure && <div className="sync-chip bad" role="alert"><b>One change was not saved</b><small>{writeFailureCopy[app.failure.error] ?? "Trail refused that change. Nothing else was affected."}</small><button onClick={app.clearFailure} aria-label="Dismiss this message">Dismiss</button></div>}
     {app.toast && <div className="app-toast" role="status">{app.toast}</div>}
     <nav className="tab-bar" aria-label="Main">{tabs.map(({ key, label, Icon }) => <Link key={key} href={destination(key)} scroll={false} aria-current={current === key ? "page" : undefined} className={current === key ? "active" : undefined} onClick={(event) => { event.preventDefault(); openTab(key, destination(key)); }}><Icon /><span>{label}</span></Link>)}</nav>
   </div>;

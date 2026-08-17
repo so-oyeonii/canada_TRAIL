@@ -25,3 +25,4 @@
 .bucket-preview small{flex:1;font-size:var(--fs-body-s);color:var(--muted-strong)}
 .bucket-preview b{font-size:var(--fs-body)}
 .onboarding-actions{display:flex;flex-direction:column;gap:var(--sp-2);margin-top:auto;padding-top:var(--sp-2)}
+.bucket-preview span{flex-wrap:wrap}.bucket-preview em{order:9;width:100%;font-style:normal;font-size:var(--fs-label-s);line-height:var(--lh-label);color:var(--muted-strong)}

@@ -1,23 +1,28 @@
 "use client";
 
+/** The two sample trips this screen used to show were prototype fiction with a
+ *  "spend" nobody had spent. It lists the trips on the account now, and says so
+ *  when there are none. */
+
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 import { Header } from "@/components/chrome";
-import { IconChevronDown, IconChevronUp, IconSpark } from "@/components/icons";
-import { pastTrips, useApp } from "../../app-state";
+import { IconChevronRight, IconSpark } from "@/components/icons";
+import { useApp } from "../../app-state";
+import { dateRange, price } from "../../view";
 
 export default function PastTripsPage() {
   const router = useRouter();
-  const { setMemoryEnabled, updatePlan, setMessages, notify } = useApp();
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const { trips, trip, pastTransfers } = useApp();
+  const others = trips.filter((entry) => entry.id !== trip.id);
 
   return <div className="screen profile-screen"><Header title="Past trips" back={() => router.push("/trips")} />
-    <div className="profile-section-label history-label"><b>Past trips</b><span>{pastTrips.length} trips remembered</span></div>
+    <div className="profile-section-label history-label"><b>Your trips</b><span>{trips.length} on this account</span></div>
     <h1 className="visually-hidden">Past trips</h1>
-    <section className="trip-history">{pastTrips.map((item) => <article className={expanded === item.id ? "expanded" : ""} key={item.id}>
-      <button aria-expanded={expanded === item.id} onClick={() => setExpanded(expanded === item.id ? null : item.id)}><i className={item.color}>{item.city.charAt(0)}</i><span><small>{item.dates}</small><b>{item.city}, {item.country}</b><em>{item.purchases}</em></span><strong>CAD ${item.spend}</strong><b>{expanded === item.id ? <IconChevronUp /> : <IconChevronDown />}</b></button>
-      {expanded === item.id && <div><div>{item.areas.map((area) => <span key={area}>{area}</span>)}</div><p><i><IconSpark /></i>{item.insight}</p><button onClick={() => { setMemoryEnabled(true); updatePlan("preference", item.id === "tokyo" ? "Practical and useful" : "Thoughtful and useful"); setMessages((current) => [...current, { role: "ai", text: `${item.city} taste applied: ${item.insight}` }]); notify(`${item.city} taste applied to the current brief`); router.push("/ask"); }}>Use this taste now</button></div>}
-    </article>)}</section>
-    <div className="offline-note"><b>Sample trip history.</b><span>These two trips are prototype data. Real history arrives with the trips a traveler actually finished.</span></div>
+    <section className="trip-history">
+      {!others.length && <article><button><i className="blue">{(trip.city[0] ?? "T").toUpperCase()}</i><span><small>{dateRange(trip.startDate, trip.endDate)}</small><b>{trip.city}, {trip.country}</b><em>This is your only trip so far</em></span><b><IconChevronRight /></b></button></article>}
+      {others.map((entry) => <article key={entry.id}><button onClick={() => router.push("/trips")}><i className="peach">{(entry.city[0] ?? "T").toUpperCase()}</i><span><small>{dateRange(entry.startDate, entry.endDate)}</small><b>{entry.city}, {entry.country}</b><em>{entry.purchaseCount} purchase{entry.purchaseCount === 1 ? "" : "s"} · {entry.status}</em></span><strong>{entry.currency}</strong><b><IconChevronRight /></b></button></article>)}
+    </section>
+    {pastTransfers.length > 0 && <section className="handling-list"><header><span><small>FINISHED DELIVERIES</small><b>Bags Trail has carried</b></span><em>{pastTransfers.length}</em></header><div>{pastTransfers.map((entry) => <span key={entry.id}><i><IconSpark /></i><b>{entry.hotelName || "Hotel"}</b><small>{entry.bagCount} bag{entry.bagCount === 1 ? "" : "s"} · {price(entry.feeCents, entry.currency)} · {entry.status}</small></span>)}</div></section>}
+    <div className="offline-note"><b>Trip memory is still growing.</b><span>Trail learns from the trips you finish. Nothing on this screen is sample data any more.</span></div>
   </div>;
 }

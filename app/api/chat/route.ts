@@ -1,6 +1,10 @@
 import { briefContext, composeTurn, emptyReply, inferPlanPatch, sanitizeBriefPatch, sanitizeWindow, tripCurrency, FALLBACK_REPLY, SYSTEM_PROMPT, TURN_SCHEMA, type ChatErrorCode, type ChatReply, type ChatTurn, type KnownRecipient, type ModelTurn, type Plan, type PlanPatch, type TripContext, type TurnContext } from "../../trail-brief";
 
 import { getTraveler } from "../../../lib/supabase/server";
+import { createAdminClient, hasAdminClient } from "../../../lib/supabase/admin";
+import { isDeployed } from "../../../lib/env/deployment";
+import { sameOrigin } from "../../../lib/api/http";
+import { burstStore, chatQuota, type RecordHit } from "../../../lib/api/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -9,8 +13,6 @@ const DEFAULT_MODEL = "gpt-5.6-luna";
 const MAX_HISTORY = 4;
 const MAX_TURN_CHARS = 500;
 const MAX_BODY_BYTES = 32 * 1024;
-const RATE_WINDOW_MS = 60_000;
-const RATE_LIMIT = 12;
 
 /** The client still owns the brief until T3 wires `GET /api/state` into this route. Everything it
  *  sends is treated as untrusted input and re-derived through the sanitizers before it is used. */
@@ -22,29 +24,17 @@ type ChatPayload = { message?: string; plan?: Plan; trip?: TripContext; history?
  *  is missing cannot switch the questions off. Union, not trust: more missing is the safe direction. */
 const REQUIRED_FIELDS = ["city", "hotel", "budget", "recipients", "preferences"] as const;
 
-/** Per-instance counter. Interim protection only — replaced by a session check once auth lands (P2). */
-const hits = new Map<string, number[]>();
+/** The burst tier only. The number that binds is the row `record_chat_hit` writes, which
+ *  every instance shares — see `lib/api/rate-limit.ts` and migration 0030. */
+const burst = burstStore();
 
-function rateLimited(key: string) {
-  const now = Date.now();
-  const recent = (hits.get(key) ?? []).filter((at) => now - at < RATE_WINDOW_MS);
-  recent.push(now);
-  hits.set(key, recent);
-  if (hits.size > 5000) hits.clear();
-  return recent.length > RATE_LIMIT;
-}
-
-/** The chat route spends money on every call, so it only answers this app's own pages. */
-function sameOrigin(request: Request) {
-  const origin = request.headers.get("origin");
-  if (!origin) return true; // same-origin fetches may omit it; the rate limit still applies
-  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
-  try {
-    return new URL(origin).host === host;
-  } catch {
-    return false;
-  }
-}
+/** `null` rather than a thrown error on a bad answer, so the limiter can tell "the database
+ *  said no" apart from "the database said nothing" and fail closed on both. */
+const recordHit: RecordHit = async (key, windowSeconds, limit) => {
+  const rpc = await createAdminClient().rpc("record_chat_hit", { p_user: key, p_window_seconds: windowSeconds, p_limit: limit });
+  if (rpc.error) { console.error("Trail AI quota unavailable", rpc.error.code); return null; }
+  return typeof rpc.data === "boolean" ? rpc.data : null;
+};
 
 function fail(code: ChatErrorCode, message: string, suggested: PlanPatch = {}) {
   return Response.json(emptyReply(message, "fallback", code, suggested) satisfies ChatReply);
@@ -89,7 +79,10 @@ export async function POST(request: Request) {
   // let anyone reset their own quota by changing one header.
   const traveler = await getTraveler();
   if (!traveler) return fail("unauthenticated", FALLBACK_REPLY);
-  if (rateLimited(traveler.id)) return fail("rate_limited", FALLBACK_REPLY);
+  // Before the body is even read: the quota exists to stop a call that costs money, and
+  // parsing 32KB first would be work done on behalf of a caller already over the line.
+  const quota = await chatQuota({ store: burst, key: traveler.id, now: Date.now(), deployed: isDeployed(), canRecord: hasAdminClient(), record: recordHit });
+  if (quota !== "ok") return fail("rate_limited", FALLBACK_REPLY);
 
   const raw = await request.text();
   if (raw.length > MAX_BODY_BYTES) return fail("too_large", FALLBACK_REPLY);

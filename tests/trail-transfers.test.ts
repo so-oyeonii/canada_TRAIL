@@ -364,7 +364,11 @@ test("the service key is never handed to a route that has not proved who is aski
     if (ownerless(path)) continue;
     if (!/adminOrNull\(\)|createAdminClient\(/.test(source)) continue;
     assert.ok(/getTraveler\(\)|partnerAuthorised\(/.test(source), `${path} uses the service key with no identity check`);
-    assert.ok(/\.eq\("user_id"|\.eq\("id"|insertEvent\(|handoffTransfer\(|recordEligibility\(|attachSeals\(/.test(source), `${path} uses the service key without scoping the row`);
+    // `p_user:` is the RPC form of the same rule. A function called through the service key
+    // takes the owner as an argument instead of a filter, and the ones that exist (0013's
+    // approvals, 0030's chat quota) are `security invoker` granted to `service_role` alone,
+    // so that argument is the entire scope — there is no `.eq` for this regex to find.
+    assert.ok(/\.eq\("user_id"|\.eq\("id"|p_user:|insertEvent\(|handoffTransfer\(|recordEligibility\(|attachSeals\(/.test(source), `${path} uses the service key without scoping the row`);
   }
 });
 

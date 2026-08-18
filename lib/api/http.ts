@@ -25,9 +25,26 @@ export function carriesIdentity(value: unknown, depth = 0): boolean {
   return Object.entries(value as Record<string, unknown>).some(([k, v]) => IDENTITY_KEYS.includes(k) || carriesIdentity(v, depth + 1));
 }
 
+/** `Origin` alone is a default-allow guard: a browser omits it on plenty of same-origin
+ *  requests, so "absent" had to mean "allowed", and every cross-site shape that also omits
+ *  it walked through the same hole.
+ *
+ *  `Sec-Fetch-Site` closes that. The browser sets it on every request and page script
+ *  cannot forge it — it is on the forbidden-header list — so it states the thing `Origin`
+ *  only implies. `cross-site` and `same-site` are refused outright; so is `none`, which is
+ *  a typed-in URL or a bookmark and never a fetch from this app's own pages.
+ *
+ *  A request carrying neither header is still allowed, and that is a deliberate limit
+ *  rather than an oversight. Safari before 16.4 sends neither on a same-origin POST, and
+ *  this is a travel app that people open on the phone they already own. What is given up
+ *  is nothing these routes were defending: they are cookie-authenticated, a scripted
+ *  client has no cookie to ride on, and an *authenticated* caller running a script is a
+ *  quota problem, not an origin one — `lib/api/rate-limit.ts` is where that is answered. */
 export function sameOrigin(request: Request) {
+  const site = request.headers.get("sec-fetch-site");
+  if (site) return site === "same-origin";
   const origin = request.headers.get("origin");
-  if (!origin) return true;                                   // same-origin fetch and native clients send none
+  if (!origin) return true;
   const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
   try { return new URL(origin).host === host; } catch { return false; }
 }

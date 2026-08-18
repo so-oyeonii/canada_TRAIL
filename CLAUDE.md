@@ -4,7 +4,7 @@
 
 ## 스택
 - Next.js 16 App Router · React 19 · Tailwind 4 + 수기 CSS · **Vercel 배포**
-- **Supabase** — Postgres 21테이블, 전 테이블 RLS `enable` + `force`. 매직링크 로그인
+- **Supabase** — Postgres 28테이블 (`0001`이 만든 `trip_insights`는 `0022`가 드롭), 전 테이블 RLS `enable` + `force`. 매직링크 로그인
 - OpenAI `gpt-5.6-luna` (Trail AI 대화)
 - Node `>=22.13.0`
 
@@ -20,17 +20,24 @@ npm run lint
 ## 파일 지도
 | 경로 | 역할 |
 | --- | --- |
-| `app/page.tsx` | `"use client"` 단일 화면 상태머신 (home/chat/review/picks/shop/drop/pay/tracking/profile) |
+| `app/(app)/` | 로그인 후 화면 전부. 라우트 그룹이고 탭은 `shell.tsx`, 공유 상태는 `app-state.tsx` |
+| `app/(app)/trail/`, `app/(app)/bags/`, `app/(app)/ask/` | 계획·경로·쇼핑 / 짐 이송·결제·추적 / Trail AI 대화 |
+| `app/page.tsx` | 랜딩 규칙. Home 탭으로 리다이렉트하고, `/auth/callback`을 놓친 매직링크를 넘겨받는다. **화면 상태머신은 여기 없다** — `(app)`으로 옮겼다 |
 | `app/onboarding/` | 첫 여행 등록 4단계 + 예산 3버킷 분할 |
 | `app/login/`, `app/auth/callback/` | Supabase 매직링크 로그인 |
+| `app/s/[token]/` | 취소 가능한 읽기 전용 공유 링크 (`0026`). 호텔과 ETA는 어떤 토글로도 나가지 않는다 |
+| `app/workflow/` | 제품 흐름 참조 화면 (내부용) |
 | `app/api/chat/` | Trail AI 한 턴 (구조화 출력, 레이트리밋, 동일 출처) |
 | `app/api/trips/` | 첫 여행 + 지갑 생성 (브라우저는 plans를 직접 쓰지 않는다) |
 | `app/api/plans/`, `app/api/recipients/`, `app/api/budget-changes/` | 수령인 · 배분 · 예산 변경 제안/승인 |
 | `app/api/payments/simulate/` | 결제 시뮬레이션 (실제 돈 없음, `payments` 행은 진짜로 쓴다) |
+| `app/api/partner/scan/`, `app/api/survey/export/` | `getTraveler()`를 쓰지 않는 두 라우트. 각각 파트너 공유키와 export 토큰으로 인증하고, 키가 없으면 403이 아니라 404 |
 | `app/trail-brief.ts` | 프롬프트 · 출력 스키마 · brief 가드 |
-| `lib/supabase/` | 브라우저 · 서버 클라이언트 (`getTraveler()`) |
+| `lib/api/http.ts` | 모든 쓰기 라우트의 공통 관문 (`sameOrigin` · `carriesIdentity` · 필드 리더) |
+| `lib/api/rate-limit.ts` | `/api/chat` 쿼터 2단 (인스턴스 버스트 + `record_chat_hit` 내구 카운터) |
+| `lib/supabase/` | 브라우저 · 서버 클라이언트 (`getTraveler()`), 그리고 `admin.ts` (service key — 규칙은 파일 상단에) |
 | `proxy.ts` | 세션 갱신 (Next 16에서 `middleware.ts`를 대체) |
-| `supabase/migrations/` | 스키마와 RLS 정책 |
+| `supabase/migrations/` | 스키마와 RLS 정책. `0027`~`0029`는 G6 2단계 예약 번호 |
 | `docs/MIGRATION_PLAN.md` | 단계별 계획 (P0~P5) |
 | `docs/figma/` | 피그마 참조 프레임 25장 |
 | `docs/TRAIL_USER_FLOW_EN.md` | 제품 흐름 |
@@ -42,6 +49,7 @@ npm run lint
 4. 실패 분기 네 개는 항상 살아 있어야 한다: 추천 불가 / 실제가 예산 초과 / 이송 불가 / 호텔 인계 실패.
 5. 금액은 정수 cents. 지갑은 `total = planned + delivery_reserve + flexible`이고 DB 제약이 강제한다. **쇼핑 가능액은 `planned − spent`** — flexible은 승인 없이 쓸 수 없다.
 6. 원장(`transfer_events`, `plan_events`, `receipts`)은 append-only. 서버에서만 신원을 읽고, 클라이언트가 보낸 `user_id`는 믿지 않는다.
+7. 돈이 나가는 라우트는 `/api/chat` 하나뿐이고, 그 쿼터는 인스턴스가 아니라 DB 행이 센다 (`0030`). 카운터를 못 읽으면 **닫는 쪽으로** 실패한다 — 여행자는 이미 그려진 `rate_limited` 분기를 본다.
 
 ## 코드 스타일
 이 저장소는 **극도로 압축된 한 줄 스타일**을 쓴다 (TSX 컴포넌트·타입·핸들러 한 줄, CSS 규칙 한 줄). 새 코드도 같은 밀도로 쓰고, 예쁘게 풀어쓰지 않는다. 주석은 비자명한 이유가 있을 때만.

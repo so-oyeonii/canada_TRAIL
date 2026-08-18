@@ -51,10 +51,22 @@ TRAIL is an AI-powered offline shopping planner and hotel delivery service for t
 
 ## Permanent app navigation
 
-- **Home** — Trip wallet, shopping progress, next best action, and hotel context.
-- **Ask AI** — Conversation, plan changes, and follow-up questions.
-- **Shop** — Products, stores, route, purchase checklist, and actual prices.
-- **Bags** — Delivery request, driver assignment, and tracking.
+- **Home** — Morning view. Trip wallet, what the trip is waiting on, and local
+  recommendations. Every card that is not live inventory is labelled Sample.
+- **Trips** — Every trip on the account, and the workbench for the active one:
+  the plan (Gifts, Map, Budget, Delivery), the in-store shopping mode, and the
+  purchase record.
+- **AI** — Trail AI. Conversation, the brief it builds, and plan changes. Trail
+  recommends and calculates; it never approves.
+- **Bags** — Everything after a purchase: choosing bags (including bags bought
+  outside the plan), drop-off, payment, tracking, receipts, and reporting a
+  problem.
+
+Shop is not a tab. It is a mode inside Trips, entered from the plan and left
+when the traveler goes hands-free.
+
+Tab keys are not URL segments. `/trail/*` keeps its paths and belongs to Trips,
+so every link ever shared still opens.
 
 ## Product rule
 

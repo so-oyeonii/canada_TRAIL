@@ -13,14 +13,19 @@ import type { HandoffFailureCode, IneligibleCode } from "@/lib/state/types";
 import type { Remedy } from "@/lib/transfers/eligibility";
 import { fallbackRemedies, handoffCopy, ineligibleCopy, remedyCopy } from "./view";
 
-export function Blocked({ code, detail, remedies, onRemedy, note }: { code: IneligibleCode; detail?: string; remedies?: Remedy[]; onRemedy: (remedy: Remedy) => void; note?: string }) {
+/** `labels` lets the screen that knows the numbers write the button. `remedyCopy`
+ *  says "Use my flexible budget", which is a category, not an approval — the pay
+ *  screen replaces it with the amount, the bucket and what is left. `blocked` is
+ *  for a remedy that cannot work from here: the button stays visible and says why
+ *  rather than moving money that is not there. */
+export function Blocked({ code, detail, remedies, onRemedy, note, labels, blocked }: { code: IneligibleCode; detail?: string; remedies?: Remedy[]; onRemedy: (remedy: Remedy) => void; note?: string; labels?: Partial<Record<Remedy, string>>; blocked?: Remedy[] }) {
   const copy = ineligibleCopy[code];
   const offered = remedies?.length ? remedies : fallbackRemedies[code];
   return <section className="blocked-panel" role="alert"><i><IconAlert /></i>
     <b>{copy.title}</b>
     <p>{detail || copy.body}</p>
     {detail && detail !== copy.body && <small>{copy.body}</small>}
-    <div className="blocked-actions">{offered.map((remedy) => <button key={remedy} onClick={() => onRemedy(remedy)}>{remedyCopy[remedy]}</button>)}</div>
+    <div className="blocked-actions">{offered.map((remedy) => <button key={remedy} disabled={blocked?.includes(remedy)} onClick={() => onRemedy(remedy)}>{labels?.[remedy] ?? remedyCopy[remedy]}</button>)}</div>
     {note && <small>{note}</small>}
   </section>;
 }

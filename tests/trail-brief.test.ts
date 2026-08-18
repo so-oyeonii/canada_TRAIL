@@ -90,7 +90,7 @@ test("nulls and junk are dropped rather than stored", () => {
 
 // ── the structured contract itself ────────────────────────────────────────
 
-const ctx: TurnContext = { trip: { city: "Toronto", country: "Canada", areas: ["Kensington Market"], hotel: "The Drake Hotel", currency: "CAD" }, recipients: [{ ref: "r1", label: "Sooyun Kim", relationship: "Mom" }], plannedUnits: 250, unallocatedUnits: 34 };
+const ctx: TurnContext = { trip: { city: "Toronto", country: "Canada", areas: ["Kensington Market"], currency: "CAD" }, recipients: [{ ref: "r1", label: "Sooyun Kim", relationship: "Mom" }], plannedUnits: 250, unallocatedUnits: 34 };
 
 test("the brief block carries no hotel, no address and no bucket amounts", () => {
   const block = briefContext(ctx);
@@ -137,8 +137,15 @@ test("`clear` is part of the reply type rather than bolted on by the route", () 
 
 test("snake_case from the model becomes camelCase in the brief, and unknown enums are refused", () => {
   const { patch, rejected } = sanitizeBriefPatch({ category: "Jewellery", preference: "Thoughtful and useful", local_only: true, easy_pack: null, hotel_delivery: false });
-  assert.deepEqual(patch, { preference: "Thoughtful and useful", localOnly: true, hotelDelivery: false });
+  // The two booleans are gone from the brief (0025). A turn still holding them is read as the tags
+  // they always meant, and the booleans themselves are dropped so the brief never carries two
+  // spellings of one preference at once.
+  assert.deepEqual(patch, { preference: "Thoughtful and useful", preferenceTags: ["local"], hotelDelivery: false });
   assert.equal(rejected[0]?.reason, "unknown_value");
+  const both = sanitizeBriefPatch({ local_only: true, easy_pack: true }).patch;
+  assert.deepEqual(both, { preferenceTags: ["local", "easy_to_pack"] });
+  assert.equal("localOnly" in both, false);
+  assert.equal("easyPack" in both, false);
 });
 
 test("the structured output schema stays valid for strict mode", () => {

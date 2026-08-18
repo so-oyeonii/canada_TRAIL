@@ -8,6 +8,8 @@
  *     hang off their stop, and a replacement is a new stop pointing at the old
  *     one. There is no index left for a re-order to invalidate. */
 
+import type { PreferenceTag, RouteTag } from "../../app/trail-brief.ts";
+
 export type TripStatus = "planning" | "active" | "past" | "archived";
 export type PlanStatus = "draft" | "approved" | "superseded";
 export type StopStatus = "planned" | "bought" | "unavailable" | "skipped";
@@ -47,7 +49,10 @@ export type Trip = { id: string; status: TripStatus; country: string; city: stri
 
 export type Allocation = { recipientId: string; amountCents: number; bucket: BudgetBucket };
 
-export type Plan = { id: string; status: PlanStatus; version: number; totalCents: number; plannedCents: number; deliveryReserveCents: number; flexibleCents: number; category: string; preference: string; localOnly: boolean; easyPack: boolean; hotelDelivery: boolean; approvedAt: string | null; allocations: Allocation[] };
+/** `preferenceTags`/`routeTag` are the closed-enum replacement for `localOnly`/`easyPack`
+ *  (migration 0025). The two booleans stay until `app/page.tsx` retires with them in 0026;
+ *  while both exist the tags are the source of truth and the booleans are the projection. */
+export type Plan = { id: string; status: PlanStatus; version: number; totalCents: number; plannedCents: number; deliveryReserveCents: number; flexibleCents: number; category: string; preference: string; localOnly: boolean; easyPack: boolean; preferenceTags: PreferenceTag[]; routeTag: RouteTag | null; hotelDelivery: boolean; approvedAt: string | null; allocations: Allocation[] };
 
 /** Computed by the server. A client that adds up spend itself drifts the moment
  *  one write is still sitting in the outbox. `reserveCents` is displayed, never
@@ -70,9 +75,12 @@ export type Purchase = { id: PurchaseId; stopId: StopId | null; actualPriceCents
 
 export type Inquiry = { id: string; status: InquiryStatus; question: string; answerNote: string | null; askedAt: string; answeredAt: string | null; expiresAt: string };
 
-export type Stop = { id: StopId; planId: string; sequence: number; plannedDay: number; status: StopStatus; recipientId: string | null; productName: string; storeName: string; storeAddress: string; area: string; snapshotPriceCents: number; handling: Handling; walkMinutes: number | null; rationale: string; saved: boolean; replacedStopId: StopId | null; source: DataSource; purchase: Purchase | null; inquiry: Inquiry | null };
+export type Stop = { id: StopId; planId: string; sequence: number; plannedDay: number; plannedDate: string | null; status: StopStatus; recipientId: string | null; productName: string; storeName: string; storeAddress: string; area: string; snapshotPriceCents: number; handling: Handling; walkMinutes: number | null; rationale: string; saved: boolean; replacedStopId: StopId | null; source: DataSource; purchase: Purchase | null; inquiry: Inquiry | null };
 
-export type DropoffStore = { id: string; name: string; address: string; area: string; dropoffCutoff: string | null; lat: number | null; lng: number | null; acceptedHandling: Handling[]; maxWeightGrams: number | null; timezone: string; partnerNote: string };
+/** `source` is the counter's own column, not the transfer's. A live partner point
+ *  embedded in a simulated transfer is still live, and the chip beside its name has
+ *  to say so from this field (constitution 3). */
+export type DropoffStore = { id: string; name: string; address: string; area: string; dropoffCutoff: string | null; lat: number | null; lng: number | null; acceptedHandling: Handling[]; maxWeightGrams: number | null; timezone: string; partnerNote: string; source: DataSource };
 
 /** One row in the bag picker. Replaces `selectedBags: Record<number, boolean>`:
  *  the key is a purchase id or a `local:` uuid, never a position. */
@@ -82,7 +90,11 @@ export type TransferItem = { id: string; purchaseId: PurchaseId | null; label: s
 
 export type TransferEvent = { id: string; seq: number; eventType: TransferEventType; actor: TransferActor; itemId: string | null; occurredAt: string; createdAt: string; location: string | null; note: string | null; payload: Record<string, unknown>; source: DataSource };
 
-export type Payment = { id: string; status: PaymentStatus; amountCents: number; currency: string; methodBrand: string | null; methodLast4: string | null; failureCode: string | null; authorizedAt: string | null; capturedAt: string | null; refundedAt: string | null };
+/** `reference` is `payments.provider_charge_id` — the `TRL-PAY-…` the charge route
+ *  minted. It used to live only in a `useState` on the pay screen, so a reload lost the
+ *  one string a traveller could quote back to us. `methodLast4` is null and stays null:
+ *  no PAN has ever reached this app. */
+export type Payment = { id: string; status: PaymentStatus; amountCents: number; currency: string; methodBrand: string | null; methodLast4: string | null; reference: string | null; failureCode: string | null; authorizedAt: string | null; capturedAt: string | null; refundedAt: string | null };
 
 export type Receipt = { id: string; receivedBy: string; receivedAt: string; bagCount: number; sealIds: string[]; purchasesCents: number; transferFeeCents: number };
 
@@ -91,7 +103,7 @@ export type TransferIssue = { id: string; kind: IssueKind; status: IssueStatus; 
 /** `ineligibleCode`, `handoffFailureCode`, `passExpiresAt` and `issues` are filled
  *  once migrations 0011/0012 are applied; until then they come back null/empty and
  *  the shape does not change again. */
-export type Transfer = { id: string; status: TransferStatus; referenceCode: string; hotelName: string; hotelAddress: string; bagCount: number; weightGrams: number | null; feeCents: number; currency: string; etaStart: string | null; etaEnd: string | null; dropoffCutoffAt: string | null; confirmedAt: string | null; deliveredAt: string | null; ineligibleCode: IneligibleCode | null; ineligibleReason: string | null; handoffFailureCode: HandoffFailureCode | null; passExpiresAt: string | null; source: DataSource; createdAt: string; dropoffStore: DropoffStore | null; items: TransferItem[]; events: TransferEvent[]; payment: Payment | null; receipt: Receipt | null; issues: TransferIssue[] };
+export type Transfer = { id: string; status: TransferStatus; referenceCode: string; hotelName: string; hotelAddress: string; bagCount: number; weightGrams: number | null; feeCents: number; currency: string; etaStart: string | null; etaEnd: string | null; dropoffCutoffAt: string | null; confirmedAt: string | null; deliveredAt: string | null; ineligibleCode: IneligibleCode | null; ineligibleReason: string | null; handoffFailureCode: HandoffFailureCode | null; passIssuedAt: string | null; passExpiresAt: string | null; source: DataSource; createdAt: string; dropoffStore: DropoffStore | null; items: TransferItem[]; events: TransferEvent[]; payment: Payment | null; receipt: Receipt | null; issues: TransferIssue[] };
 
 /** A partner counter as the drop-off picker needs it: the cutoff already resolved
  *  to an instant in the store's own zone, so no screen ever parses `18:00` itself.
@@ -125,6 +137,11 @@ export type TrailState = {
    *  spend that has no stop still takes a traveler over budget. */
   unplannedPurchases: Purchase[];
   transfer: Transfer | null;
+  /** The newest delivered run, in full, whether or not it is still the live one.
+   *  `transfer` goes null the moment a delivery is delivered — nothing is moving —
+   *  but `/bags/done` needs the receipt, the seal tags and the payment reference to
+   *  survive a reload, and a `TransferSummary` carries none of them. */
+  lastDelivered: Transfer | null;
   pastTransfers: TransferSummary[];
   labels: SourceLabels;
 };
@@ -132,5 +149,5 @@ export type TrailState = {
 export const EMPTY_WALLET: Wallet = { totalCents: 0, plannedCents: 0, reserveCents: 0, flexibleCents: 0, spentCents: 0, spendableCents: 0, unallocatedCents: 0, allocatedCents: 0, overPlan: false };
 
 export function emptyState(user: TravelerProfile, serverTime = new Date().toISOString()): TrailState {
-  return { serverTime, stateVersion: serverTime, user, activeTripId: null, trips: [], trip: null, plan: null, wallet: EMPTY_WALLET, recipients: [], budgetChanges: [], pendingBudgetChange: null, stops: [], unplannedPurchases: [], transfer: null, pastTransfers: [], labels: { stops: null, transfer: null, payment: null } };
+  return { serverTime, stateVersion: serverTime, user, activeTripId: null, trips: [], trip: null, plan: null, wallet: EMPTY_WALLET, recipients: [], budgetChanges: [], pendingBudgetChange: null, stops: [], unplannedPurchases: [], transfer: null, lastDelivered: null, pastTransfers: [], labels: { stops: null, transfer: null, payment: null } };
 }

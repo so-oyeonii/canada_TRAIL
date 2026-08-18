@@ -60,10 +60,19 @@ test("a yen trip is not stored a hundredfold", () => {
 });
 
 test("the onboarding form writes no rows of its own", () => {
-  const form = readFileSync(new URL("../app/onboarding/new-trip-form.tsx", import.meta.url), "utf8");
-  assert.ok(!/from\("(trips|plans)"\)/.test(form), "onboarding is inserting a row from the browser again");
-  assert.ok(!/supabase/i.test(form), "onboarding is holding a supabase client again");
-  assert.ok(/fetch\("\/api\/trips"/.test(form), "onboarding must go through the server route");
+  // Two screens collect the same six answers now (the chip conversation and the form), and both
+  // go through `useTripDraft`. So the guard scans the whole tree rather than one file: a browser
+  // insert added to either screen, or to the hook, is the same reopened grant.
+  const files = ["app/onboarding/new-trip-form.tsx", "app/onboarding/chip-chat.tsx", "app/onboarding/trip-draft.ts", "app/onboarding/script.ts"];
+  const sources = files.map((file) => readFileSync(new URL(`../${file}`, import.meta.url), "utf8"));
+  for (const [index, source] of sources.entries()) {
+    assert.ok(!/from\("(trips|plans)"\)/.test(source), `${files[index]} is inserting a row from the browser again`);
+    assert.ok(!/supabase/i.test(source), `${files[index]} is holding a supabase client again`);
+  }
+  assert.equal(sources.filter((source) => /fetch\("\/api\/trips"/.test(source)).length, 1, "there must be exactly one submit path, and it must be the server route");
+  // A model has no part in onboarding: the hotel is one of these six answers and it may never
+  // reach a prompt (FIGMA_ADOPTION privacy rule, tests/trail-brief.test.ts).
+  for (const [index, source] of sources.entries()) assert.ok(!/api\/chat/.test(source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*/g, "")), `${files[index]} calls the model during onboarding`);
 });
 
 test("the trips route decides the reserve and the split itself", () => {

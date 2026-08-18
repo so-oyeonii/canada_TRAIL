@@ -19,6 +19,7 @@ import { IconCheck, IconClose } from "@/components/icons";
 import type { Handling } from "@/lib/state/types";
 import { useApp, type PurchaseDraft } from "../../../../app-state";
 import { fromMinor, minorUnits, toMinor } from "@/lib/money/format";
+import { budgetScale } from "@/app/trail-brief";
 import { price } from "../../../../view";
 
 const draftKey = (stopId: string) => `trail:draft:record:${stopId}`;
@@ -64,22 +65,29 @@ export default function RecordPurchasePage() {
     router.push("/trail/shop");
   };
 
-  if (!stop) return <div className="screen record-screen"><Header title="Record a purchase" back={() => router.push("/trail/shop")} /><h1>That stop is not on your route.</h1><p className="alert-copy">It may have been replaced by another stop.</p><button className="back-to-chat" onClick={() => router.push("/trail/shop")}>Back to today’s route</button></div>;
-  if (!draft) return <div className="screen record-screen"><Header title="Record a purchase" back={cancel} /><h1>{stop.storeName}</h1><p>Opening this purchase…</p></div>;
+  if (!stop) return <div className="screen record-screen"><Header title="Record Purchase" back={() => router.push("/trail/shop")} /><h1>That stop is not on your route.</h1><p className="alert-copy">It may have been replaced by another stop.</p><button className="back-to-chat" onClick={() => router.push("/trail/shop")}>Back to today’s route</button></div>;
+  if (!draft) return <div className="screen record-screen"><Header title="Record Purchase" back={cancel} /><h1>{stop.storeName}</h1><p>Opening this purchase…</p></div>;
 
   const after = wallet.spendableCents + (existing?.actualPriceCents ?? 0) - draft.actualPriceCents;
   // The till shows whole units of the trip's currency. Yen has no cents, so neither has the step.
   const units = minorUnits(currency), step = units === 1 ? "1" : "0.01";
+  // Frame -4's quick amounts. Arithmetic on the price Trail already had, never a
+  // suggested price: the planned figure and the next round notes above it, so a till
+  // total of $23.40 is two taps rather than six. `budgetScale` keeps ¥5 out of it.
+  const note = 5 * budgetScale(currency) * units;
+  const quick = [...new Set([stop.snapshotPriceCents, ...[1, 2, 3].map((n) => Math.ceil(stop.snapshotPriceCents / note + n - 1) * note)])].filter((cents) => cents > 0).sort((a, b) => a - b).slice(0, 4);
 
-  return <div className="screen record-screen"><Header title="Record a purchase" back={cancel} action={<button className="round-button" onClick={cancel} aria-label="Cancel purchase record"><IconClose /></button>} />
+  return <div className="screen record-screen"><Header title="Record Purchase" back={cancel} action={<button className="round-button" onClick={cancel} aria-label="Cancel purchase record"><IconClose /></button>} />
     <section className="purchase-sheet"><header><span><small>{existing ? "EDIT PURCHASE" : "BOUGHT IN STORE"}</small><b>{stop.storeName}</b></span></header>
-      <h1 className="visually-hidden">Record a purchase at {stop.storeName}</h1>
-      <label>Total paid, tax included<input type="number" min={step} step={step} inputMode={units === 1 ? "numeric" : "decimal"} value={fromMinor(draft.actualPriceCents, currency)} onChange={(e) => edit({ actualPriceCents: toMinor(Number(e.target.value), currency) })} /></label>
+      <h1>How much did you actually pay?</h1>
+      <div className="sheet-impact plain"><span>Planned amount</span><b>{price(stop.snapshotPriceCents, currency)}</b></div>
+      <label>Actual price paid<input type="number" min={step} step={step} inputMode={units === 1 ? "numeric" : "decimal"} value={fromMinor(draft.actualPriceCents, currency)} onChange={(e) => edit({ actualPriceCents: toMinor(Number(e.target.value), currency) })} /></label>
+      <fieldset className="quick-amounts"><legend>Quick amounts</legend>{quick.map((cents) => <button type="button" key={cents} aria-pressed={draft.actualPriceCents === cents} onClick={() => edit({ actualPriceCents: cents })}>{price(cents, currency)}</button>)}</fieldset>
       <div className="sheet-pair"><label>Quantity<input type="number" min="1" inputMode="numeric" value={draft.quantity} onChange={(e) => edit({ quantity: Number(e.target.value) })} /></label><label>Shopping bags<input type="number" min="1" inputMode="numeric" value={draft.bags} onChange={(e) => edit({ bags: Number(e.target.value) })} /></label></div>
       <label>Handling<select value={draft.handling} onChange={(e) => edit({ handling: e.target.value as Handling })}>{HANDLINGS.map((option) => <option key={option}>{option}</option>)}</select></label>
-      <div className="sheet-impact"><span>Gift budget after saving</span><b className={after < 0 ? "negative" : ""}>{price(after, currency)}</b></div>
+      <div className="sheet-impact"><span>Available for shopping after saving</span><b className={after < 0 ? "negative" : ""}>{price(after, currency)}</b></div>
       {error && <p className="form-error" role="alert">{error}</p>}
-      <button className="main-button" disabled={saving} onClick={() => void confirm()}><span>{saving ? "Saving…" : "Save purchase"}<small>Updates your budget and what can be sent to the hotel</small></span><i><IconCheck /></i></button>
+      <button className="main-button" disabled={saving} onClick={() => void confirm()}><span>{saving ? "Saving…" : "Confirm purchase"}<small>Updates your budget and what can be sent to the hotel</small></span><i><IconCheck /></i></button>
       {existing && <button className="refund-button" onClick={() => { void removePurchase(stopId); clearDraft(); notify("Purchase removed and budget restored"); router.push("/trail/shop"); }}>Remove purchase / refund</button>}
       <button className="back-to-chat" onClick={cancel}>Cancel without saving</button>
     </section>

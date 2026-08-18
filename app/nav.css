@@ -1,0 +1,59 @@
+/* Navigation chrome owned by G2: the tab bar's two modes, the Bags badge, the trip
+   context bar's link fallback, and the two-line plan banners. Tokens are G1's and are
+   only read here (FIGMA_ADOPTION §4). */
+
+/* A screen that hides the tab bar must not keep its footprint, or the last action
+   sits in 76px of nothing. */
+.app-shell[data-tabbar="off"] .app-main{padding-bottom:calc(var(--sp-6) + env(safe-area-inset-bottom))}
+
+/* Dot, not a count: the shell knows a delivery is moving, never how many things
+   are wrong. The accessible name carries the meaning (`Bags, needs attention`). */
+.tab-bar a{position:relative}
+.tab-badge{position:absolute;top:6px;left:calc(50% + 8px);width:8px;height:8px;border-radius:50%;background:var(--teal);font-style:normal}
+.tab-badge[data-kind="alert"]{background:var(--danger)}
+
+/* The pill falls back to a link to `/trips` until G3 lands the switcher sheet. */
+a.chip-trip,a.avatar{text-decoration:none}
+/* A tab root has no back arrow, so the header's right side carries a status badge and
+   the avatar together (frame -14). */
+.header-action{display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-2)}
+.trip-context-slot{display:inline-flex;align-items:center;gap:var(--sp-2);font-family:var(--font-mono);font-size:var(--fs-label-s);line-height:var(--lh-label);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--text-muted)}
+.trip-context .chip-ai{margin-left:auto}
+
+/* Title over sentence, so the banner reads at a glance and still explains itself. */
+.route-dirty b{display:block;font-size:var(--fs-body);margin-bottom:2px}
+.route-dirty span{display:block;color:var(--text-muted)}
+
+/* Plan ▸ Gifts ▸ Split and the wallet's split row: a full-width row that is a link. */
+.plan-row{width:100%;min-height:var(--tap);display:grid;grid-template-columns:1fr auto;align-items:center;gap:var(--sp-3);border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:var(--r-m);padding:var(--sp-3);margin:var(--sp-2) 0;text-align:left;text-decoration:none;cursor:pointer}
+.plan-row>span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.plan-row b{font-size:var(--fs-body)}
+.plan-row small{font-size:var(--fs-body-s);line-height:var(--lh-body-s);color:var(--text-muted)}
+.plan-row svg{width:20px;height:20px;color:var(--text-muted);flex:0 0 auto}
+
+/* Quick amounts (frame -4). A fieldset because they set one value between them. */
+.quick-amounts{border:0;margin:0 0 var(--sp-3);padding:0;display:flex;flex-wrap:wrap;gap:var(--sp-2)}
+.quick-amounts legend{padding:0;margin-bottom:var(--sp-2);font-family:var(--font-mono);font-size:var(--fs-label-s);line-height:var(--lh-label);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--text-muted)}
+.quick-amounts button{min-height:var(--tap);padding:0 var(--sp-4);border:1px solid var(--border-strong);border-radius:var(--r-pill);background:var(--surface-raised);color:var(--text);font-family:var(--font-mono);font-size:var(--fs-body-s);font-weight:var(--fw-med);cursor:pointer}
+.quick-amounts button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:var(--fw-bold)}
+.sheet-impact.plain b{color:var(--text)}
+.record-screen h1{font-family:var(--font-serif);font-weight:var(--fw-reg);font-size:var(--fs-h);line-height:var(--lh-h);margin:0 0 var(--sp-3)}
+
+/* Home skeleton (G2). The feed cards that go under it are G3's. */
+.home-greeting{padding:var(--sp-6) 0 var(--sp-4)}
+.home-greeting h1{font-family:var(--font-serif);font-weight:var(--fw-reg);font-size:var(--fs-display);line-height:var(--lh-display);letter-spacing:var(--ls-display);margin:0}
+.home-greeting p{margin:var(--sp-2) 0 0;color:var(--text-muted);font-size:var(--fs-lead);line-height:var(--lh-lead)}
+
+/* The wallet table the frames draw on Budget, Trail and Bag Tracking. */
+.data-table{border:1px solid var(--border);background:var(--surface);border-radius:var(--r-m);padding:0 var(--sp-3);margin:var(--sp-2) 0}
+.data-table>div{min-height:var(--tap);display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);padding:var(--sp-2) 0;border-top:1px solid var(--hairline)}
+.data-table>div:first-child{border-top:0}
+.data-table small{font-size:var(--fs-body-s);color:var(--text-muted)}
+.data-table b{font-family:var(--font-mono);font-size:var(--fs-body);font-weight:var(--fw-bold)}
+.data-table>div.total b{font-size:var(--fs-lead)}
+.data-table>div.over b,.data-table b.negative{color:var(--danger)}
+
+/* The in-store heading is the progress line itself, so it sits in the summary card
+   rather than above it — and the shell's focus target is a real heading again. */
+.shop-summary h1{font-size:var(--fs-lead);line-height:var(--lh-lead);font-weight:var(--fw-bold);margin:0}
+.shop-screen .profile-section-label b{font-family:var(--font-mono);font-size:var(--fs-label-s);line-height:var(--lh-label);letter-spacing:var(--ls-label);color:var(--text-muted)}

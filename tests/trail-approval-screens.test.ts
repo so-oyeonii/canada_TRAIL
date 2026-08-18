@@ -8,7 +8,11 @@ import { readFileSync } from "node:fs";
 // tap in exactly one place.
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
-const people = read("app/(app)/trail/plan/people/page.tsx");
+// The split screen moved to `Gifts ▸ Split` when the lenses went from five to four
+// (FIGMA_ADOPTION §2). Body unchanged — these assertions are the reason it was moved
+// rather than rewritten, and `/trail/plan/people` is now a 308 to here.
+const people = read("app/(app)/trail/plan/gifts/split/page.tsx");
+const peopleStub = read("app/(app)/trail/plan/people/page.tsx");
 const approval = read("app/(app)/trail/plan/approval/page.tsx");
 const layout = read("app/(app)/trail/plan/layout.tsx");
 const state = read("app/(app)/app-state.tsx");
@@ -49,6 +53,10 @@ test("only the approval screen decides a budget change", () => {
 test("the proposal is shown as a proposal", () => {
   assert.ok(/None of this has happened/.test(approval), "the screen must say nothing has moved yet");
   assert.ok(/status === "503"|status === 503/.test(approval), "a missing service key must not read as an approval");
+});
+
+test("the old People route still resolves to the screen that replaced it", () => {
+  assert.match(peopleStub, /permanentRedirect\("\/trail\/plan\/gifts\/split"\)/);
 });
 
 test("a waiting approval interrupts every plan lens", () => {

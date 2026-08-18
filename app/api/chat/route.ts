@@ -1,4 +1,4 @@
-import { briefContext, composeTurn, emptyReply, inferPlanPatch, tripCurrency, FALLBACK_REPLY, SYSTEM_PROMPT, TURN_SCHEMA, type ChatErrorCode, type ChatReply, type ChatTurn, type KnownRecipient, type ModelTurn, type Plan, type PlanPatch, type TripContext, type TurnContext } from "../../trail-brief";
+import { briefContext, composeTurn, emptyReply, inferPlanPatch, sanitizeBriefPatch, tripCurrency, FALLBACK_REPLY, SYSTEM_PROMPT, TURN_SCHEMA, type ChatErrorCode, type ChatReply, type ChatTurn, type KnownRecipient, type ModelTurn, type Plan, type PlanPatch, type TripContext, type TurnContext } from "../../trail-brief";
 
 import { getTraveler } from "../../../lib/supabase/server";
 
@@ -14,7 +14,13 @@ const RATE_LIMIT = 12;
 
 /** The client still owns the brief until T3 wires `GET /api/state` into this route. Everything it
  *  sends is treated as untrusted input and re-derived through the sanitizers before it is used. */
-type ChatPayload = { message?: string; plan?: Plan; trip?: TripContext; history?: ChatTurn[]; recipients?: KnownRecipient[]; plannedUnits?: number; unallocatedUnits?: number; planApproved?: boolean; hasPurchases?: boolean };
+type ChatPayload = { message?: string; plan?: Plan; trip?: TripContext; history?: ChatTurn[]; recipients?: KnownRecipient[]; plannedUnits?: number; unallocatedUnits?: number; planApproved?: boolean; hasPurchases?: boolean; preferenceTags?: unknown; routeTag?: unknown; missingFields?: unknown };
+
+/** What still has to be answered before a plan can be built. The client is the only side that knows
+ *  about the hotel — the name never leaves the browser, so "hotel" as a *word* is the most the
+ *  server can be told about it — and the server re-derives the rest so a client that claims nothing
+ *  is missing cannot switch the questions off. Union, not trust: more missing is the safe direction. */
+const REQUIRED_FIELDS = ["city", "hotel", "budget", "recipients", "preferences"] as const;
 
 /** Per-instance counter. Interim protection only — replaced by a session check once auth lands (P2). */
 const hits = new Map<string, number[]>();
@@ -53,16 +59,21 @@ function buildContext(payload: ChatPayload): TurnContext {
   const recipients: KnownRecipient[] = supplied.length ? supplied : plan?.recipient ? [{ ref: "r1", label: plan.recipient, relationship: plan.recipient, groupSize: plan.quantity, allocation: plan.budget }] : [];
   const plannedUnits = payload.plannedUnits ?? plan?.budget ?? 0;
   const allocated = recipients.reduce((sum, person) => sum + (person.allocation ?? 0) * (person.allocationBasis === "per_person" ? person.groupSize ?? 1 : 1), 0);
+  const tags = (Array.isArray(payload.preferenceTags) ? payload.preferenceTags : []).map((tag) => `${tag}`);
+  const brief = sanitizeBriefPatch({ category: plan?.category ?? null, preference: plan?.preference ?? null, preference_tags: tags.length ? tags : null, route_tag: payload.routeTag ?? null, hotel_delivery: plan?.hotelDelivery ?? null }).patch;
+  const declared = (Array.isArray(payload.missingFields) ? payload.missingFields : []).map((field) => `${field}`).filter((field) => (REQUIRED_FIELDS as readonly string[]).includes(field));
+  const derived = [!trip?.city && "city", plannedUnits <= 0 && "budget", !recipients.length && "recipients", !brief.preferenceTags?.length && "preferences"].filter((field): field is string => !!field);
   return {
     trip,
     recipients,
-    brief: plan ? { category: plan.category as never, preference: plan.preference as never, localOnly: plan.localOnly, easyPack: plan.easyPack, hotelDelivery: plan.hotelDelivery } : {},
+    brief,
     plannedUnits,
     unallocatedUnits: payload.unallocatedUnits ?? Math.max(0, plannedUnits - allocated),
     totalKnown: plannedUnits > 0,
     scopeResolved: plannedUnits > 0,
     planApproved: !!payload.planApproved,
     hasPurchases: !!payload.hasPurchases,
+    missingFields: [...new Set([...declared, ...derived])],
   };
 }
 

@@ -28,8 +28,8 @@ const kindCopy: Record<BudgetChangeKind, { title: string; body: string }> = {
 const proposerCopy: Record<string, string> = { ai_patch: "Trail suggested this", regex_suggestion: "Trail suggested this", user_edit: "You asked for this", system_clamp: "Trail adjusted this to fit", approval: "Approved", revert: "This undoes an earlier change" };
 
 const BUCKETS = [
-  { key: "plannedCents", label: "Planned for gifts", tone: "planned" },
-  { key: "deliveryReserveCents", label: "Protected for delivery", tone: "reserve" },
+  { key: "plannedCents", label: "Planned shopping", tone: "planned" },
+  { key: "deliveryReserveCents", label: "Reserved for delivery", tone: "reserve" },
   { key: "flexibleCents", label: "Flexible", tone: "flex" },
 ] as const;
 

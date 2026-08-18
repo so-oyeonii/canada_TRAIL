@@ -9,13 +9,36 @@
  *  server sends codes (`lib/transfers/eligibility.ts` is explicit that remedies
  *  are codes, not sentences); this is the one place they become English. */
 
-import type { DataSource, Handling, HandoffFailureCode, IneligibleCode } from "@/lib/state/types";
-import type { Remedy } from "@/lib/transfers/eligibility";
+import type { DataSource, Handling, HandoffFailureCode, IneligibleCode } from "../../lib/state/types.ts";
+import type { Remedy } from "../../lib/transfers/eligibility.ts";
 
 /** Money is `lib/money/format.ts` and nothing else. Both take the currency as a required
  *  argument on purpose: a default of "CAD" is how every screen came to divide by a hard
  *  100 and print a `$` in front of a yen amount. */
-export { amount as money, priceLabel as price } from "@/lib/money/format";
+export { amount as money, priceLabel as price } from "../../lib/money/format.ts";
+import { minorUnits, priceLabel } from "../../lib/money/format.ts";
+
+/** `CAD $9.00`. The payment screen is the one place a trailing `.00` is not noise:
+ *  the amount on the button has to read like the amount on a card statement, and a
+ *  `CAD $9` next to a `$9.00` receipt is the kind of difference that gets disputed.
+ *  Ledger rows keep `price()`. Currencies with no minor unit keep none — `JPY ¥1,200.00`
+ *  would be inventing two digits that do not exist. */
+export const priceExact = (cents: number, currency: string) => { const label = priceLabel(cents, currency); return minorUnits(currency) === 1 || label.includes(".") ? label : `${label}.00`; };
+
+/** Weight is only ever shown when a bag actually carries one. `purchases` has no
+ *  weight column and `draftItems()` hard-codes null, so every bag is unweighed
+ *  today — and an invented 800 g per bag would not stay on screen: `saveManifest`
+ *  sends it, and `handling_unsupported` is judged against `max_weight_grams`. A
+ *  guess would refuse a real delivery or wave a real overload through. */
+export const weightLabel = (grams: number | null) => (grams && grams > 0 ? `~${(grams / 1000).toFixed(1)} kg` : "Weighed at the counter");
+
+/** Constitution 5: flexible money cannot move without a tap, and a tap on
+ *  "Use my flexible budget" is not an approval of an amount nobody was shown.
+ *  Says what leaves, which bucket it leaves, and what is left after. */
+export const flexibleRemedyLabel = (shortfallCents: number, flexibleCents: number, currency: string) =>
+  (flexibleCents >= shortfallCents
+    ? `Take ${priceLabel(shortfallCents, currency)} from flexible (${priceLabel(flexibleCents - shortfallCents, currency)} left)`
+    : `Flexible has ${priceLabel(flexibleCents, currency)}. Not enough for ${priceLabel(shortfallCents, currency)}.`);
 
 const TONES = ["peach", "blue", "yellow"] as const;
 export const stopTone = (index: number) => TONES[index % TONES.length];

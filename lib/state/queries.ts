@@ -10,7 +10,12 @@
  *  Migrations are applied out of band from a deploy, so `load.ts` asks with the
  *  flag on, retries once with it off if the database has not caught up, and
  *  remembers the answer. Without that, shipping the code first would turn every
- *  screen into an error instead of a slightly older one. */
+ *  screen into an error instead of a slightly older one.
+ *
+ *  `stops.planned_date` (0024) is deliberately absent from the stop select: the column is
+ *  not on the deployed database yet and naming it 400s the whole state read. `Stop.plannedDate`
+ *  already exists in the shape and reads null until it is added here, in the same change that
+ *  applies the migration — `Day n of m` and the today branch simply stay off until then. */
 
 export const USER_SELECT = "*";
 
@@ -50,7 +55,7 @@ export const tripSelect = (t5: boolean) => `
     ${t5 ? "ineligible_code, handoff_failure_code, pass_issued_at, pass_expires_at, pass_version," : ""}
     ${t5 ? "transfer_issues!transfer_issues_transfer_id_user_id_fkey ( id, kind, status, description, reported_at, resolved_at )," : ""}
     dropoff_store:stores!bag_transfers_dropoff_store_id_fkey (
-      id, name, address, area, dropoff_cutoff, lat, lng${t5 ? ", accepted_handling, max_weight_grams, timezone, dropoff_opens, partner_note" : ""}
+      id, name, address, area, dropoff_cutoff, lat, lng, source${t5 ? ", accepted_handling, max_weight_grams, timezone, dropoff_opens, partner_note" : ""}
     ),
     bag_transfer_items!bag_transfer_items_transfer_id_user_id_fkey (
       id, purchase_id, label, bags, handling, weight_grams, seal_id, sealed_at, scanned_at
@@ -60,7 +65,7 @@ export const tripSelect = (t5: boolean) => `
     ),
     payments!payments_transfer_id_user_id_fkey (
       id, status, amount_cents, currency, method_brand, method_last4, failure_code,
-      authorized_at, captured_at, refunded_at, created_at
+      provider_charge_id, authorized_at, captured_at, refunded_at, created_at
     ),
     receipts!receipts_transfer_id_user_id_fkey (
       id, received_by, received_at, bag_count, seal_ids, purchases_cents, transfer_fee_cents

@@ -5,11 +5,21 @@
 import type { BudgetChangeRow, IssueRow, PaymentRow, PlanRow, PurchaseRow, ReceiptRow, RecipientRow, StopRow, StoreRow, TransferEventRow, TransferItemRow, TransferRow, TripListRow, TripRow, UserRow } from "./rows";
 import type { Allocation, BudgetChange, BudgetSnapshot, Payment, Plan, Purchase, Receipt, Recipient, SourceLabels, Stop, TrailState, TransferEvent, TransferIssue, TransferItem, TransferSummary, TravelerProfile, Trip, TripSummary, Wallet, Transfer, DropoffStore, Inquiry } from "./types";
 import { EMPTY_WALLET } from "./types.ts";
+import { PREFERENCE_TAGS, ROUTE_TAGS, type PreferenceTag, type RouteTag } from "../../app/trail-brief.ts";
 
 /** A transfer is still the traveler's current one until it is delivered or
  *  cancelled. `failed` stays live on purpose: a hotel handoff that did not work
  *  is the screen the traveler most needs. */
 const CLOSED_TRANSFERS = new Set(["delivered", "cancelled"]);
+
+/** Optional on the row on purpose: `0025` adds the two columns and has not been applied to the
+ *  remote database yet, so `queries.ts` does not select them and every read lands here as
+ *  undefined. That is an empty tag list, not a crash — and the day the column ships, adding it
+ *  to the select is the only change. Unknown values are dropped rather than rendered: the
+ *  summary card draws tags through a label map, and a value with no label is not a preference. */
+const inPreferenceTags = (value: unknown): value is PreferenceTag => typeof value === "string" && (PREFERENCE_TAGS as readonly string[]).includes(value);
+const inRouteTags = (value: unknown): value is RouteTag => typeof value === "string" && (ROUTE_TAGS as readonly string[]).includes(value);
+const planTags = (row: PlanRow): PreferenceTag[] => (row.preference_tags ?? []).filter(inPreferenceTags);
 
 export function shapeUser(row: UserRow | null, id: string, email: string): TravelerProfile {
   return { id, email: row?.email ?? email, displayName: row?.display_name ?? null, homeCurrency: row?.home_currency ?? "CAD", locale: row?.locale ?? "en", memoryEnabled: row?.memory_enabled ?? false, firstRunDoneAt: row?.first_run_done_at ?? null };
@@ -31,7 +41,7 @@ export function pickPlan(rows: PlanRow[] | null): PlanRow | null {
 
 export function shapePlan(row: PlanRow | null): Plan | null {
   if (!row) return null;
-  return { id: row.id, status: row.status, version: row.version, totalCents: row.total_cents, plannedCents: row.planned_cents, deliveryReserveCents: row.delivery_reserve_cents, flexibleCents: row.flexible_cents, category: row.category, preference: row.preference, localOnly: row.local_only, easyPack: row.easy_pack, hotelDelivery: row.hotel_delivery, approvedAt: row.approved_at, allocations: (row.plan_allocations ?? []).map((a) => ({ recipientId: a.recipient_id, amountCents: a.amount_cents, bucket: a.bucket })) };
+  return { id: row.id, status: row.status, version: row.version, totalCents: row.total_cents, plannedCents: row.planned_cents, deliveryReserveCents: row.delivery_reserve_cents, flexibleCents: row.flexible_cents, category: row.category, preference: row.preference, localOnly: row.local_only, easyPack: row.easy_pack, preferenceTags: planTags(row), routeTag: inRouteTags(row.route_tag) ? row.route_tag : null, hotelDelivery: row.hotel_delivery, approvedAt: row.approved_at, allocations: (row.plan_allocations ?? []).map((a) => ({ recipientId: a.recipient_id, amountCents: a.amount_cents, bucket: a.bucket })) };
 }
 
 /** `allocationCents` is joined on from the live plan rather than stored twice.
@@ -71,7 +81,7 @@ export function shapePurchase(row: PurchaseRow): Purchase {
 export function shapeStop(row: StopRow): Stop {
   const purchase = (row.purchases ?? [])[0] ?? null;
   const inquiry = (row.store_inquiries ?? []).slice().sort((a, b) => b.asked_at.localeCompare(a.asked_at))[0] ?? null;
-  return { id: row.id, planId: row.plan_id, sequence: row.sequence, plannedDay: row.planned_day, status: row.status, recipientId: row.recipient_id, productName: row.product_name, storeName: row.store_name, storeAddress: row.store_address, area: row.area, snapshotPriceCents: row.snapshot_price_cents, handling: row.handling, walkMinutes: row.walk_minutes, rationale: row.rationale, saved: row.saved, replacedStopId: row.replaced_stop_id, source: row.source, purchase: purchase ? shapePurchase(purchase) : null, inquiry: inquiry ? shapeInquiry(inquiry) : null };
+  return { id: row.id, planId: row.plan_id, sequence: row.sequence, plannedDay: row.planned_day, plannedDate: row.planned_date ?? null, status: row.status, recipientId: row.recipient_id, productName: row.product_name, storeName: row.store_name, storeAddress: row.store_address, area: row.area, snapshotPriceCents: row.snapshot_price_cents, handling: row.handling, walkMinutes: row.walk_minutes, rationale: row.rationale, saved: row.saved, replacedStopId: row.replaced_stop_id, source: row.source, purchase: purchase ? shapePurchase(purchase) : null, inquiry: inquiry ? shapeInquiry(inquiry) : null };
 }
 
 function shapeInquiry(row: NonNullable<StopRow["store_inquiries"]>[number]): Inquiry {
@@ -81,7 +91,7 @@ function shapeInquiry(row: NonNullable<StopRow["store_inquiries"]>[number]): Inq
 function shapeStore(row: StoreRow | null): DropoffStore | null {
   // `accepted_handling` decides `handling_unsupported`, so an absent column is
   // read as Standard only — never as "this counter takes anything".
-  return row ? { id: row.id, name: row.name, address: row.address, area: row.area, dropoffCutoff: row.dropoff_cutoff, lat: row.lat, lng: row.lng, acceptedHandling: row.accepted_handling ?? ["Standard"], maxWeightGrams: row.max_weight_grams ?? null, timezone: row.timezone ?? "America/Toronto", partnerNote: row.partner_note ?? "" } : null;
+  return row ? { id: row.id, name: row.name, address: row.address, area: row.area, dropoffCutoff: row.dropoff_cutoff, lat: row.lat, lng: row.lng, acceptedHandling: row.accepted_handling ?? ["Standard"], maxWeightGrams: row.max_weight_grams ?? null, timezone: row.timezone ?? "America/Toronto", partnerNote: row.partner_note ?? "", source: row.source ?? "sample" } : null;
 }
 
 function shapeIssue(row: IssueRow): TransferIssue {
@@ -97,7 +107,7 @@ function shapeEvent(row: TransferEventRow): TransferEvent {
 }
 
 function shapePayment(row: PaymentRow): Payment {
-  return { id: row.id, status: row.status, amountCents: row.amount_cents, currency: row.currency, methodBrand: row.method_brand, methodLast4: row.method_last4, failureCode: row.failure_code, authorizedAt: row.authorized_at, capturedAt: row.captured_at, refundedAt: row.refunded_at };
+  return { id: row.id, status: row.status, amountCents: row.amount_cents, currency: row.currency, methodBrand: row.method_brand, methodLast4: row.method_last4, reference: row.provider_charge_id ?? null, failureCode: row.failure_code, authorizedAt: row.authorized_at, capturedAt: row.captured_at, refundedAt: row.refunded_at };
 }
 
 function shapeReceipt(row: ReceiptRow): Receipt {
@@ -107,7 +117,7 @@ function shapeReceipt(row: ReceiptRow): Receipt {
 export function shapeTransfer(row: TransferRow): Transfer {
   const events = (row.transfer_events ?? []).slice().sort((a, b) => a.seq - b.seq).map(shapeEvent);
   const payment = (row.payments ?? []).slice().sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null;
-  return { id: row.id, status: row.status, referenceCode: row.reference_code, hotelName: row.hotel_name, hotelAddress: row.hotel_address, bagCount: row.bag_count, weightGrams: row.weight_grams, feeCents: row.fee_cents, currency: row.currency, etaStart: row.eta_start, etaEnd: row.eta_end, dropoffCutoffAt: row.dropoff_cutoff_at, confirmedAt: row.confirmed_at, deliveredAt: row.delivered_at, ineligibleCode: row.ineligible_code ?? null, ineligibleReason: row.ineligible_reason, handoffFailureCode: row.handoff_failure_code ?? null, passExpiresAt: row.pass_expires_at ?? null, source: row.source, createdAt: row.created_at, dropoffStore: shapeStore(row.dropoff_store), items: (row.bag_transfer_items ?? []).map(shapeItem), events, payment: payment ? shapePayment(payment) : null, receipt: (row.receipts ?? [])[0] ? shapeReceipt((row.receipts ?? [])[0]) : null, issues: (row.transfer_issues ?? []).slice().sort((a, b) => b.reported_at.localeCompare(a.reported_at)).map(shapeIssue) };
+  return { id: row.id, status: row.status, referenceCode: row.reference_code, hotelName: row.hotel_name, hotelAddress: row.hotel_address, bagCount: row.bag_count, weightGrams: row.weight_grams, feeCents: row.fee_cents, currency: row.currency, etaStart: row.eta_start, etaEnd: row.eta_end, dropoffCutoffAt: row.dropoff_cutoff_at, confirmedAt: row.confirmed_at, deliveredAt: row.delivered_at, ineligibleCode: row.ineligible_code ?? null, ineligibleReason: row.ineligible_reason, handoffFailureCode: row.handoff_failure_code ?? null, passIssuedAt: row.pass_issued_at ?? null, passExpiresAt: row.pass_expires_at ?? null, source: row.source, createdAt: row.created_at, dropoffStore: shapeStore(row.dropoff_store), items: (row.bag_transfer_items ?? []).map(shapeItem), events, payment: payment ? shapePayment(payment) : null, receipt: (row.receipts ?? [])[0] ? shapeReceipt((row.receipts ?? [])[0]) : null, issues: (row.transfer_issues ?? []).slice().sort((a, b) => b.reported_at.localeCompare(a.reported_at)).map(shapeIssue) };
 }
 
 export function shapeTransferSummary(row: TransferRow): TransferSummary {
@@ -120,7 +130,13 @@ export function splitTransfers(rows: TransferRow[] | null) {
   const ordered = (rows ?? []).slice().sort((a, b) => b.created_at.localeCompare(a.created_at));
   const liveIndex = ordered.findIndex((t) => !CLOSED_TRANSFERS.has(t.status));
   const live = liveIndex === -1 ? null : ordered[liveIndex];
-  return { transfer: live ? shapeTransfer(live) : null, pastTransfers: ordered.filter((_, i) => i !== liveIndex).map(shapeTransferSummary) };
+  // A delivered run is closed, so `transfer` goes null and the Bags tab is free to
+  // start the next one. The completion screen still has to exist after that: it is
+  // the only place `receipts.seal_ids` and the payment reference are shown, and a
+  // reload must not turn it into an empty state. So the newest delivered row is
+  // shaped in full alongside the summaries.
+  const delivered = ordered.find((t) => t.status === "delivered") ?? null;
+  return { transfer: live ? shapeTransfer(live) : null, lastDelivered: delivered ? shapeTransfer(delivered) : null, pastTransfers: ordered.filter((_, i) => i !== liveIndex).map(shapeTransferSummary) };
 }
 
 export function shapeTripSummary(row: TripListRow): TripSummary {
@@ -154,13 +170,13 @@ export function shapeState(input: { user: UserRow | null; userId: string; email:
   const user = shapeUser(input.user, input.userId, input.email);
   const trips = (input.list ?? []).map(shapeTripSummary);
   const row = input.trip;
-  if (!row) return { serverTime, stateVersion: newestTimestamp(input.list.map((t) => t.updated_at), serverTime), user, activeTripId: null, trips, trip: null, plan: null, wallet: EMPTY_WALLET, recipients: [], budgetChanges: [], pendingBudgetChange: null, stops: [], unplannedPurchases: [], transfer: null, pastTransfers: [], labels: { stops: null, transfer: null, payment: null } };
+  if (!row) return { serverTime, stateVersion: newestTimestamp(input.list.map((t) => t.updated_at), serverTime), user, activeTripId: null, trips, trip: null, plan: null, wallet: EMPTY_WALLET, recipients: [], budgetChanges: [], pendingBudgetChange: null, stops: [], unplannedPurchases: [], transfer: null, lastDelivered: null, pastTransfers: [], labels: { stops: null, transfer: null, payment: null } };
 
   const planRow = pickPlan(row.plans);
   const plan = shapePlan(planRow);
   const stops = (row.stops ?? []).slice().sort((a, b) => a.planned_day - b.planned_day || a.sequence - b.sequence).filter((s) => !plan || s.plan_id === plan.id).map(shapeStop);
   const unplannedPurchases = (row.unplanned_purchases ?? []).filter((p) => p.stop_id === null).map(shapePurchase);
-  const { transfer, pastTransfers } = splitTransfers(row.bag_transfers);
+  const { transfer, lastDelivered, pastTransfers } = splitTransfers(row.bag_transfers);
   const labels: SourceLabels = { stops: stops[0]?.source ?? null, transfer: transfer?.source ?? null, payment: transfer?.payment ? transfer.source : null };
   // Recipients arrive in creation order (`r1`, `r2` … resolve against it), and the
   // allocation they carry is the live plan's, so an old draft's split never shows.
@@ -171,5 +187,5 @@ export function shapeState(input: { user: UserRow | null; userId: string; email:
 
   const stateVersion = newestTimestamp([row.updated_at, planRow?.updated_at, ...(row.stops ?? []).map((s) => s.updated_at), ...(row.stops ?? []).flatMap((s) => (s.purchases ?? []).map((p) => p.updated_at)), ...(row.unplanned_purchases ?? []).map((p) => p.updated_at), ...(row.bag_transfers ?? []).map((t) => t.updated_at), ...input.list.map((t) => t.updated_at)], serverTime);
 
-  return { serverTime, stateVersion, user, activeTripId: row.id, trips, trip: shapeTrip(row), plan, wallet: computeWallet(plan, stops, unplannedPurchases), recipients, budgetChanges, pendingBudgetChange, stops, unplannedPurchases, transfer, pastTransfers, labels };
+  return { serverTime, stateVersion, user, activeTripId: row.id, trips, trip: shapeTrip(row), plan, wallet: computeWallet(plan, stops, unplannedPurchases), recipients, budgetChanges, pendingBudgetChange, stops, unplannedPurchases, transfer, lastDelivered, pastTransfers, labels };
 }

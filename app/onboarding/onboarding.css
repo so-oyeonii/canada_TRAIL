@@ -27,3 +27,18 @@
 .onboarding-actions{display:flex;flex-direction:column;gap:var(--sp-2);margin-top:auto;padding-top:var(--sp-2)}
 .bucket-preview span{flex-wrap:wrap}.bucket-preview em{order:9;width:100%;font-style:normal;font-family:var(--font-mono);font-size:var(--fs-label-s);line-height:var(--lh-label);color:var(--text-muted)}
 .onboarding-form label.stacked :is(input,select):not(:focus-visible),.area-add input:not(:focus-visible){outline:0}
+
+/* ---- the chip conversation ------------------------------------------------
+   A reskin of the same four-step form, not a model: four of the six answers are
+   `trips` columns and one of them is the hotel, which may never reach a prompt. */
+.chip-chat .messages{gap:var(--sp-3);margin:var(--sp-3) 0}
+.chip-chat .messages>div{display:flex;flex-direction:column;gap:var(--sp-2)}
+/* An answer already given is a button: tapping it is how you go back, so there is no separate
+   Back control to disagree with the progress indicator. */
+.bubble-button{border:0;background:transparent;color:inherit;font:inherit;text-align:left;padding:0;min-height:var(--tap);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
+.chip-answer{display:flex;flex-direction:column;gap:var(--sp-3);margin-top:var(--sp-2)}
+.chip-answer .chip-row{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
+/* `progressbar`, not four dots: the dots could not say which of six answers you were on. */
+.chip-chat .onboarding-progress{display:block;height:4px;border-radius:var(--r-pill);background:var(--hairline);overflow:hidden}
+.chip-chat .onboarding-progress i{display:block;height:100%;background:var(--accent-fill);transition:width .18s ease}
+@media (prefers-reduced-motion:reduce){.chip-chat .onboarding-progress i{transition:none}}

@@ -18,7 +18,8 @@
 import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Brand } from "@/components/chrome";
-import { type Plan as Brief, type PlanKey, type PlanPatch } from "@/app/trail-brief";
+import { PREFERENCE_TAGS, type BriefField, type Plan as Brief, type PlanKey, type PlanPatch, type PreferenceTag, type RouteTag } from "@/app/trail-brief";
+import { TAGS_HANDOFF_KEY } from "@/app/onboarding/trip-draft";
 import { fromMinor } from "@/lib/money/format";
 import type { OutboxMethod, OutboxOp } from "@/lib/state/outbox";
 import { boughtStops, draftItems, deliveryStep as stepFromEvents, routeStops, selectedBagCount as countBags } from "@/lib/state/selectors";
@@ -26,6 +27,7 @@ import { computeWallet } from "@/lib/state/shape";
 import { EMPTY_WALLET, type DraftItem, type DropoffPoint, type Handling, type IssueKind, type ItemKey, type Purchase, type Stop, type StopId, type StopStatus, type TrailState } from "@/lib/state/types";
 import { useTrailState } from "@/lib/state/use-trail-state";
 import { createClient as supabaseClient } from "@/lib/supabase/client";
+import { type CachedPass, readPass, shouldReissue, writePass } from "@/lib/transfers/pass-cache";
 import type { Eligibility } from "@/lib/transfers/eligibility";
 
 export type Message = { role: "ai" | "user"; text: string };
@@ -48,14 +50,33 @@ export type AllocationEntry = { recipientId: string; amountCents: number; basis?
 export const TRIP_WRITABLE = ["country", "city", "areas", "start_date", "end_date", "hotel_name", "hotel_address", "companions", "free_time"] as const;
 export type TripPatch = Partial<Record<(typeof TRIP_WRITABLE)[number], unknown>>;
 
-export const payMethods = [{ id: "apple", label: "Apple Pay", detail: "Touch or Face ID", mark: "" }, { id: "visa", label: "Visa", detail: "Saved card ending 4242", mark: "V" }, { id: "other", label: "Another card", detail: "Add at the partner point", mark: "+" }];
+/** Three fixed rows, and not one of them is a stored payment method — there is no
+ *  PSP, no vault and no token, so a "saved cards" list would be a list of cards that
+ *  do not exist. `Apple Pay` carries no logo (the mark is licensed for real support
+ *  only) and `4242` is gone: it is a Stripe test number, and printing it claims a
+ *  card Trail has never seen. What a tap here actually records is `payments.method_brand`. */
+export const payMethods = [{ id: "apple", label: "Apple Pay (simulated)", detail: "No card details are taken", mark: "" }, { id: "visa", label: "Sample card", detail: "Nothing is stored — Trail has never seen a card number", mark: "S" }, { id: "other", label: "Another card", detail: "Add at the partner point", mark: "+" }];
 export const starters = [
   { icon: "M", title: "A gift for my mom", prompt: "I want a thoughtful local gift for my mom under CAD 80." },
   { icon: "F", title: "Two equal gifts", prompt: "I need two different but equal-value gifts for my friends." },
   { icon: "T", title: "Treats for my team", prompt: "I need something easy to share with my 12-person lab team." },
 ];
 export const initialBrief: Brief = { recipient: "My mom", quantity: 1, category: "Home & design", budget: 80, preference: "Thoughtful and useful", localOnly: true, easyPack: true, hotelDelivery: true };
-const greeting: Message = { role: "ai", text: "Hi, I’m Trail. Tell me who you’re shopping for and where today takes you. I’ll find gift stops along your route and get the bags back to your hotel." };
+/** The opening line, with the city in it. Written by the client, not by a model turn: it costs a
+ *  round trip to say hello, and a greeting that can hallucinate is a greeting that can name a shop. */
+export const greeting = (city: string): Message => ({ role: "ai", text: `Let’s build your ${city} shopping day. I’ll help you find meaningful local gifts, stay within your budget, optimize your route, and get your bags back to your hotel.` });
+
+/** Whatever onboarding carried over, or nothing. Guarded for the server render, where there is no
+ *  sessionStorage — and where nothing reads these anyway, because the provider is still booting. */
+function carriedTags(): { preferenceTags?: PreferenceTag[] } {
+  if (typeof window === "undefined") return {};
+  try {
+    const carried = sessionStorage.getItem(TAGS_HANDOFF_KEY);
+    if (!carried) return {};
+    const tags = (JSON.parse(carried) as unknown[]).filter((tag): tag is PreferenceTag => typeof tag === "string" && (PREFERENCE_TAGS as readonly string[]).includes(tag));
+    return tags.length ? { preferenceTags: tags } : {};
+  } catch { return {}; }
+}
 
 /** A write the traveler has made and the server has not confirmed. Keyed by stop
  *  id and dropped the moment its op leaves the outbox — never merged into state,
@@ -106,10 +127,18 @@ function useAppState() {
   const [eligibility, setEligibility] = useState<Eligibility | null>(null);
   const [failure, setFailure] = useState<WriteFailure | null>(null);
   const [paymentRef, setPaymentRef] = useState("");
+  const [pass, setPass] = useState<CachedPass | null>(null);
+  const [passError, setPassError] = useState("");
+  const [pricingSource, setPricingSource] = useState<"table" | "fallback" | null>(null);
   const [briefEdits, setBriefEdits] = useState<Partial<Brief>>({});
+  /** The closed-enum half of the brief. Separate from `briefEdits` because the flat `Brief` is the
+   *  legacy one-recipient projection and has two booleans where this has eight tags. Draft-only,
+   *  exactly like `briefEdits`: `plans` refuses a browser write since 0013, and the route that can
+   *  write these (`PATCH /api/plans/{id}/brief`) needs migration 0025 applied first. */
+  const [tagEdits, setTagEdits] = useState<{ preferenceTags?: PreferenceTag[]; routeTag?: RouteTag | null }>(carriedTags);
   const [approvedByTap, setApprovedByTap] = useState<Brief | null>(null);
   const [routeDirty, setRouteDirty] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([greeting]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const [suggestion, setSuggestion] = useState<PlanPatch | null>(null);
@@ -143,15 +172,28 @@ function useAppState() {
   const bagCount = items.reduce((sum, item) => sum + item.bags, 0);
   const deliveryStep = stepFromEvents(transfer?.events ?? []);
   const shoppingStarted = stops.some((stop) => stop.status !== "planned");
+  /** How much of today is left to buy. Undefined until `stops.planned_date` is
+   *  populated (0024): with no dated stop nobody knows what "today" holds, and that
+   *  is not the same as knowing it is empty. The device's date, not the server's —
+   *  the traveller is the one standing in the city. */
+  const todayStopCount = useMemo(() => { const dated = stops.filter((stop) => stop.plannedDate); if (!dated.length) return undefined; const now = new Date(); const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`; return dated.filter((stop) => stop.plannedDate === today && stop.status === "planned").length; }, [stops]);
   /** Seeded from the plan the server holds, then whatever the traveler has since
    *  typed. Derived, not copied into state: a traveler who set CAD 250 in
    *  onboarding never sees the CAD 80 a constant used to put here. */
   const brief: Brief = useMemo(() => ({ ...initialBrief, ...(serverPlan ? { budget: Math.round(fromMinor(serverPlan.plannedCents, trip?.currency ?? "CAD")), category: serverPlan.category || initialBrief.category, preference: serverPlan.preference || initialBrief.preference, localOnly: serverPlan.localOnly, easyPack: serverPlan.easyPack, hotelDelivery: serverPlan.hotelDelivery } : {}), ...briefEdits }), [serverPlan, briefEdits, trip]);
+  const preferenceTags = tagEdits.preferenceTags ?? serverPlan?.preferenceTags ?? [];
+  const routeTag = tagEdits.routeTag !== undefined ? tagEdits.routeTag : serverPlan?.routeTag ?? null;
   const approvedBrief = approvedByTap ?? (serverPlan?.status === "approved" ? brief : null);
   const activeBrief = approvedBrief ?? brief;
   const estimates = useMemo(() => { const count = stops.length || (brief.budget < 60 ? 1 : brief.budget < 130 ? 2 : 3); return { stops: count, minutes: 35 + count * 22 }; }, [brief.budget, stops.length]);
   const memoryEnabled = memoryOverride ?? view?.user.memoryEnabled ?? false;
   const hydrated = status !== "idle" && status !== "loading";
+
+  // The preferences answered during onboarding. `POST /api/trips` has no column for them and
+  // `plans` refuses a browser write, so they travel across the redirect and land here as a draft,
+  // never shown as saved. Read in the initialiser rather than in an effect: an effect that calls
+  // setState is a second render for a value that was already known on the first.
+  useEffect(() => { try { sessionStorage.removeItem(TAGS_HANDOFF_KEY); } catch { /* private mode */ } }, []);
 
   // Reconnecting is the one moment worth retrying on its own: everything the
   // traveler recorded underground goes up without them pressing anything.
@@ -226,6 +268,8 @@ function useAppState() {
     setPoints((reply.data.points ?? []) as DropoffPoint[]);
     setPartnerCount(Number(reply.data.partnerCount ?? 0));
     if (reply.data.quote) setQuote(reply.data.quote as Quote);
+    // A fallback price is our constant, not the city's partner table. The screen has to be able to say so.
+    setPricingSource(reply.data.pricingSource === "table" ? "table" : reply.data.pricingSource === "fallback" ? "fallback" : null);
   }, [call, tripId]);
 
 
@@ -271,6 +315,23 @@ function useAppState() {
     else if (reply.status !== 409) report(`/api/plans/${planId}/allocations`, reply);
     return reply;
   }, [call, planId, refresh, report]);
+
+  /** A whole chat turn's worth of recipient work, in one request. `POST /api/recipients/apply`
+   *  adds, updates and re-splits inside one transaction and merges the result with the
+   *  allocations of everyone the turn never mentioned — sending the ops one at a time would drop
+   *  every untouched slice, because the allocations route is a whole-list replacement.
+   *
+   *  `refs` is sent explicitly (`{ r1: uuid }`) so the server resolves refs from the same map the
+   *  client built, rather than re-deriving creation order a third time. A 409 is not reported as a
+   *  failure: `exceeds_planned` carries the proposal the traveller taps, and `plan_approved` means
+   *  the whole turn is waiting for one. */
+  const applyRecipientOps = useCallback(async (ops: unknown[], refs: Record<string, string>) => {
+    if (!ops.length) return { ok: true, status: 200, data: {} } as Reply;
+    const reply = await call("POST", "/api/recipients/apply", { ...(tripId ? { tripId } : {}), ops, refs });
+    if (reply.ok) await refresh();
+    else if (reply.status !== 409) report("/api/recipients/apply", reply);
+    return reply;
+  }, [call, refresh, report, tripId]);
 
   const proposeBudgetChange = useCallback(async (proposal: Record<string, unknown>) => {
     const reply = await call("POST", "/api/budget-changes", { ...(planId ? { planId } : {}), clientOpId: uuid(), ...proposal });
@@ -324,6 +385,27 @@ function useAppState() {
     return commit("POST", `/api/transfers/${transferId}/issues`, { kind, description, clientOpId: opId }, opId);
   }, [commit]);
 
+  /** The drop-off pass. Never queued: issuing needs the server, so an outbox entry
+   *  would tell a traveller in a basement that their pass is "waiting to save" when
+   *  no pass exists at all. Offline with a cached token is the normal path and
+   *  answers ok; offline with nothing is a refusal the screen has to draw.
+   *
+   *  Every POST mints a new token and bumps `pass_version`, which revokes the last
+   *  QR — so this only calls out when there is nothing cached or what is cached will
+   *  not outlast the queue. */
+  const issuePass = useCallback(async (transferId: string, force = false) => {
+    const cached = readPass(transferId);
+    setPass(cached);
+    const now = new Date();
+    if (!force && cached && !shouldReissue(cached, now)) { setPassError(""); return { ok: true, status: 200, pass: cached, reissued: false }; }
+    if (typeof navigator !== "undefined" && !navigator.onLine) { setPassError(cached ? "" : "offline"); return { ok: Boolean(cached), status: 0, pass: cached, reissued: false }; }
+    const reply = await call("POST", `/api/transfers/${transferId}/pass`);
+    if (!reply.ok || typeof reply.data.token !== "string") { setPassError(cached ? "" : String(reply.data.error ?? (reply.status === 0 ? "offline" : "pass_unavailable"))); return { ok: Boolean(cached), status: reply.status, pass: cached, reissued: false }; }
+    const next: CachedPass = { token: reply.data.token, issuedAt: String(reply.data.issuedAt ?? now.toISOString()), expiresAt: String(reply.data.expiresAt ?? now.toISOString()), version: Number(reply.data.version ?? 1), referenceCode: String(reply.data.referenceCode ?? ""), bagCount: Number(reply.data.bagCount ?? 0) };
+    writePass(transferId, next); setPass(next); setPassError("");
+    return { ok: true, status: reply.status, pass: next, reissued: Boolean(cached && cached.token !== next.token) };
+  }, [call]);
+
   const advanceSimulation = useCallback(async (transferId: string, fail?: "tag_mismatch" | "front_desk_refused") => {
     const reply = await call("POST", `/api/transfers/${transferId}/simulate`, fail ? { fail } : {});
     if (reply.ok) await refresh();
@@ -349,6 +431,8 @@ function useAppState() {
   // ── the brief (still client-side: there is no plan route yet) ──
   const updateBrief = <K extends keyof Brief>(key: K, value: Brief[K]) => { setBriefEdits((current) => ({ ...current, [key]: value })); if (approvedBrief) setRouteDirty(true); };
   const applyPatch = (patch: PlanPatch) => { if (!patch || !Object.keys(patch).length) return; setBriefEdits((current) => ({ ...current, ...patch })); if (approvedBrief) setRouteDirty(true); };
+  const applyTags = (patch: { preferenceTags?: PreferenceTag[]; routeTag?: RouteTag | null }) => { if (!patch || !Object.keys(patch).length) return; setTagEdits((current) => ({ ...current, ...patch })); if (approvedBrief) setRouteDirty(true); };
+  const clearTags = (keys: BriefField[]) => { if (!keys.length) return; setTagEdits((current) => { const next = { ...current }; if (keys.includes("preferenceTags")) next.preferenceTags = []; if (keys.includes("routeTag")) next.routeTag = null; return next; }); if (approvedBrief) setRouteDirty(true); };
   /** Clearing drops the traveler's edit and falls back to the plan on the server,
    *  which is not the same as writing a default over it. */
   const clearFields = (keys: PlanKey[]) => { if (!keys.length) return; setBriefEdits((current) => { const next = { ...current }; keys.forEach((key) => delete next[key]); return next; }); if (approvedBrief) setRouteDirty(true); };
@@ -356,13 +440,13 @@ function useAppState() {
 
   return {
     status, error, fromCache, queued, syncedAt, offline, hydrated, refresh, retrySync, failure, clearFailure: () => setFailure(null), pending,
-    state: view, trip, serverPlan, wallet, currency, stops, bought, transfer, pastTransfers: view?.pastTransfers ?? [], trips: view?.trips ?? [], labels: view?.labels ?? { stops: null, transfer: null, payment: null },
-    items, selectedItems, selectedBagCount, bagCount, toggleItem, deliveryStep, shoppingStarted,
-    quote, points, partnerCount, eligibility, setEligibility, loadDropoffPoints,
-    recipients, budgetChanges, pendingBudgetChange, planId, addRecipient, updateRecipient, archiveRecipient, saveAllocations, proposeBudgetChange, decideBudgetChange,
+    state: view, trip, serverPlan, wallet, currency, stops, bought, transfer, lastDelivered: view?.lastDelivered ?? null, pastTransfers: view?.pastTransfers ?? [], trips: view?.trips ?? [], labels: view?.labels ?? { stops: null, transfer: null, payment: null },
+    items, selectedItems, selectedBagCount, bagCount, toggleItem, deliveryStep, shoppingStarted, todayStopCount, unplannedPurchases: view?.unplannedPurchases ?? [],
+    quote, pricingSource, points, partnerCount, eligibility, setEligibility, loadDropoffPoints,
+    recipients, budgetChanges, pendingBudgetChange, planId, addRecipient, updateRecipient, archiveRecipient, saveAllocations, applyRecipientOps, proposeBudgetChange, decideBudgetChange,
     saveTrip, savePurchase, removePurchase, setStopStatus, toggleSaved, openTransfer, saveManifest, confirmTransfer, reportEvent, reportIssue, advanceSimulation,
-    paymentRef, setPaymentRef, memoryEnabled, setMemoryEnabled: setMemoryOverride, notify, toast,
-    plan: brief, activePlan: activeBrief, approvedPlan: approvedBrief, approvePlan: approveBrief, updatePlan: updateBrief, applyPatch, clearFields, routeDirty, setRouteDirty, estimates,
+    paymentRef, setPaymentRef, pass, passError, issuePass, memoryEnabled, setMemoryEnabled: setMemoryOverride, notify, toast,
+    plan: brief, activePlan: activeBrief, approvedPlan: approvedBrief, approvePlan: approveBrief, updatePlan: updateBrief, applyPatch, clearFields, applyTags, clearTags, preferenceTags, routeTag, routeDirty, setRouteDirty, estimates,
     messages, setMessages, input, setInput, thinking, setThinking, suggestion, setSuggestion,
   };
 }

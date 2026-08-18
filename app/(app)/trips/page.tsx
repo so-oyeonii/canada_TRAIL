@@ -50,13 +50,13 @@ export default function TripsPage() {
   const router = useRouter();
   const { trip, wallet, trips, memoryEnabled, saveTrip, currency } = useApp();
 
-  return <div className="screen profile-screen"><Header title="Trips" back={() => router.push("/trail")} />
-    <section className="profile-intro"><div className="profile-mark">{(trip.city[0] ?? "T").toUpperCase()}</div><span><p>THIS TRIP</p><h1>{trip.city}<br /><em>{dateRange(trip.startDate, trip.endDate)}</em></h1><small>Plan routes, send purchases to your hotel, and reuse what Trail learns.</small></span></section>
-    <section className="trip-card"><header><span><small>CURRENT TRIP</small><b>{trip.city}, {trip.country}</b></span><i><IconPin /></i></header><div className="trip-area-preview">{trip.areas.map((area) => <span key={area}>{area}</span>)}</div><footer><span>{trip.companions}</span><b>{price(wallet.totalCents, currency)} budget</b></footer></section>
+  return <div className="screen profile-screen"><Header title="My Trips" />
+    <section className="profile-intro"><div className="profile-mark">{(trip.city[0] ?? "T").toUpperCase()}</div><span><p>CURRENT</p><h1>{trip.city}<br /><em>{dateRange(trip.startDate, trip.endDate)}</em></h1><small>Plan routes, send purchases to your hotel, and reuse what Trail learns.</small></span></section>
+    <section className="trip-card"><header><span><b>{trip.city}, {trip.country}</b><small>{dateRange(trip.startDate, trip.endDate)}</small></span><i><IconPin /></i></header><div className="trip-area-preview">{trip.areas.map((area) => <span key={area}>{area}</span>)}</div><footer><span>{trip.companions}</span><b>{price(wallet.totalCents, currency)} budget</b></footer></section>
     <section className="ai-memory-card"><header><i><IconSpark /></i><span><small>{memoryEnabled ? "APPROVED TRAIL MEMORY" : "TRAIL MEMORY OFF"}</small><b>{memoryEnabled ? "What I know about you" : "Using this trip only"}</b></span><em>{trips.length} {trips.length === 1 ? "TRIP" : "TRIPS"}</em></header><p>{memoryEnabled ? "Trail uses approved patterns to rank gifts and handling. You still control every route and transfer." : "Past trips are preserved, but their preferences do not affect recommendations."}</p><footer><button onClick={() => router.push("/account/memory")}>Memory &amp; privacy</button></footer></section>
     <div className="profile-section-label"><b>Current trip</b><span>Where stores and bags should connect</span></div>
     <TripForm key={trip.id} trip={trip} save={saveTrip} />
-    <div className="profile-link"><i><IconBag /></i><span><b>Route and hotel connected</b><small>Stores around {trip.areas.join(", ") || trip.city} → bag transfer to {trip.hotelName || "your hotel"}.</small></span></div>
+    <div className="profile-link"><i><IconBag /></i><span><b>Route and hotel connected</b><small>Stores around {trip.areas.join(", ") || trip.city}, then bag transfer to {trip.hotelName || "your hotel"}.</small></span></div>
     <Link className="workflow-link" href="/trips/past"><i><IconSpark /></i><span><b>Past trips</b><small>{trips.length} trip{trips.length === 1 ? "" : "s"} on this account</small></span><em><IconChevronRight /></em></Link>
   </div>;
 }

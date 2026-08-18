@@ -1,0 +1,14 @@
+{
+  "name": "TRAIL — hands-free souvenir travel",
+  "short_name": "TRAIL",
+  "description": "Find local gifts along your route, buy them in store, and send your purchased bags to your hotel.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#08121f",
+  "theme_color": "#08121f",
+  "icons": [
+    { "src": "/logo-mark.png", "sizes": "132x132", "type": "image/png", "purpose": "any" }
+  ]
+}

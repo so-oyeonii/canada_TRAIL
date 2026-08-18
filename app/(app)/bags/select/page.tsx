@@ -13,7 +13,7 @@ export default function BagSelectPage() {
   const router = useRouter();
   const { items, toggleItem, selectedBagCount, trip, currency } = useApp();
 
-  return <div className="screen drop-screen"><Header title="Hotel bag transfer" back={() => router.push("/trail/shop")} action={<span className="draft-badge">{selectedBagCount} {selectedBagCount === 1 ? "BAG" : "BAGS"}</span>} />
+  return <div className="screen drop-screen"><Header title="Hotel bag transfer" back={() => router.push("/bags")} action={<span className="draft-badge">{selectedBagCount} {selectedBagCount === 1 ? "BAG" : "BAGS"}</span>} />
     <div className="bag-visual"><i>TRAIL</i><i>LOCAL</i><span><IconCheck /></span></div>
     <div className="drop-copy"><p>YOUR PURCHASES · YOUR HOTEL</p><h1>Choose the bags.<br /><em>Keep exploring.</em></h1><span>You paid the stores directly. Trail only carries the sealed, purchased bags you select.</span></div>
     <section className="bag-selector"><header><span><small>PURCHASED BAGS</small><b>Select for hotel transfer</b></span><em>{selectedBagCount} selected</em></header>

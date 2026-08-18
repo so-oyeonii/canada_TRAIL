@@ -10,6 +10,7 @@
  *  field names, never amounts, which is what keeps the hold-back out of the prompt. */
 
 import { PREFERENCE_TAG_LABEL, ROUTE_TAG_LABEL, type PreferenceTag, type RouteTag } from "../../trail-brief.ts";
+import { mustBuyCount } from "../../../lib/budget/priority.ts";
 import { priceLabel } from "../../../lib/money/format.ts";
 import { dateRange } from "../view.ts";
 import type { Recipient, Trip, Wallet } from "../../../lib/state/types.ts";
@@ -54,6 +55,7 @@ export function summaryRows(input: SummaryInput): SummaryRow[] {
   const { trip, wallet, recipients, preferenceTags, routeTag, currency } = input;
   const people = recipients.map((person) => person.name).filter(Boolean);
   const shown = people.slice(0, NAMED).join(", ");
+  const musts = mustBuyCount(recipients);
   const preferences = [...preferenceTags.map((tag) => PREFERENCE_TAG_LABEL[tag]).filter(Boolean), ...(routeTag ? [ROUTE_TAG_LABEL[routeTag]] : [])];
   return [
     { label: "Trip", value: [trip.city, dateRange(trip.startDate, trip.endDate)].filter(Boolean).join(" · ") },
@@ -61,7 +63,9 @@ export function summaryRows(input: SummaryInput): SummaryRow[] {
     // §2 copy exception: the wireframe's "shopping budget" is the *total*, and what is shoppable
     // is `planned − spent`. Calling the total a shopping budget overstates it twice over.
     { label: "Total budget", value: priceLabel(wallet.totalCents, currency) },
-    { label: "Shopping for", value: people.length ? (people.length > NAMED ? `${shown} +${people.length - NAMED} more` : shown) : "Nobody yet" },
+    // The row itself never moves: `tests/trail-summary-card.test.ts` pins the six labels and their
+    // order to the frame. A must-buy count rides on the value or not at all, and never on its own row.
+    { label: "Shopping for", value: people.length ? `${people.length > NAMED ? `${shown} +${people.length - NAMED} more` : shown}${musts > 0 ? ` · ${musts} must buy` : ""}` : "Nobody yet" },
     { label: "Preferences", value: preferences.length ? preferences.join(" · ") : "None set" },
     { label: "Reserved for delivery", value: priceLabel(wallet.reserveCents, currency) },
   ];

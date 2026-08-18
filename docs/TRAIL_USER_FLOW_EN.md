@@ -22,7 +22,11 @@ TRAIL is an AI-powered offline shopping planner and hotel delivery service for t
 
 4. **Review and customize the plan draft**
    - Review recipients, quantities, categories, priorities, and person-level budgets.
-   - Edit any field directly or keep talking to Trail.
+   - Mark each person `Must buy`, `Planned`, or `If there's money left` on Gifts ▸ Split.
+     This is the only place the mark is edited, it stays editable after approval, and it
+     moves no money: it sets what Trail suggests cutting first, nothing else.
+   - Edit any field directly or keep talking to Trail. Trail records a mark the traveler
+     said out loud and never infers one from a relationship; a mark it heard waits for a tap.
    - See the effect on store count, route time, and remaining budget before approval.
 
 5. **Approve the shopping plan**
@@ -31,14 +35,21 @@ TRAIL is an AI-powered offline shopping planner and hotel delivery service for t
    - The route minimizes unnecessary stops and ends at a bag-drop partner when possible.
 
 6. **Shop offline**
+   - Remaining stops are ordered must-buys first; purchased stops keep the order they were
+     recorded in. If what is left to spend is under the unbought must-buy total, the shop
+     screen and the over-budget sheet say so by name before anything is recorded.
    - At each store, mark an item as purchased, unavailable, or replaced.
    - Record the actual price and number of bags.
    - The app updates purchased progress, actual spend, and remaining budget immediately.
 
 7. **Rebalance the budget**
    - If an actual price differs from the plan, Trail proposes a new allocation.
+   - If a split is over the shopping bucket, Trail can suggest one that keeps the must-buys:
+     it fills the amount fields and saves nothing, and whole amounts are dropped rather than
+     scaled, so no figure appears that the traveler never typed. If the must-buys alone are
+     over the bucket, Trail says so and offers no split at all.
    - The traveler can approve the rebalance or edit it manually.
-   - Trail never changes a budget or removes an item without approval.
+   - Trail never changes a budget or removes an item without approval, and never buys anything.
 
 8. **Send bags to the hotel**
    - Trail recommends delivery when bags are heavy, fragile, numerous, or inconvenient for the remaining itinerary.

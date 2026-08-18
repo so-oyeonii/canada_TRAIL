@@ -11,6 +11,7 @@
 
 import type { DataSource, Handling, HandoffFailureCode, IneligibleCode } from "../../lib/state/types.ts";
 import type { Remedy } from "../../lib/transfers/eligibility.ts";
+import { TIER_BADGE, tierOf, type TierFields } from "../../lib/budget/priority.ts";
 
 /** Money is `lib/money/format.ts` and nothing else. Both take the currency as a required
  *  argument on purpose: a default of "CAD" is how every screen came to divide by a hard
@@ -46,6 +47,10 @@ export const stopMark = (name: string) => (name.trim()[0] ?? "T").toUpperCase();
 export const walkLabel = (minutes: number | null) => (minutes === null ? "On your route" : `+${minutes} min`);
 /** Constitution 3: anything that is not live data says so, from the row's own column. */
 export const sourceChip = (source: DataSource | null) => (source === "live" ? "" : source === "simulated" ? "SIMULATED" : "SAMPLE");
+/** The traveller's own mark, never Trail's promise. `MUST BUY` is what they ticked; there is no
+ *  `PROTECTED` or `RESERVED` chip because Trail holds nothing back for anyone (§1 of
+ *  FIGMA_ADOPTION, and the same words the prompt bans). `Planned` draws nothing at all. */
+export const tierBadge = (person: TierFields | null | undefined) => { const tier = tierOf(person); const label = TIER_BADGE[tier]; return label ? { label, className: tier === "must" ? "badge badge--accent" : "badge" } : null; };
 export const handlingLabel: Record<Handling, string> = { Standard: "Standard transfer", Heavy: "Heavy transfer", Fragile: "Fragile transfer", Chilled: "Chilled transfer" };
 
 export const dateRange = (start: string | null, end: string | null) => {

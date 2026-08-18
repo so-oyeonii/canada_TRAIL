@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { briefContext, composeTurn, inferPlanPatch, sanitizeBriefPatch, sanitizePatch, BUDGET_MAX, BUDGET_MIN, PLAN_KEYS, TURN_SCHEMA, type TurnContext } from "../app/trail-brief.ts";
+import { briefContext, composeTurn, inferPlanPatch, sanitizeBriefPatch, sanitizePatch, scrubReply, SYSTEM_PROMPT, BUDGET_MAX, BUDGET_MIN, PLAN_KEYS, TURN_SCHEMA, type TurnContext } from "../app/trail-brief.ts";
 
 // Keyword inference only ever produces a *suggestion* the traveler taps to accept.
 // These cases pin the failures that used to write straight into the brief.
@@ -159,4 +159,28 @@ test("the structured output schema stays valid for strict mode", () => {
     if (node.type === "array") walk(node.items as Record<string, unknown>);
   };
   walk(TURN_SCHEMA as unknown as Record<string, unknown>);
+});
+
+/* ── N3: the model may record a ranking, never invent one ──────────────── */
+
+test("the prompt forbids inferring a rank from who somebody is", () => {
+  assert.match(SYSTEM_PROMPT, /A relationship is not a priority/);
+  assert.match(SYSTEM_PROMPT, /never infer that a parent outranks a\s+coworker/);
+  assert.match(SYSTEM_PROMPT, /If they did not say it, leave both null/);
+});
+
+test("the priority field's description no longer invites the model to fill it", () => {
+  const fields = (TURN_SCHEMA as { properties: { recipients: { items: { properties: Record<string, { description?: string }> } } } }).properties.recipients.items.properties;
+  const description = fields.priority.description ?? "";
+  assert.match(description, /Never inferred from who the person is/);
+  assert.equal(/buy this first/.test(description), false, "the old description read as an instruction to rank people");
+});
+
+test("claiming to have marked someone is confirming language", () => {
+  assert.match(SYSTEM_PROMPT, /marked, prioritised/);
+  for (const claim of ["I've marked Mom as must-buy.", "I have prioritised your sister.", "I've prioritized the team."]) {
+    assert.equal(scrubReply(claim, []).errorCode, "confirming_language", claim);
+  }
+  // A stop the traveller marked not found is the app's own word and stays sayable.
+  assert.equal(scrubReply("That stop is marked not found in your route.", []).errorCode, undefined);
 });

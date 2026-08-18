@@ -20,6 +20,7 @@ import type { Handling } from "@/lib/state/types";
 import { useTrip, type PurchaseDraft } from "../../../../app-state";
 import { fromMinor, minorUnits, toMinor } from "@/lib/money/format";
 import { budgetScale } from "@/app/trail-brief";
+import { mustBuyShortfall, nameList } from "@/lib/budget/priority";
 import { flexibleRemedyLabel, price } from "../../../../view";
 
 const draftKey = (stopId: string) => `trail:draft:record:${stopId}`;
@@ -28,7 +29,7 @@ const HANDLINGS: Handling[] = ["Standard", "Heavy", "Fragile", "Chilled"];
 export default function RecordPurchasePage() {
   const router = useRouter();
   const { stopId } = useParams<{ stopId: string }>();
-  const { stops, wallet, currency, savePurchase, removePurchase, notify, queued, proposeBudgetChange, decideBudgetChange } = useTrip();
+  const { stops, bought, recipients, wallet, currency, savePurchase, removePurchase, notify, queued, proposeBudgetChange, decideBudgetChange } = useTrip();
   const stop = stops.find((entry) => entry.id === stopId) ?? null;
   const existing = stop?.purchase && !stop.purchase.voidedAt ? stop.purchase : null;
   const [draft, setDraft] = useState<PurchaseDraft | null>(null);
@@ -101,12 +102,18 @@ export default function RecordPurchasePage() {
 
   if (overBy !== null) {
     const coverable = wallet.flexibleCents >= overBy;
+    // What is left after this purchase, and what the marks say is still owed out of it. This
+    // sheet gets a line, not a fourth button: the tap it carries is already the approval.
+    const left = wallet.spendableCents + (existing?.actualPriceCents ?? 0) - draft.actualPriceCents;
+    const gap = mustBuyShortfall(recipients, [...bought.map((entry) => entry.recipientId), stop.recipientId], left);
     return <div className="screen record-screen"><Header title="Budget Update" back={() => setOverBy(null)} />
       <section className="purchase-sheet"><header><span><small>OVER YOUR PLANNED SHOPPING</small><b>{stop.storeName}</b></span></header>
         <h1>This is {price(overBy, currency)} more than your shopping budget holds.</h1>
         <div className="sheet-impact plain"><span>Planned shopping left</span><b>{price(wallet.spendableCents + (existing?.actualPriceCents ?? 0), currency)}</b></div>
         <div className="sheet-impact plain"><span>This purchase</span><b>{price(draft.actualPriceCents, currency)}</b></div>
         <div className="sheet-impact plain"><span>Flexible budget</span><b>{price(wallet.flexibleCents, currency)}</b></div>
+        {gap.people.length > 0 && <div className="sheet-impact plain"><span>Still unbought · must buy</span><b>{nameList(gap.names)} · {price(gap.unboughtCents, currency)}</b></div>}
+        {gap.shortfallCents > 0 && <div className="notice notice--warn" role="status"><IconAlert /><b>After this, {price(left, currency)} left and {price(gap.unboughtCents, currency)} in must-buy gifts still unbought.</b><p>Nothing is cut for you. That is only what the numbers come to.</p></div>}
         <p className="ownership-note">Nothing has moved. Your delivery reserve is not touched either way — it is what pays to get these bags to the hotel.</p>
         {error && <p className="form-error" role="alert"><IconAlert /> {error}</p>}
         {/* The label carries the amount, the bucket it comes out of and the balance left,

@@ -60,6 +60,22 @@ label.choice .choice-check{display:none;color:var(--accent)}
 label.choice:has(input:checked) .choice-check{display:grid}
 .radio-list{display:flex;flex-direction:column;gap:var(--sp-2);margin:0;padding:0;list-style:none}
 
+/* ---- priority segment (three-up choice) ---------------------------------- */
+/* Three columns only when they still clear 44px. Under 380px it stacks: a squeezed
+   row of three would break the touch target, and "If there's money left" is not a
+   label that can be abbreviated without changing what it promises. */
+.priority-set{border:0;margin:0 0 var(--sp-3);padding:0;min-inline-size:0}
+.priority-set legend{display:flex;align-items:center;gap:var(--sp-2);padding:0}
+.priority-set .choice-row{display:grid;grid-template-columns:1fr;gap:var(--sp-2)}
+@media(min-width:380px){.priority-set .choice-row{grid-template-columns:repeat(3,1fr)}}
+label.choice--seg{grid-template-columns:20px 1fr;gap:var(--sp-2);padding:var(--sp-3) var(--sp-2)}
+label.choice--seg input{width:20px;height:20px}
+label.choice--seg b{font-size:var(--fs-body-s);line-height:var(--lh-body-s)}
+/* The check stays drawn (never border colour alone); it moves to the corner because the
+   third grid column would eat the label at this width. */
+label.choice--seg .choice-check{position:absolute;top:var(--sp-1);right:var(--sp-1)}
+label.choice--seg .choice-check>svg{width:14px;height:14px}
+
 /* ---- toggle is in globals.css (role="switch"); nothing here duplicates it -- */
 
 /* ---- notice -------------------------------------------------------------- */

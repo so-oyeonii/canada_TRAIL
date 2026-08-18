@@ -70,3 +70,37 @@ test("the client reads recipients and the pending change from the server state",
   // because it sat in the outbox is the approval gate failing quietly.
   assert.ok(!/commit\("(PUT|POST)", `\/api\/(plans|budget-changes|recipients)/.test(state), "a budget decision must not go through the outbox");
 });
+
+/* ── N3: the ranking is on this screen and nowhere else ─────────────────── */
+
+test("every recipient carries the three-tier segment, grouped as one question", () => {
+  assert.match(people, /<fieldset className="priority-set">/);
+  assert.match(people, /<legend className="section-label">IF MONEY RUNS SHORT/);
+  assert.match(people, /TIERS\.map\(\(tier\) =>/, "the three tiers come from lib/budget/priority, not from three hand-written labels");
+  assert.match(people, /type="radio" name={`prio-\$\{person\.id\}`}/);
+  // Selection is never border colour alone.
+  assert.match(people, /choice-check/);
+});
+
+test("a mark is one write of both columns, and it is not gated on approval", () => {
+  assert.match(people, /updateRecipient\(person\.id, tierWrite\(tier\)\)/);
+  assert.equal(/checked=\{tierFor\(person\) === tier\}[^>]*disabled/.test(people), false, "priority moves no money, so an approved plan does not lock it");
+  // Failure is reverted and said out loud: `updateRecipient` does not go through the outbox.
+  assert.match(people, /That mark was not saved/);
+  assert.match(people, /Trail could not save that mark/);
+});
+
+test("the trim suggestion fills the inputs and saves nothing", () => {
+  assert.match(people, /Suggest a split that keeps the must-buys/);
+  assert.match(people, /trimToFit\(/);
+  assert.match(people, /Nothing is saved yet/);
+  // The remedy sets rows; only the existing button sends, through the existing 409.
+  assert.equal(/applyTrim[\s\S]{0,400}saveAllocations/.test(people), false, "the trim button must not send the split");
+  assert.match(people, /Raise it for approval/, "the flexible path is unchanged");
+  assert.match(people, /Even the must-buy gifts come to/, "a no_fit says so instead of drawing a button");
+});
+
+test("no new approval path was opened for a ranking", () => {
+  assert.equal(/proposeBudgetChange\([^)]*priority/.test(people), false);
+  assert.equal(people.includes("reserve_short"), false, "the delivery reserve is a different bucket");
+});

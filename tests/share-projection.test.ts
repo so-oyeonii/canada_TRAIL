@@ -282,3 +282,16 @@ test("the label is Share, and does not promise the membership phase 2 adds", () 
   assert.ok(!/\+ Invite|coming soon/i.test(code(sheet)), "we do not advertise what is not built");
   assert.match(sheet, /including the gift meant for them/);
 });
+
+/** G6 fixed `recipients.priority` and `is_optional` as permanently excluded — nobody opens the
+ *  screen where a guest reads that they were ranked fourth. N3 gives those two columns a UI for
+ *  the first time, which is the moment the exclusion is most likely to be undone by accident. */
+test("N3's tiers never reach a share payload, and neither does the tier vocabulary", () => {
+  const shown = JSON.stringify(project(ALL_ON));
+  for (const leaked of ["priority", "isOptional", "is_optional", "must", "Must buy", "MUST BUY", "spare", "tier", "If there"]) {
+    assert.equal(shown.toLowerCase().includes(leaked.toLowerCase()), false, `${leaked} reached the share payload`);
+  }
+  // And the projection does not so much as import the module that computes them.
+  const source = code(read("lib/share/projection.ts"));
+  for (const forbidden of ["budget/priority", "tierOf", "TIER_", "priority", "is_optional"]) assert.equal(source.includes(forbidden), false, forbidden);
+});

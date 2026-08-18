@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import { parseRecipientCreate, parseRecipientPatch, planRecipientOps, refResolver } from "../lib/recipients/input.ts";
 import { sanitizeRecipientOps, type TurnContext } from "../app/trail-brief.ts";
 import { carriesIdentity } from "../lib/api/http.ts";
@@ -133,4 +134,23 @@ test("garbage in the ops array is dropped with a reason and never applied", () =
   const { ops, rejected } = plan([{ op: "delete", ref: "r1" }, null, { fields: {} }]);
   assert.equal(ops.length, 0);
   assert.equal(rejected.length, 3);
+});
+
+/* ── N3: the tier write, and what it is deliberately not gated on ───────── */
+
+test("a tier is one patch of both columns, and the band is refused outside 1-5", () => {
+  const spare = parseRecipientPatch({ priority: 5, isOptional: true });
+  assert.ok(spare.ok);
+  assert.deepEqual(spare.value, { priority: 5, is_optional: true });
+  assert.deepEqual(parseRecipientPatch({ priority: 1, isOptional: false }).ok ? (parseRecipientPatch({ priority: 1, isOptional: false }) as { value: unknown }).value : null, { priority: 1, is_optional: false });
+  for (const bad of [0, 6, 2.5, "1", null]) assert.equal(parseRecipientPatch({ priority: bad }).ok, false, `${bad}`);
+});
+
+test("an approved plan does not lock a recipient's priority", () => {
+  // Deliberate: a tier is not part of `plan_allocations` and moves no money, and the moment it
+  // earns its keep is in a shop after approval. The route has no plan-status branch at all —
+  // the only 409 it can answer with is the unique self recipient.
+  const route = readFileSync(new URL("../app/api/recipients/[id]/route.ts", import.meta.url), "utf8");
+  for (const gate of ["plan_not_editable", "plan_approved", "approved_at", "plan_status"]) assert.equal(route.includes(gate), false, `the PATCH route grew a ${gate} gate`);
+  assert.equal(route.includes("self_already_exists"), true);
 });

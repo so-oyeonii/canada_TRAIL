@@ -255,3 +255,33 @@ G3의 다중 트립 리팩터가 활성 여행 판정이나 날짜를 손대면 
 `0024`는 **파일만 작성됐고 원격에 적용되지 않았다.** 그래서 `lib/state/queries.ts`의 stop select에는
 `planned_date`가 **일부러 빠져 있다** — 없는 컬럼을 이름 부르면 상태 조회 전체가 400이 된다.
 마이그레이션을 적용하는 같은 변경에서 select에 한 줄을 더한다.
+
+---
+
+# P7 — 백로그 (N3 · N2 · N1)
+
+기준 문서는 `docs/BACKLOG_NEXT.md`이고, 각 항목의 실행 계획은 `docs/plans/N{n}-*.md`에 있다.
+
+| 항목 | 범위 | 마이그레이션 |
+| --- | --- | --- |
+| **N3** 수령인 우선순위 | 3단계 마크(`Gifts ▸ Split`) · 경로/목록 정렬 · 부족 경고 · 초과 시 must-buy 유지 제안 · AI 방벽 | **없음** |
+| **N2** 자투리 시간 쇼핑 | `fitWithin`을 시간 축으로 재사용 | 미정 |
+| **N1** 위치 알림 | 새 개인정보 범주 | 미정 |
+
+## N3에 마이그레이션이 없는 이유
+
+`recipients.priority`(`check between 1 and 5`)와 `recipients.is_optional`은 **`0001`부터 있었고**,
+행 타입 · select · 매퍼 · 뷰 타입 · 입력 파서 · PATCH/POST 라우트 · AI 스키마까지 전부 배선돼 있었다.
+없던 것은 화면뿐이다. 그리고 `recipients`에는 **컬럼 단위 GRANT가 없다** — `0002_rls.sql`이 15개 테이블에
+테이블 단위 DML을 `authenticated`에 주므로, `0020`의 `trips` 컬럼 화이트리스트와는 무관하다.
+따라서 N3는 **SQL 0줄 · API 0줄 · 새 승인 경로 0건**이다.
+
+인덱스(`recipients (trip_id, priority)`)도 배정하지 않는다. 여행당 수령인은 24행 이하다.
+
+## N3가 지킨 두 가지 이전 결정
+
+1. **G6의 영구 제외.** `recipients.priority`·`is_optional`은 공유 프로젝션에 절대 나오지 않는다.
+   UI가 생긴 지금이 회귀 위험이 가장 큰 시점이라 `tests/share-projection.test.ts`가 티어 어휘까지
+   페이로드에서 검사한다.
+2. **`reserve_short`와 `/bags/pay`는 손대지 않았다.** 우선순위는 선물에 대한 것이고
+   `delivery_reserve`는 가방 배송비다. 제품 규칙 5에 의해 둘은 같은 버킷이 아니다.

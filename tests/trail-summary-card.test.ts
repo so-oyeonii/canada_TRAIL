@@ -65,3 +65,15 @@ test("a long guest list is summarised rather than truncated silently", () => {
 test("the row labels are the wireframe's, with the two agreed exceptions", () => {
   assert.deepEqual(summaryRows(input()).map((row) => row.label), ["Trip", "Hotel", "Total budget", "Shopping for", "Preferences", "Reserved for delivery"]);
 });
+
+test("a must-buy count rides on the Shopping for value, and never on a row of its own", () => {
+  const marked = (name: string, over: Partial<Recipient> = {}) => ({ ...person(name), ...over });
+  const none = summaryRows(input({ recipients: [marked("Mom"), marked("Ana")] }));
+  assert.equal(value(none, "Shopping for"), "Mom, Ana", "nobody marked means no suffix at all");
+  const one = summaryRows(input({ recipients: [marked("Mom", { priority: 1 }), marked("Ana")] }));
+  assert.equal(value(one, "Shopping for"), "Mom, Ana · 1 must buy");
+  // `is_optional` beats a low number, the same way it does everywhere else.
+  const contradictory = summaryRows(input({ recipients: [marked("Mom", { priority: 1, isOptional: true })] }));
+  assert.equal(value(contradictory, "Shopping for"), "Mom");
+  assert.deepEqual(one.map((row) => row.label), ["Trip", "Hotel", "Total budget", "Shopping for", "Preferences", "Reserved for delivery"]);
+});

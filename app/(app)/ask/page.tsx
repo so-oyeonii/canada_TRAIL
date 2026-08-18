@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { chipsFor, type Chip } from "@/app/ask-chips";
-import { describePatch, errorMessage, rejectionMessage, type AskedField, type ChatReply, type Confirm } from "@/app/trail-brief";
+import { describePatch, errorMessage, rejectionMessage, type AskedField, type ChatReply, type Confirm, type RecipientOp } from "@/app/trail-brief";
+import { TIER_LABEL, tierOf } from "@/lib/budget/priority";
 import { AskSummary } from "@/components/ask-summary";
 import { Bubble, ChipRow, Typing } from "@/components/chat";
 import { Avatar, Header } from "@/components/chrome";
@@ -50,8 +51,21 @@ export default function AskPage() {
 
   const submit = (event: FormEvent) => { event.preventDefault(); sendMessage(input); };
   const acceptSuggestion = () => { if (!suggestion) return; applyPatch(suggestion); setSuggestion(null); notify("Added to your brief"); };
-  /** A removal only ever happens on this tap. The model proposed it; nothing moved until now. */
-  const confirmRemoval = async (ref: string | null) => { const id = ref ? refMap(recipients).get(ref) : null; if (!id) return; await archiveRecipient(id); setAwaiting(null); notify("Removed from your draft"); };
+  /** A removal only ever happens on this tap, and since N3 so does a ranking: `sanitizeRecipientOps`
+   *  splits `priority`/`is_optional` into a twin op that lands here instead of in the draft. Both are
+   *  judgements about a person, and neither is applied by the same code path that archives one —
+   *  this used to call `archiveRecipient` for every op, remove or not. */
+  const labelFor = (ref: string | null) => { const id = ref ? refMap(recipients).get(ref) : null; return recipients.find((person) => person.id === id)?.name ?? "this person"; };
+  const tierOp = (op: RecipientOp) => op.fields.priority !== undefined || op.fields.isOptional !== undefined;
+  const tierWord = (op: RecipientOp) => TIER_LABEL[tierOf({ priority: op.fields.priority ?? 3, isOptional: op.fields.isOptional ?? false })];
+  const dismissOp = (op: RecipientOp) => setAwaiting((current) => { if (!current) return current; const recipientOps = current.recipientOps.filter((entry) => entry !== op); return recipientOps.length || current.wallet || current.budget ? { ...current, recipientOps } : null; });
+  const confirmOp = async (op: RecipientOp) => {
+    const id = op.ref ? refMap(recipients).get(op.ref) : null;
+    if (!id) return;
+    if (op.op === "remove") { await archiveRecipient(id); notify("Removed from your draft"); }
+    else { const reply = await applyRecipientOps([op], Object.fromEntries(refMap(recipients))); notify(reply.ok ? "Saved to your draft" : reply.status === 409 ? "This plan is approved, so that is a budget change." : "Trail could not save that."); }
+    dismissOp(op);
+  };
   const sendOverrun = async () => { if (!overrun) return; await proposeBudgetChange(overrun); setOverrun(null); router.push("/trail/plan/approval"); };
   const attachImage = (event: ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; if (!file) return; setAttachmentName(file.name); setMessages((current) => [...current, { role: "user", text: `Attached reference photo: ${file.name}` }, { role: "ai", text: "I’ll treat this as a visual reference for the shopping brief. The prototype keeps the file on this device and does not upload it." }]); notify("Reference photo attached locally"); };
 
@@ -65,7 +79,7 @@ export default function AskPage() {
     {messages.length === 0 && <section className="starter-section"><div className="starter-head"><b>What are you looking for?</b><span>Tell Trail naturally</span></div><div className="starter-list">{starters.map((item) => <button key={item.title} onClick={() => sendMessage(item.prompt)}><i>{item.icon}</i><span><b>{item.title}</b><small>{item.prompt}</small></span><em><IconChevronRight /></em></button>)}</div></section>}
     <div className="messages" role="log" aria-live="polite"><Bubble role="ai">{greeting(trip.city).text}</Bubble>{messages.map((message, index) => <Bubble role={message.role} key={`${message.role}-${index}`}>{message.text}</Bubble>)}{thinking && <Typing />}</div>
 
-    {awaiting?.recipientOps.map((op) => <div className="suggestion-chip" key={`${op.op}-${op.ref}`}><span><small>TAP TO CONFIRM</small><b>{op.op === "remove" ? "Drop this person from the draft" : "Change this person in the draft"}</b></span><button onClick={() => confirmRemoval(op.ref)}>Confirm</button><button className="ghost" onClick={() => setAwaiting(null)} aria-label="Dismiss"><IconClose /></button></div>)}
+    {awaiting?.recipientOps.map((op, index) => <div className="suggestion-chip" key={`${op.op}-${op.ref}-${index}`}><span><small>TAP TO CONFIRM</small><b>{op.op === "remove" ? "Drop this person from the draft" : tierOp(op) ? `Trail suggests marking ${labelFor(op.ref)} as ${tierWord(op)}.` : "Change this person in the draft"}</b></span><button onClick={() => void confirmOp(op)}>{tierOp(op) ? "Apply" : "Confirm"}</button><button className="ghost" onClick={() => dismissOp(op)} aria-label={tierOp(op) ? "Leave it" : "Dismiss"}><IconClose /></button></div>)}
     {awaiting?.wallet && <div className="suggestion-chip"><span><small>TAP TO CONFIRM</small><b>Switch this trip to {awaiting.wallet.currency}</b></span><button onClick={() => { setAwaiting(null); router.push("/trail/plan/budget"); }}>Review</button><button className="ghost" onClick={() => setAwaiting(null)} aria-label="Dismiss"><IconClose /></button></div>}
     {overrun && <div className="suggestion-chip"><span><small>NEEDS YOUR APPROVAL</small><b>That split is larger than your shopping budget</b></span><button onClick={sendOverrun}>Review</button><button className="ghost" onClick={() => setOverrun(null)} aria-label="Dismiss"><IconClose /></button></div>}
     {suggestion && <div className="suggestion-chip"><span><small>I UNDERSTOOD</small><b>{describePatch(suggestion).join(" · ")}</b></span><button onClick={acceptSuggestion}>Add to brief</button><button className="ghost" onClick={() => setSuggestion(null)} aria-label="Dismiss suggestion"><IconClose /></button></div>}

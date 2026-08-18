@@ -73,7 +73,7 @@ export type KnownRecipient = { ref: string; label: string; relationship?: string
 export type WalletProposal = { scope: "trip_total" | "gifts_only"; totalCents: number; currency: string };
 export type Buckets = { totalCents: number; plannedCents: number; deliveryReserveCents: number; flexibleCents: number };
 export type BudgetOverrun = { allocatedUnits: number; plannedUnits: number; overUnits: number };
-export type RejectReason = "out_of_range" | "unknown_value" | "empty" | "unknown_recipient" | "ref_on_add" | "equal_value_conflict" | "ambiguous_scope" | "ambiguous_basis" | "duplicate_self" | "currency_locked" | "plan_approved" | "unlisted_store";
+export type RejectReason = "out_of_range" | "unknown_value" | "empty" | "unknown_recipient" | "ref_on_add" | "equal_value_conflict" | "ambiguous_scope" | "ambiguous_basis" | "duplicate_self" | "currency_locked" | "plan_approved" | "unlisted_store" | "needs_confirmation";
 export type Rejection = { field: string; given: unknown; reason: RejectReason };
 export type ChatErrorCode = "no_key" | "upstream_5xx" | "upstream_429" | "timeout" | "truncated" | "refused" | "parse_failed" | "rate_limited" | "bad_origin" | "too_large" | "unlisted_name" | "confirming_language" | "reserve_leak" | "unauthenticated";
 /** No `hotel` field, and that is the point: a name the type cannot carry is a name no caller can
@@ -157,6 +157,10 @@ Gifts that must cost about the same share one equal_value_group tag, and get the
 Never balance the numbers by quietly taking money from another recipient. If they do not fit, say so and
 let the traveller choose which one moves.
 
+priority and is_optional record something the traveller said out loud — "that one I can't miss",
+"only if there's money left". A relationship is not a priority: never infer that a parent outranks a
+coworker, or that a gift for themselves matters less. If they did not say it, leave both null.
+
 `;
 
 const PROMPT_TAIL = `
@@ -171,7 +175,7 @@ Never say reserved, held, or set aside. Walking times in the app are estimates; 
 ──────── APPROVAL ────────
 You do not approve anything and you never learn whether a proposal was accepted.
 Banned words about your own actions: confirmed, booked, changed, updated, done, set, reserved, arranged,
-secured, guaranteed, locked in, I've added, I've removed, I've adjusted.
+secured, guaranteed, locked in, marked, prioritised, I've added, I've removed, I've adjusted.
 Say instead: "I'd suggest X — it's sitting in your draft, approve it on Trail ▸ Gifts."
 Where things live, if you need to point: this conversation is the AI tab. Home is the dashboard, Trips
 holds the trip itself, Bags is where a transfer is arranged after buying, and Trail holds the draft in
@@ -251,7 +255,7 @@ export const TURN_SCHEMA = {
           label: { type: ["string", "null"], description: "How the traveller refers to them: 'Mom', 'two friends from work', 'Myself'. Never a full legal name you inferred." },
           relationship: { type: ["string", "null"] },
           group_size: { type: ["integer", "null"], minimum: 1, maximum: 30, description: "12 for a team of 12. One entry, not twelve." },
-          priority: { type: ["integer", "null"], minimum: 1, maximum: 5, description: "1 = buy this first if money runs short." },
+          priority: { type: ["integer", "null"], minimum: 1, maximum: 5, description: "Only when the traveller said this one comes first, in their own words. 1 = first, 3 = default, 5 = only if money is left. Never inferred from who the person is." },
           is_self: { type: ["boolean", "null"] },
           is_optional: { type: ["boolean", "null"], description: "True for 'if there's money left'." },
           category: nullableEnum(CATEGORIES),
@@ -390,6 +394,29 @@ function readOp(raw: unknown): { op: RecipientOp; rejected: Rejection[] } | null
   return { op: { op: input.op as RecipientOp["op"], ref: clean(input.ref, 8) || null, fields, clearFields: [...new Set(clearFields)] }, rejected };
 }
 
+const PRIORITY_FIELDS: readonly RecipientField[] = ["priority", "isOptional"];
+
+/** Lifts `priority` / `is_optional` out of an op and into a twin op of their own.
+ *
+ *  Every other recipient field is something the traveller *said* — a name, a relationship, a note,
+ *  an amount. A rank between people is something the model **decided**, and "Mom is her mother, so
+ *  she comes first" is exactly the inference the prompt now forbids and cannot be relied on to
+ *  obey. So it leaves through `confirm`, for the same reason `remove` does: a judgement about a
+ *  person gets a tap.
+ *
+ *  The rest of the op is untouched and still applies — the precedent is `enforceEqualValue`, which
+ *  deletes the amount it cannot reconcile and leaves the recipient alone. A wrong priority is
+ *  invisible until the money runs out, and a shop is the worst possible place to discover that
+ *  your brother was filed as optional. */
+function splitPriority(op: RecipientOp): RecipientOp | null {
+  const fields: RecipientFields = {};
+  for (const key of PRIORITY_FIELDS) if (op.fields[key] !== undefined) { Object.assign(fields, { [key]: op.fields[key] }); delete op.fields[key]; }
+  const clearFields = op.clearFields.filter((key) => PRIORITY_FIELDS.includes(key));
+  op.clearFields = op.clearFields.filter((key) => !PRIORITY_FIELDS.includes(key));
+  if (!Object.keys(fields).length && !clearFields.length) return null;
+  return { op: "update", ref: op.ref, fields, clearFields };
+}
+
 const effectiveGroupSize = (op: RecipientOp, known?: KnownRecipient) => op.fields.groupSize ?? known?.groupSize ?? 1;
 const effectiveTag = (op: RecipientOp, known?: KnownRecipient) => op.fields.equalValueGroup ?? known?.equalValueGroup ?? null;
 
@@ -413,6 +440,12 @@ export function sanitizeRecipientOps(raw: unknown, ctx: TurnContext): { apply: R
     // A basis-less amount on a group is not 39 dollars — it is either 39 or 468. Ask, never pick.
     if (op.fields.allocationAmount !== undefined && effectiveGroupSize(op, current) > 1 && !(op.fields.allocationBasis ?? current?.allocationBasis)) { rejected.push({ field: "allocation_amount", given: op.fields.allocationAmount, reason: "ambiguous_basis" }); delete op.fields.allocationAmount; }
     if (ctx.planApproved) { rejected.push({ field: "recipient", given: op.ref, reason: "plan_approved" }); confirm.push(op); continue; }
+    // A twin op carrying only the ranking. An `add` has no ref for the twin to point at, and
+    // minting one would create a second person on the tap, so a new recipient keeps the column
+    // default of 3 and the traveller is told the mark did not land.
+    const twin = splitPriority(op);
+    if (twin && op.op === "add") rejected.push({ field: "priority", given: twin.fields.priority ?? twin.fields.isOptional ?? null, reason: "needs_confirmation" });
+    else if (twin) confirm.push(twin);
     if (op.op === "remove") { confirm.push(op); continue; }
     apply.push(op);
   }
@@ -455,7 +488,7 @@ export function allocationOverrun(apply: RecipientOp[], ctx: TurnContext): Budge
 
 /* ── reply scrubbing ────────────────────────────────────────────────────── */
 
-const CONFIRMING = /\b(confirmed|booked|reserved|i(?:'ve| have) (?:added|removed|adjusted|booked|arranged)|held for you|set aside|guaranteed|locked in|in stock|out of stock)\b/i;
+const CONFIRMING = /\b(confirmed|booked|reserved|i(?:'ve| have) (?:added|removed|adjusted|booked|arranged|marked|prioriti[sz]ed)|held for you|set aside|guaranteed|locked in|in stock|out of stock)\b/i;
 const RESERVE_LEAK = /\b(delivery reserve|held back|hold-?back|reserve of|flexible bucket|shipping fee|delivery fee|transfer fee)\b|\b(?:reserved?|held)\s+\$?\d+/i;
 /** Business-name suffixes, English and Korean. Korean shop names carry no capital letters, so the
  *  capitalised-run rule misses them entirely — the suffix list is the only thing that catches them. */
@@ -607,6 +640,8 @@ export function rejectionMessage(rejected: Rejection[]) {
   if (budget) return `A trip total stays between ${TOTAL_MIN} and ${TOTAL_MAX}, so ${budget.given} was not added to your brief.`;
   const quantity = rejected.find((item) => (item.field === "group_size" || item.field === "quantity") && item.reason === "out_of_range");
   if (quantity) return "Group size stays between 1 and 30, so that number was not added to your brief.";
+  const ranked = rejected.find((item) => item.reason === "needs_confirmation");
+  if (ranked) return "Who comes first if money runs short is yours to set, so I left that mark off — you can set it on Trail ▸ Gifts.";
   return "";
 }
 

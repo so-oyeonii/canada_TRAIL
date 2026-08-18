@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Agent tooling installed by skills CLIs, not app source.
+    ".claude/**",
+    ".agents/**",
   ]),
 ]);
 

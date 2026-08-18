@@ -53,3 +53,10 @@ next-env.d.ts
 
 # typescript build cache
 *.tsbuildinfo
+
+# agent skills installed by CLIs (uipro, skills.sh).
+# The bodies are large and re-fetchable; skills-lock.json is committed so the
+# same versions can be restored with `npx skills add`.
+# Not `.claude/` — `.claude/agents/` and launch.json are ours and stay tracked.
+/.claude/skills/
+/.agents/

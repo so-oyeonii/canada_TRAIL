@@ -25,7 +25,7 @@ a.chip-trip,a.avatar{text-decoration:none}
 .route-dirty span{display:block;color:var(--text-muted)}
 
 /* Plan ▸ Gifts ▸ Split and the wallet's split row: a full-width row that is a link. */
-.plan-row{width:100%;min-height:var(--tap);display:grid;grid-template-columns:1fr auto;align-items:center;gap:var(--sp-3);border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:var(--r-m);padding:var(--sp-3);margin:var(--sp-2) 0;text-align:left;text-decoration:none;cursor:pointer}
+.plan-row{width:100%;min-height:var(--tap);display:grid;grid-template-columns:1fr auto;align-items:center;gap:var(--sp-3);border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:var(--r-m);padding:var(--sp-3);margin:var(--sp-2) 0;text-align:left;text-decoration:none;cursor:pointer}
 .plan-row>span{display:flex;flex-direction:column;gap:2px;min-width:0}
 .plan-row b{font-size:var(--fs-body)}
 .plan-row small{font-size:var(--fs-body-s);line-height:var(--lh-body-s);color:var(--text-muted)}
@@ -56,4 +56,3 @@ a.chip-trip,a.avatar{text-decoration:none}
 /* The in-store heading is the progress line itself, so it sits in the summary card
    rather than above it — and the shell's focus target is a real heading again. */
 .shop-summary h1{font-size:var(--fs-lead);line-height:var(--lh-lead);font-weight:var(--fw-bold);margin:0}
-.shop-screen .profile-section-label b{font-family:var(--font-mono);font-size:var(--fs-label-s);line-height:var(--lh-label);letter-spacing:var(--ls-label);color:var(--text-muted)}

@@ -17,7 +17,7 @@
 
 .share-sheet-name{display:flex;flex-direction:column;gap:var(--sp-2);margin:0 0 var(--sp-4)}
 .share-sheet-name>span{font-family:var(--font-mono);font-size:var(--fs-label);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--text-muted)}
-.share-sheet-name>input{min-height:var(--tap);padding:0 var(--sp-3);border:1px solid var(--border);border-radius:var(--r-s);background:var(--surface-raised);color:var(--text);font-size:var(--fs-body)}
+.share-sheet-name>input{min-height:var(--tap);padding:0 var(--sp-3);border:1px solid var(--border-strong);border-radius:var(--r-s);background:var(--surface-raised);color:var(--text);font-size:var(--fs-control)}
 
 /* Amber, not red. This is the one thing a traveller most often forgets and least often
  * regrets being told — a warning, not an error. */
@@ -26,7 +26,7 @@
 .share-sheet-make:disabled{opacity:.6;cursor:progress}
 
 .share-sheet-fresh{display:grid;grid-template-columns:1fr auto;gap:var(--sp-2);margin:var(--sp-4) 0 0;padding:var(--sp-3);border:1px solid var(--teal-line);border-radius:var(--r-m);background:var(--teal-soft)}
-.share-sheet-fresh>input{min-height:var(--tap);min-width:0;padding:0 var(--sp-3);border:1px solid var(--border);border-radius:var(--r-s);background:var(--surface);color:var(--text);font-family:var(--font-mono);font-size:var(--fs-label)}
+.share-sheet-fresh>input{min-height:var(--tap);min-width:0;padding:0 var(--sp-3);border:1px solid var(--border-strong);border-radius:var(--r-s);background:var(--surface);color:var(--text);font-family:var(--font-mono);font-size:var(--fs-control)}
 .share-sheet-fresh>button{min-height:var(--tap);padding:0 var(--sp-4);border:1px solid var(--teal-line);border-radius:var(--r-s);background:var(--surface);color:var(--teal);font-size:var(--fs-body);font-weight:var(--fw-bold);cursor:pointer}
 .share-sheet-fresh>small{grid-column:1/-1;font-size:var(--fs-label);line-height:var(--lh-label);color:var(--text-muted)}
 

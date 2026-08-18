@@ -84,7 +84,7 @@ export async function GET(request: Request) {
     ...sectionIds.map((s) => String((row.timings ?? {})[s] ?? "")),
   ]);
 
-  // BOM so Excel opens the Korean labels as UTF-8 instead of mojibake.
+  // BOM so Excel opens free-text answers as UTF-8 instead of mojibake.
   const csv = "﻿" + [header, ...body].map((line) => line.map(csvCell).join(",")).join("\r\n") + "\r\n";
   return new Response(csv, { status: 200, headers: {
     "Content-Type": "text/csv; charset=utf-8",

@@ -125,22 +125,22 @@ export default function SurveyRunner({ survey }: { survey: Survey }) {
       <p className="sv-lede">{survey.lede}</p>
       <ul className="sv-facts"><li>{survey.minutes}</li><li>{survey.anonymity}</li></ul>
       {survey.intro.map((line, i) => <p key={i}>{line}</p>)}
-      <button className="sv-primary" onClick={begin}>시작하기</button>
+      <button className="sv-primary" onClick={begin}>Start</button>
     </div>
   </Frame>;
 
-  if (phase === "screened") return <Frame survey={survey}><div className="sv-end"><h1>감사합니다</h1><p>{survey.screenedOutMessage}</p></div></Frame>;
-  if (phase === "done") return <Frame survey={survey}><div className="sv-end"><h1>다 끝났습니다</h1><p>{survey.closing}</p></div></Frame>;
+  if (phase === "screened") return <Frame survey={survey}><div className="sv-end"><h1>Thank you</h1><p>{survey.screenedOutMessage}</p></div></Frame>;
+  if (phase === "done") return <Frame survey={survey}><div className="sv-end"><h1>That’s everything</h1><p>{survey.closing}</p></div></Frame>;
 
   const progress = Math.round((index / survey.sections.length) * 100);
 
   return <Frame survey={survey}>
-    <div className="sv-progress" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label="진행률">
+    <div className="sv-progress" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label="Progress">
       <i style={{ transform: `scaleX(${progress / 100})` }} />
     </div>
     <p className="sv-step">{index + 1} / {survey.sections.length}</p>
 
-    {restored && <p className="sv-restored">이전에 답하던 곳부터 이어집니다.</p>}
+    {restored && <p className="sv-restored">Picking up where you stopped.</p>}
 
     <h2 className="sv-section-title">{section.title}</h2>
     {section.note && <p className="sv-note">{section.note}</p>}
@@ -150,17 +150,17 @@ export default function SurveyRunner({ survey }: { survey: Survey }) {
       {live.map((q) => <Field key={q.id} q={q} value={answers[q.id]} onChange={(v) => set(q.id, v)} invalid={showErrors && !q.optional && !isAnswered(q, answers[q.id])} />)}
     </div>
 
-    {showErrors && missing.length > 0 && <p className="sv-error" role="alert">답하지 않은 문항이 {missing.length}개 있습니다.</p>}
+    {showErrors && missing.length > 0 && <p className="sv-error" role="alert">{missing.length === 1 ? "One question still needs an answer." : `${missing.length} questions still need an answer.`}</p>}
 
     <div className="sv-nav">
-      {index > 0 && <button className="sv-secondary" onClick={back}>이전</button>}
-      <button className="sv-primary" onClick={advance}>{index + 1 >= survey.sections.length ? "제출하기" : "다음"}</button>
+      {index > 0 && <button className="sv-secondary" onClick={back}>Back</button>}
+      <button className="sv-primary" onClick={advance}>{index + 1 >= survey.sections.length ? "Send" : "Next"}</button>
     </div>
   </Frame>;
 }
 
 function Frame({ survey, children }: { survey: Survey; children: React.ReactNode }) {
-  return <div className="sv-shell" lang="ko"><main className="sv-main">
+  return <div className="sv-shell"><main className="sv-main">
     <header className="sv-head"><b>TRAIL</b><span>{survey.title}</span></header>
     {children}
   </main></div>;
@@ -188,17 +188,17 @@ function StimulusFigure({ stimulus, sectionId }: { stimulus: Stimulus; sectionId
   const hidden = timed && left === 0;
 
   return <figure className="sv-stimulus">
-    {hidden ? <div className="sv-stimulus-gone">화면이 사라졌습니다. 기억나는 대로 답해 주세요.</div>
-      : broken ? <div className="sv-stimulus-missing">자극물 이미지가 없습니다 — <code>/public/survey/{stimulus.slot}.png</code></div>
+    {hidden ? <div className="sv-stimulus-gone">The screen is gone. Answer from memory.</div>
+      : broken ? <div className="sv-stimulus-missing">Stimulus image missing — <code>/public/survey/{stimulus.slot}.png</code></div>
       : /* eslint-disable-next-line @next/next/no-img-element */
         <img src={`/survey/${stimulus.slot}.png`} alt={stimulus.caption} onError={() => setBroken(true)} loading="eager" />}
-    <figcaption>{stimulus.caption}{timed && !hidden && <b> · {left}초</b>}</figcaption>
+    <figcaption>{stimulus.caption}{timed && !hidden && <b> · {left}s</b>}</figcaption>
   </figure>;
 }
 
 function Field({ q, value, onChange, invalid }: { q: Question; value: AnswerValue | undefined; onChange: (v: AnswerValue) => void; invalid: boolean }) {
   return <section id={`q-${q.id}`} className={`sv-q${invalid ? " is-invalid" : ""}`}>
-    <p className="sv-prompt">{q.prompt}{q.optional && <em> (선택)</em>}</p>
+    <p className="sv-prompt">{q.prompt}{q.optional && <em> (optional)</em>}</p>
     {q.help && <p className="sv-help">{q.help}</p>}
     <Input q={q} value={value} onChange={onChange} />
   </section>;
@@ -242,7 +242,7 @@ function Input({ q, value, onChange }: { q: Question; value: AnswerValue | undef
         onChange(next);
       };
       return <div className="sv-choices">
-        {q.max && <p className="sv-help">최대 {q.max}개까지 고를 수 있습니다.</p>}
+        {q.max && <p className="sv-help">Choose up to {q.max}.</p>}
         {q.choices.map((c) => <label key={c.value} className={picked.includes(c.value) ? "is-on" : ""}>
           <input type="checkbox" checked={picked.includes(c.value)} onChange={() => toggle(c.value)} /><span>{c.label}</span>
         </label>)}
@@ -301,7 +301,7 @@ function Input({ q, value, onChange }: { q: Question; value: AnswerValue | undef
       const sum = q.rows.reduce((a, r) => a + (rows[r.id] ?? 0), 0);
       return <div className="sv-points">
         <div className={`sv-points-total${sum === q.total ? " is-ok" : ""}`}>
-          합계 <b>{sum}</b> / {q.total}{sum !== q.total && <span> · {q.total - sum > 0 ? `${q.total - sum}점 남음` : `${sum - q.total}점 초과`}</span>}
+          Total <b>{sum}</b> / {q.total}{sum !== q.total && <span> · {q.total - sum > 0 ? `${q.total - sum} left` : `${sum - q.total} over`}</span>}
         </div>
         {q.rows.map((r) => <label key={r.id} className="sv-points-row">
           <span>{r.label}</span>

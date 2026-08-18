@@ -12,7 +12,7 @@ const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.ur
 // (FIGMA_ADOPTION §2). Body unchanged — these assertions are the reason it was moved
 // rather than rewritten, and `/trail/plan/people` is now a 308 to here.
 const people = read("app/(app)/trail/plan/gifts/split/page.tsx");
-const peopleStub = read("app/(app)/trail/plan/people/page.tsx");
+const routing = read("next.config.ts");
 const approval = read("app/(app)/trail/plan/approval/page.tsx");
 const layout = read("app/(app)/trail/plan/layout.tsx");
 const state = read("app/(app)/app-state.tsx");
@@ -55,8 +55,13 @@ test("the proposal is shown as a proposal", () => {
   assert.ok(/status === "503"|status === 503/.test(approval), "a missing service key must not read as an approval");
 });
 
+// It used to be a page calling `permanentRedirect()`, which answered 200 with the
+// redirect digest serialised into the document as an error — the traveller reached an
+// error screen, not Split. A routing rule resolves before anything renders.
 test("the old People route still resolves to the screen that replaced it", () => {
-  assert.match(peopleStub, /permanentRedirect\("\/trail\/plan\/gifts\/split"\)/);
+  assert.match(routing, /source:\s*"\/trail\/plan\/people"/);
+  assert.match(routing, /destination:\s*"\/trail\/plan\/gifts\/split"/);
+  assert.match(routing, /permanent:\s*true/);
 });
 
 test("a waiting approval interrupts every plan lens", () => {

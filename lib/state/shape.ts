@@ -83,7 +83,12 @@ export function shapePurchase(row: PurchaseRow): Purchase {
 export function shapeStop(row: StopRow): Stop {
   const purchase = (row.purchases ?? [])[0] ?? null;
   const inquiry = (row.store_inquiries ?? []).slice().sort((a, b) => b.asked_at.localeCompare(a.asked_at))[0] ?? null;
-  return { id: row.id, planId: row.plan_id, sequence: row.sequence, plannedDay: row.planned_day, plannedDate: row.planned_date ?? null, status: row.status, recipientId: row.recipient_id, productName: row.product_name, storeName: row.store_name, storeAddress: row.store_address, area: row.area, snapshotPriceCents: row.snapshot_price_cents, handling: row.handling, walkMinutes: row.walk_minutes, rationale: row.rationale, saved: row.saved, replacedStopId: row.replaced_stop_id, source: row.source, purchase: purchase ? shapePurchase(purchase) : null, inquiry: inquiry ? shapeInquiry(inquiry) : null };
+  // The shop's position, read on the device and written down nowhere. It is not folded
+  // into `walkMinutes` — that column is a catalogue value, and putting a measured distance
+  // in it would store where the traveller was standing when it was measured.
+  const store = row.store ?? null;
+  const storePoint = store && store.lat !== null && store.lng !== null ? { lat: store.lat, lng: store.lng } : null;
+  return { id: row.id, planId: row.plan_id, sequence: row.sequence, plannedDay: row.planned_day, plannedDate: row.planned_date ?? null, storeId: row.store_id ?? null, storePoint, status: row.status, recipientId: row.recipient_id, productName: row.product_name, storeName: row.store_name, storeAddress: row.store_address, area: row.area, snapshotPriceCents: row.snapshot_price_cents, handling: row.handling, walkMinutes: row.walk_minutes, rationale: row.rationale, saved: row.saved, replacedStopId: row.replaced_stop_id, source: row.source, purchase: purchase ? shapePurchase(purchase) : null, inquiry: inquiry ? shapeInquiry(inquiry) : null };
 }
 
 function shapeInquiry(row: NonNullable<StopRow["store_inquiries"]>[number]): Inquiry {

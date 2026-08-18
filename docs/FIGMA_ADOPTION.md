@@ -76,16 +76,17 @@
 `Dropped off` · `Collected by Trail` · `On the way to hotel` · `Delivered` · `In progress` ·
 `Shopping plan ready` · `Hotel verified` · `Reserved` · `Sample` · `Simulated`
 
-### 카피 예외 — 와이어프레임을 따르지 않는 7곳
+### 카피 예외 — 와이어프레임을 따르지 않는 8곳
 | 와이어프레임 | 쓸 문구 | 이유 |
 | --- | --- | --- |
-| `Current Location` (Home 카드) | `Shopping in` | 이 값의 출처는 센서가 아니라 온보딩에서 여행자가 입력한 `trips.city`다. 앱에 위치 권한 경로가 없다 |
+| `Current Location` (Home 카드) | `Shopping in` | 이 값의 출처는 센서가 아니라 온보딩에서 여행자가 입력한 `trips.city`다. **N1이 위치 권한을 열었지만 이 예외는 유지된다** — fix는 `NEAR YOU` 배너와 `Using your location` 칩에만 쓰이고 이 카드에는 들어오지 않는다. 두 값은 공항·기차·출발 전날에 실제로 다르고, 라벨 하나가 둘을 덮으면 어느 쪽도 참이 아닌 화면이 된다 |
 | `CAD $250 shopping budget` | `CAD $250 trip budget` | $250은 total. 쇼핑 가능액은 `planned − spent` |
 | `Saved Visa •••• 4242` | `Sample card · nothing is stored` | 저장된 적 없는 카드 |
 | `Apple Pay` + 로고 | `Apple Pay (simulated)`, 로고 없음 | 상표 사용 조건 |
 | `Confirm the number of bags` | `Staff count the bags with you` | 개수 대조의 주체는 직원. 커스터디 이전 시점이 흐려진다 |
 | `I've dropped off my bags ✓` | `I handed the bags over` | 체크는 확정어. 이건 사용자의 주장이지 커스터디 이전이 아니다 |
 | AI: `protect CAD $9 for hotel delivery` | `your delivery money stays protected` | §1-4 |
+| (프레임에 없음) | `NEAR YOU` · `Using your location · Turn off` | **센서 출처를 쓰는 유일한 두 자리(N1 신설).** 1행이 `trips.city`를 지키는 대신, 측정된 값은 자기 라벨을 따로 받는다. 칩은 장식이 아니라 **끄는 버튼**이다 — 켜져 있다는 사실이 화면에 안 보이는 위치 기능은 동의를 철회할 방법이 없는 동의다 |
 
 ## 3. 작업 그룹
 
@@ -133,6 +134,7 @@
 | `0028` | 기존 15개 테이블 정책 재작성 — 2단계 | G6 |
 | `0029` | `actor_user_id` + `approve_budget_change` 재정의 — 2단계 | G6 |
 | — | **N3 — 마이그레이션 없음.** `recipients.priority`·`is_optional`은 `0001`에 이미 있고 `recipients`에는 컬럼 GRANT가 없다 | N3 |
+| — | **N1 — 마이그레이션 없음.** 1·2단계는 번호를 쓰지 않는다. `stops.store_id`·`stores.lat/lng`(0001) · `trips.timezone`(0021) · `products.preference_tags`(0023) · `plans.preference_tags`(0025) · `recipients.is_self`(0001)가 전부 이미 있고, 좌표는 저장하지 않으므로 저장할 테이블이 없다. 쿼리 확장 1건(`stops` select에 `store_id` + `stores(lat,lng)` embed, `load.ts`의 폴백 플래그 뒤)뿐. **`0030`을 미리 잡아 두지 않는다** — 3단계(웹 푸시)를 실제로 열 때만 요청한다. 빈 번호는 "만들어도 된다"는 신호가 된다 | N1 |
 | — | **N2 — 마이그레이션 없음.** 창(window)은 세션 값이라 저장하면 5분 뒤 거짓인 행이 된다. 쿼리 확장 1건(`RECOMMENDATION_SELECT`에 `stores.timezone`, `store_hours` 조인)뿐이고 컬럼은 늘지 않는다 | N2 |
 
 **기각된 것** — `payment_methods`와 사진 노출. 저장된 카드가 없으므로 테이블은 존재하지 않는

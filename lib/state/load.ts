@@ -24,13 +24,17 @@ let hasT6Columns = true;
 /** And for the 0022 view. Absent means the counts are null, which the cards draw as
  *  "not counted yet" — never as zero. */
 let hasSpendSummary = true;
+/** N1's stop-to-shop embed. No migration behind it — `stops.store_id` and `stores.lat/lng`
+ *  are 0001 columns — but a relationship PostgREST cannot resolve would 400 every screen,
+ *  not just the proximity one, so it degrades the same way everything else here does. */
+let hasStopStore = true;
 
 /** The heavy read. Composite `(parent_id, user_id)` foreign keys make several
  *  embed paths ambiguous, so the select names every constraint; the ordering
  *  below is part of the contract too — events must arrive in `seq` order or the
  *  timeline stops matching the ledger. */
-function tripQuery(db: SupabaseClient, userId: string, t5: boolean, t6: boolean) {
-  return db.from("trips").select(tripSelect(t5, t6))
+function tripQuery(db: SupabaseClient, userId: string, t5: boolean, t6: boolean, stopStore = hasStopStore) {
+  return db.from("trips").select(tripSelect(t5, t6, stopStore))
     .eq("user_id", userId)                                  // redundant under RLS; this is what puts trips_user_idx to work
     .is("recipients.archived_at", null)
     .is("unplanned_purchases.stop_id", null)
@@ -49,6 +53,14 @@ type Narrow = (q: ReturnType<typeof tripQuery>) => ReturnType<typeof tripQuery>;
 async function readTrip(db: SupabaseClient, userId: string, narrow: Narrow) {
   const first = await narrow(tripQuery(db, userId, hasT5Columns, hasT6Columns)).maybeSingle();
   if (!first.error || !isMissingSchema(first.error)) return first;
+  // Dropped first, because it is the newest and the cheapest thing to lose: without it a
+  // stop has no coordinates and the nearby alert stays quiet, which is a working app.
+  if (hasStopStore) {
+    console.warn("[state] dropping the stop-to-shop embed:", first.error.message);
+    hasStopStore = false;
+    const retry = await narrow(tripQuery(db, userId, hasT5Columns, hasT6Columns, false)).maybeSingle();
+    if (!retry.error || !isMissingSchema(retry.error)) return retry;
+  }
   // The database is behind this build. Say which way once, then stop asking.
   if (hasT6Columns) {
     console.warn("[state] falling back to the pre-0021 trip select:", first.error.message);

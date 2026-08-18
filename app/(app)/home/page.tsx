@@ -12,21 +12,24 @@
  *  Both are drawn only after `hydrated` — the server render has no clock at all.
  *
  *  `Shopping in` is FIGMA_ADOPTION §2's first copy exception. The wireframe says
- *  `Current Location`; this value came out of an onboarding form, not a sensor, and there
- *  is no location permission anywhere in this app. Naming it a location would be the
- *  screen claiming a capability it does not have. */
+ *  `Current Location`; this value came out of an onboarding form, not a sensor. N1 has
+ *  since opened a location permission — and the exception stands anyway, for the reason
+ *  that mattered all along: this card draws `trips.city`, and in an airport the two
+ *  values genuinely disagree. The sensor gets its own two places instead (`NEAR YOU` and
+ *  the `Using your location` chip), and neither of them is this card. */
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Avatar, Header } from "@/components/chrome";
 import { IconArrow, IconPin, IconRetry, IconSpark } from "@/components/icons";
-import { ProductCard, StoreCard, TileSkeleton } from "@/components/discovery";
+import { LocationChip, ProductCard, StoreCard, TileSkeleton } from "@/components/discovery";
 import { TripContextBar } from "@/components/trip-context-bar";
 import { useNearby } from "@/lib/discovery/nearby";
 import { walkMinutesBetween } from "@/lib/discovery/distance";
 import { storesOf, useRecommendations } from "@/lib/discovery/use-recommendations";
 import { dayOfTrip, greetingFor } from "@/lib/trips/status";
 import { useApp } from "../app-state";
+import { NearbyBanner } from "../nearby-banner";
 import { continueHref } from "../landing";
 import { useTripSwitcher } from "../trip-switcher";
 
@@ -46,6 +49,11 @@ export default function HomePage() {
     {switcher.sheet}
 
     <section className="home-greeting"><h1>{hydrated && trip ? greetingFor(trip.timezone) : "Hello."}</h1><p>{city ? `Ready to explore ${city}?` : "Ready to plan your first trip?"}</p></section>
+
+    {/* The one sensor-sourced surface on this screen. It renders nothing at all unless
+        nearby alerts are on, a position has been granted by tap, and something on the
+        traveller's own plan is actually close. */}
+    <NearbyBanner products={feed.products} />
 
     {status === "error" && <div className="offline-note"><b>Trail could not load this account.</b><span>You are seeing what this device saved. Nothing you recorded has been lost.</span><button className="back-to-chat" onClick={() => void refresh()}><IconRetry /> Try again</button></div>}
     {pendingBudgetChange && <button className="approval-banner" onClick={() => router.push("/trail/plan/approval")}><span><small>NEEDS YOUR APPROVAL</small><b>{pendingBudgetChange.reason}</b></span><IconArrow /></button>}
@@ -77,10 +85,14 @@ export default function HomePage() {
       </section>
 
       {stores.length > 0 && <section aria-labelledby="home-stores">
-        <div className="profile-section-label"><b id="home-stores">Nearby Stores</b><span>{nearby.status === "ready" ? "Walking times from where you are" : `${stores.length} in ${city}`}</span></div>
+        <div className="profile-section-label"><b id="home-stores">Nearby Stores</b><span>{nearby.point ? "Walking times from where you are" : `${stores.length} in ${city}`}</span></div>
         {/* The permission prompt is always behind a tap, the fix is held in memory only,
-            and a refusal leaves every walking time null rather than estimated. */}
-        {nearby.status !== "ready" && <button type="button" className="back-to-chat" onClick={nearby.ask}>{nearby.status === "asking" ? "Asking…" : nearby.status === "denied" ? "Location is off — showing neighbourhoods" : nearby.status === "unavailable" ? "This device cannot give a position" : "Use my location for walking times"}</button>}
+            and a refusal leaves every walking time null rather than estimated. The chip
+            replaces the button once there is a position: being able to see that the radio
+            is on, and switch it off, is the other half of having asked. */}
+        {nearby.point
+          ? <LocationChip live={nearby.watching} onTurnOff={nearby.forget} />
+          : <button type="button" className="back-to-chat" onClick={nearby.ask}>{nearby.status === "asking" ? "Asking…" : nearby.status === "denied" ? "Location is off — showing neighbourhoods" : nearby.status === "unavailable" ? "This device cannot give a position" : "Use my location for walking times"}</button>}
         <ul className="store-grid">{stores.map((store) => <StoreCard key={store.id} store={store} source={store.source} note={store.sourceNote} walkMinutes={walkMinutesBetween(nearby.point, store)} />)}</ul>
       </section>}
     </>}

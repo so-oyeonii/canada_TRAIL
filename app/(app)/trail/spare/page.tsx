@@ -108,9 +108,12 @@ export default function SparePage() {
       </div>
       {/* The prompt is always behind this tap, the fix stays in memory, and a refusal
           leaves every walking figure null rather than estimated. */}
-      {nearby.status !== "ready"
-        ? <button type="button" className="back-to-chat" onClick={nearby.ask}>{nearby.status === "asking" ? "Asking…" : nearby.status === "denied" ? "Location is off — showing neighbourhoods" : nearby.status === "unavailable" ? "This device cannot give a position" : "Use my location"}</button>
-        : <button type="button" className="back-to-chat" onClick={nearby.forget}>Forget my location</button>}
+      {/* `point`, not a status: since N1 the watch is shared, so a fix can reach this
+          screen from a tap made on another one. What decides the branch is whether there is
+          a position, which is also what decides whether a walking figure may be printed. */}
+      {nearby.point
+        ? <button type="button" className="back-to-chat" onClick={nearby.forget}>Forget my location</button>
+        : <button type="button" className="back-to-chat" onClick={nearby.ask}>{nearby.status === "asking" ? "Asking…" : nearby.status === "denied" ? "Location is off — showing neighbourhoods" : nearby.status === "unavailable" ? "This device cannot give a position" : "Use my location"}</button>}
     </fieldset>
 
     <fieldset className="spare-set priority-set"><legend className="section-label">NEXT STOP</legend>
@@ -128,7 +131,7 @@ export default function SparePage() {
 
     <section aria-labelledby="spare-results">
       <div className="profile-section-label"><b id="spare-results">WHAT FITS THIS WINDOW</b><span>{area || trip.city}</span></div>
-      <p className="quiet-note">{WALK_NOTE}{nearby.status === "ready" ? ` ${ROUND_TRIP_NOTE}` : ""}</p>
+      <p className="quiet-note">{WALK_NOTE}{nearby.point ? ` ${ROUND_TRIP_NOTE}` : ""}</p>
       <ul className="store-grid spare-results" aria-live="polite">
         {feed.loading
           ? <TileSkeleton count={4} />

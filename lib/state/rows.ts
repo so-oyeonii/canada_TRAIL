@@ -24,7 +24,10 @@ export type PurchaseRow = { id: string; stop_id: string | null; actual_price_cen
 
 export type InquiryRow = { id: string; status: InquiryStatus; question: string; answer_note: string | null; asked_at: string; answered_at: string | null; expires_at: string };
 
-export type StopRow = { id: string; plan_id: string; sequence: number; planned_day: number; planned_date?: string | null; status: StopStatus; recipient_id: string | null; product_name: string; store_name: string; store_address: string; area: string; snapshot_price_cents: number; handling: Handling; walk_minutes: number | null; rationale: string; saved: boolean; replaced_stop_id: string | null; source: DataSource; updated_at: string; purchases: PurchaseRow[] | null; store_inquiries: InquiryRow[] | null };
+/** `store_id` and the `store` embed are optional for the same reason the 0009-0012 columns
+ *  are: `queries.ts` can be asked with the embed off, and then the stop simply has no
+ *  coordinates. They are the only two fields on this row that N1 reads. */
+export type StopRow = { id: string; plan_id: string; sequence: number; planned_day: number; planned_date?: string | null; store_id?: string | null; store?: { lat: number | null; lng: number | null } | null; status: StopStatus; recipient_id: string | null; product_name: string; store_name: string; store_address: string; area: string; snapshot_price_cents: number; handling: Handling; walk_minutes: number | null; rationale: string; saved: boolean; replaced_stop_id: string | null; source: DataSource; updated_at: string; purchases: PurchaseRow[] | null; store_inquiries: InquiryRow[] | null };
 
 export type StoreRow = { id: string; name: string; address: string; area: string; dropoff_cutoff: string | null; lat: number | null; lng: number | null; source?: DataSource | null; accepted_handling?: Handling[] | null; max_weight_grams?: number | null; timezone?: string | null; dropoff_opens?: string | null; partner_note?: string | null };
 export type IssueRow = { id: string; kind: IssueKind; status: IssueStatus; description: string; reported_at: string; resolved_at: string | null };

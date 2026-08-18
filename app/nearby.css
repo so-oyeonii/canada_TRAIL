@@ -1,0 +1,39 @@
+/* N1 — the two places a sensor value is allowed to appear.
+   `NEAR YOU` (the proximity banner) and `Using your location` (the chip that turns it off).
+   The `SHOPPING IN` card is not one of them and is not styled here: that value came out of
+   an onboarding form, and giving it this treatment would be the design asserting a source
+   the data does not have. FIGMA_ADOPTION §2, row 1.
+
+   `.location-chip` is not here: it rides on `components/discovery.tsx`, which every screen
+   with a recommendation feed already renders, so it lives in `app/discovery.css` where that
+   file's other styles are and is loaded whether or not this banner ever appears.
+
+   No `:root` property is declared in this file — G1 owns those. */
+
+/* ---- the banner -----------------------------------------------------------
+   Amber, not teal: this one asks for a decision. It sits in the page flow rather than
+   floating — a fixed overlay would cover the sync chip, which is the one thing in this app
+   that must never be hidden. */
+.nearby-banner{display:flex;flex-direction:column;gap:var(--sp-2);margin:0 0 var(--sp-4);padding:var(--pad-card);border:1px solid var(--accent-line);border-radius:var(--r-l);background:var(--accent-soft)}
+.nearby-head{display:flex;align-items:center;gap:var(--sp-2)}
+.nearby-head i{display:flex;color:var(--accent)}
+.nearby-head i svg{width:16px;height:16px}
+.nearby-head small{flex:1;font-family:var(--font-mono);font-size:var(--fs-label-s);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--accent)}
+.nearby-head button{display:flex;align-items:center;justify-content:center;min-width:var(--tap);min-height:var(--tap);margin:calc(var(--sp-3) * -1) calc(var(--sp-2) * -1) calc(var(--sp-3) * -1) 0;border:0;background:0;color:var(--text-muted);cursor:pointer}
+.nearby-banner b{font-size:var(--fs-lead);line-height:var(--lh-lead);font-weight:var(--fw-bold);color:var(--text)}
+/* The sample caveat is the last sentence of this paragraph rather than a chip, because a
+   notification has nowhere to hang a chip and the two surfaces must say the same thing. */
+.nearby-banner p{margin:0;font-size:var(--fs-body);line-height:var(--lh-body);color:var(--text)}
+.nearby-actions{display:flex;align-items:center;gap:var(--sp-3);flex-wrap:wrap}
+.nearby-actions a{display:inline-flex;align-items:center;min-height:var(--tap);padding:0 var(--sp-4);border-radius:var(--r-pill);background:var(--accent-fill);color:var(--on-accent);font-size:var(--fs-body-s);font-weight:var(--fw-med);text-decoration:none}
+.nearby-actions button{min-height:var(--tap);border:0;background:0;font-size:var(--fs-body-s);color:var(--text-muted);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+
+/* ---- the settings screen --------------------------------------------------
+   `.nearby-limits` is a plain list of the caps. They are printed because a traveller who
+   cannot see the limits has no way to tell "nothing was near" from "the app went quiet". */
+.nearby-limits{margin:0 0 var(--sp-4);padding:0;list-style:none;display:flex;flex-direction:column;gap:var(--sp-2)}
+.nearby-limits li{display:flex;justify-content:space-between;gap:var(--sp-3);padding:var(--sp-2) 0;border-bottom:1px solid var(--hairline);font-size:var(--fs-body-s);color:var(--text-muted)}
+.nearby-limits li b{font-weight:var(--fw-med);color:var(--text)}
+.nearby-note{margin:0 0 var(--sp-4);font-size:var(--fs-body-s);line-height:var(--lh-body);color:var(--text-muted)}
+.nearby-never{margin:0;padding:0 0 0 var(--sp-4);list-style:disc;font-size:var(--fs-body-s);line-height:var(--lh-body);color:var(--text-muted)}
+.nearby-never li{margin-bottom:var(--sp-1)}

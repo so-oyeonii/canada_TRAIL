@@ -20,6 +20,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, u
 import { Brand } from "@/components/chrome";
 import { PREFERENCE_TAGS, type BriefField, type Plan as Brief, type PlanKey, type PlanPatch, type PreferenceTag, type RouteTag } from "@/app/trail-brief";
 import { TAGS_HANDOFF_KEY } from "@/app/onboarding/trip-draft";
+import { forgetAlerts } from "@/lib/discovery/alert-memory";
 import { fromMinor } from "@/lib/money/format";
 import type { OutboxMethod, OutboxOp } from "@/lib/state/outbox";
 import { boughtStops, draftItems, deliveryStep as stepFromEvents, routeStops, selectedBagCount as countBags } from "@/lib/state/selectors";
@@ -468,10 +469,13 @@ function useAppState() {
    *  receipt cascade, so 0020 revoked DELETE and 0021 gave `archive_trip()` instead. */
   const archiveTrip = useCallback(async (id: string) => {
     const reply = await call("DELETE", `/api/trips/${id}`, {});
-    if (reply.ok) { await refresh(); notify("Trip archived"); return { ok: true, message: "" }; }
+    // N1 keeps one line per shop it has mentioned, on this device, keyed by trip. An
+    // archived trip has no more shops to walk past, so the key goes with it — by name,
+    // never by sweeping a prefix, because the offline outbox lives in localStorage too.
+    if (reply.ok) { forgetAlerts(view?.user.id ?? "", id); await refresh(); notify("Trip archived"); return { ok: true, message: "" }; }
     if (reply.status === 503) return { ok: false, message: "Trail cannot archive trips on this server yet." };
     return { ok: false, message: reply.status === 0 ? "You are offline. Nothing was changed." : "Trail could not archive that trip." };
-  }, [call, notify, refresh]);
+  }, [call, notify, refresh, view?.user.id]);
 
   const retrySync = useCallback(async () => { const { dropped } = await flush(); settle(); if (!dropped.length) { setFailure(null); notify("Changes saved"); } }, [flush, notify, settle]);
 

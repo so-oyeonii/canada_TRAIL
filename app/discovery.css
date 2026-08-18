@@ -50,3 +50,13 @@
    file is loaded by the root layout, so the link is styled wherever it is dropped. One
    rule, so both of those screens gained a line of markup and nothing else. */
 .spare-entry{display:inline-flex;align-items:center;margin:0 0 var(--sp-3);padding-inline:0;text-decoration:none}
+
+/* ---- N1 location chip -----------------------------------------------------
+   `Using your location · Turn off`. Deliberately not decoration: a location feature the
+   traveller cannot see is running is a consent with no way back, so this is a row with a
+   real 44px button in it, teal rather than amber because it reports rather than asks. */
+.location-chip{display:flex;align-items:center;gap:var(--sp-2);min-height:var(--tap);margin:0 0 var(--sp-3);padding:0 var(--sp-3);border:1px solid var(--teal-line);border-radius:var(--r-pill);background:var(--teal-soft)}
+.location-chip i{display:flex;color:var(--teal)}
+.location-chip i svg{width:16px;height:16px}
+.location-chip span{flex:1;font-size:var(--fs-label);line-height:var(--lh-label);color:var(--text)}
+.location-chip button{min-height:var(--tap);padding:0 var(--sp-2);border:0;background:0;font-size:var(--fs-label);font-weight:var(--fw-med);color:var(--teal);text-decoration:underline;text-underline-offset:3px;cursor:pointer}

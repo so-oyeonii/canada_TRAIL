@@ -96,3 +96,24 @@ self.addEventListener("fetch", (event) => {
   if (HASHED.some((pattern) => pattern.test(url.pathname)) || STATIC_FILE.test(url.pathname)) { event.respondWith(cacheFirst(request)); return; }
   if (request.mode === "navigate") { event.respondWith(networkFirst(request)); return; }
 });
+
+/** N1-2. The only thing this worker knows about nearby alerts: what to do when one is
+ *  tapped. It never *creates* a notification and it never asks where anybody is —
+ *  `navigator.geolocation` is not exposed to a service worker in any browser, which is why
+ *  N1 has no background half at all. The alert was built and shown by the page, while the
+ *  page was running; this handler only reopens it.
+ *
+ *  None of the five caching rules above is touched. */
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const href = (event.notification.data && event.notification.data.href) || "/home";
+  event.waitUntil((async () => {
+    const target = new URL(href, self.location.origin);
+    if (target.origin !== self.location.origin) return;                 // a notification cannot navigate off-origin
+    const open = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    // Reuse the tab that is already signed in rather than opening a second one.
+    const mine = open.find((client) => new URL(client.url).origin === self.location.origin);
+    if (mine) { await mine.focus(); if ("navigate" in mine) await mine.navigate(target.href).catch(() => {}); return; }
+    await self.clients.openWindow(target.href);
+  })());
+});

@@ -100,7 +100,12 @@ export type Purchase = { id: PurchaseId; stopId: StopId | null; actualPriceCents
 
 export type Inquiry = { id: string; status: InquiryStatus; question: string; answerNote: string | null; askedAt: string; answeredAt: string | null; expiresAt: string };
 
-export type Stop = { id: StopId; planId: string; sequence: number; plannedDay: number; plannedDate: string | null; status: StopStatus; recipientId: string | null; productName: string; storeName: string; storeAddress: string; area: string; snapshotPriceCents: number; handling: Handling; walkMinutes: number | null; rationale: string; saved: boolean; replacedStopId: StopId | null; source: DataSource; purchase: Purchase | null; inquiry: Inquiry | null };
+/** `storeId` is `stops.store_id` (0001) and `storePoint` is that shop's own `lat`/`lng`,
+ *  both read straight off the catalogue row. Neither says anything about the traveller:
+ *  the subtraction between this point and a device fix happens in `lib/discovery/*` and
+ *  the result is never written back — least of all to `walkMinutes`, which is a catalogue
+ *  figure and would become a record of where somebody stood if it were not. */
+export type Stop = { id: StopId; planId: string; sequence: number; plannedDay: number; plannedDate: string | null; storeId: string | null; storePoint: { lat: number; lng: number } | null; status: StopStatus; recipientId: string | null; productName: string; storeName: string; storeAddress: string; area: string; snapshotPriceCents: number; handling: Handling; walkMinutes: number | null; rationale: string; saved: boolean; replacedStopId: StopId | null; source: DataSource; purchase: Purchase | null; inquiry: Inquiry | null };
 
 /** `source` is the counter's own column, not the transfer's. A live partner point
  *  embedded in a simulated transfer is still live, and the chip beside its name has

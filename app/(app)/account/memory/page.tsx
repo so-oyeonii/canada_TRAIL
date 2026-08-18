@@ -6,7 +6,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Header, Toggle } from "@/components/chrome";
-import { IconChevronRight, IconSpark } from "@/components/icons";
+import { IconChevronRight, IconPin, IconSpark } from "@/components/icons";
 import { useApp } from "../../app-state";
 
 export default function MemoryPage() {
@@ -18,6 +18,10 @@ export default function MemoryPage() {
     <section className="preferences"><div><span><b>Use past trips</b><small>Rank gifts and handling from what you chose before</small></span><Toggle label="Use past trips" on={memoryEnabled} onChange={(value) => { setMemoryEnabled(value); notify(value ? "Travel memory enabled" : "Travel memory turned off"); }} /></div></section>
     {memoryEnabled && <section className="ai-memory-card"><header><i><IconSpark /></i><span><small>TRAIL REMEMBERS</small><b>What I know about you</b></span><em>{trips.length} {trips.length === 1 ? "TRIP" : "TRIPS"}</em></header><div><span>Local over generic</span><span>Useful over decorative</span><span>Hands-free when possible</span></div><p>Trail uses approved patterns to rank gifts and handling. You still control every route and transfer.</p></section>}
     <Link className="workflow-link" href="/trips/past"><i><IconSpark /></i><span><b>Review the sources</b><small>The past trips these patterns come from</small></span><em><IconChevronRight /></em></Link>
+    {/* The other privacy switch, and the only one about a sensor. It lives on its own
+        screen because the thing it has to explain — that the web cannot watch a position
+        in the background — takes a paragraph, not a caption. */}
+    <Link className="workflow-link" href="/account/nearby"><i><IconPin /></i><span><b>Nearby alerts</b><small>Uses your position on this device, while Trail is open</small></span><em><IconChevronRight /></em></Link>
     <div className="offline-note"><b>This switch is not saved yet.</b><span>Turning memory off applies to this session on this device. Storing the preference on your account arrives with the account settings work.</span></div>
   </div>;
 }

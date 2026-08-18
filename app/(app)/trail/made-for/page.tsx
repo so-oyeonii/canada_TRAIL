@@ -24,12 +24,13 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Header } from "@/components/chrome";
 import { IconCheck, IconGift, IconLeaf, IconMap, IconShop, IconSpark } from "@/components/icons";
-import { ProductCard, TileSkeleton } from "@/components/discovery";
+import { LocationChip, ProductCard, TileSkeleton } from "@/components/discovery";
 import { useNearby } from "@/lib/discovery/nearby";
 import { walkMinutesBetween } from "@/lib/discovery/distance";
 import { storesOf, useRecommendations } from "@/lib/discovery/use-recommendations";
 import type { MemoryConstraint } from "@/lib/state/types";
 import { useTrip } from "../../app-state";
+import { NearbyBanner } from "../../nearby-banner";
 
 const CATEGORY_ICON: Record<string, (p: { className?: string }) => React.JSX.Element> = {
   "Home & design": IconShop, "Food & treats": IconLeaf, "Art & stationery": IconMap, "Open to ideas": IconGift,
@@ -73,6 +74,8 @@ export default function MadeForCityPage() {
 
   return <div className="screen made-for-screen"><Header title={`Made for ${trip.city}`} back={() => router.push("/trail")} />
 
+    <NearbyBanner products={feed.products} />
+
     <section aria-labelledby="mf-gifts">
       <div className="profile-section-label"><b id="mf-gifts">POPULAR LOCAL GIFTS</b><span>{categories.length || 0} kinds in {trip.city}</span></div>
       {feed.loading
@@ -86,7 +89,9 @@ export default function MadeForCityPage() {
       <div className="profile-section-label"><b id="mf-near">NEAR YOUR ITINERARY</b><span>{stores.length} {stores.length === 1 ? "store" : "stores"}</span></div>
       {/* A number of minutes needs a position. Without one this says where, not how far. */}
       <p className="recipient-note">{walks.length ? `${walks.length} ${walks.length === 1 ? "store" : "stores"} within ${Math.max(...walks)} min of you.` : areas.length ? `${stores.length} ${stores.length === 1 ? "store" : "stores"} in ${areas.join(", ")}.` : "No stores listed for this city yet."}</p>
-      {nearby.status !== "ready" && stores.length > 0 && <button type="button" className="back-to-chat" onClick={nearby.ask}>{nearby.status === "asking" ? "Asking…" : nearby.status === "denied" ? "Location is off — showing neighbourhoods" : nearby.status === "unavailable" ? "This device cannot give a position" : "Use my location for walking times"}</button>}
+      {nearby.point
+        ? <LocationChip live={nearby.watching} onTurnOff={nearby.forget} />
+        : stores.length > 0 && <button type="button" className="back-to-chat" onClick={nearby.ask}>{nearby.status === "asking" ? "Asking…" : nearby.status === "denied" ? "Location is off — showing neighbourhoods" : nearby.status === "unavailable" ? "This device cannot give a position" : "Use my location for walking times"}</button>}
     </section>
 
     <section className="reco-rail" aria-labelledby="mf-easy">

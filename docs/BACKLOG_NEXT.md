@@ -39,6 +39,30 @@
 4. **환각 통제.** 알림 문구가 매장 이름을 말하려면 카탈로그가 실데이터여야 한다.
    `products`가 `source='sample'`인 동안에는 알림에도 `Sample`이 붙어야 한다(제품 규칙 3).
 
+**실행 기록 (N1-0 · N1-1a · N1-1b · N1-2 완료 · 마이그레이션 0건 · API 라우트 0건)**
+
+계획서는 `docs/plans/N1-location-alerts.md`. 웹 플랫폼 판정(§1)에 따라 **"앱이 열려 있을 때만"**으로
+착지했고, 사용자가 그 제약을 듣고 승인했다. **N1-3(웹 푸시)는 만들지 않았다** — §Q4의 재개 조건
+다섯 개 중 하나도 충족되지 않았고, `0030`은 원장에 **잡아 두지 않았다.**
+
+| 단계 | 무엇이 생겼나 |
+| --- | --- |
+| N1-0 | `useNearby`가 단발 `getCurrentPosition` → **모듈 싱글턴 `watchPosition`**. `visibilitychange`로 끊고 잇고, 20분 정지하면 스스로 `ready`로 내려앉는다. `Using your location · Turn off` 칩 |
+| N1-1a | 진입 250 m / 이탈 400 m 히스테리시스 · 75 m·60초 스로틀 · 하루 3건(샘플이면 2건) · 20분 쿨다운 · **매장당 여행 1회** · 여행지 시간대 21–08시 무음. 인앱 배너 + `/account/nearby` |
+| N1-1b | 1순위 신호 배선. `stops` select에 `store_id` + `stores(lat,lng)` embed(플래그 뒤), `Stop.storeId`·`Stop.storePoint`. **컬럼은 0001에 이미 있어 마이그레이션 0건** |
+| N1-2 | `registration.showNotification()` + `sw.js`의 `notificationclick`. 캐시 규칙 5개는 한 줄도 안 건드렸다. iOS 제약을 설정 화면이 문장으로 말한다 |
+
+**위 4번(환각 통제)의 답**: 알림 경로에 모델이 없다. `lib/discovery/alert-copy.ts`는 템플릿뿐이고
+`tests/trail-nearby-alerts.test.ts`가 그 파일들에 `fetch(`·`/api/`·`lib/supabase`가 없는지 스캔한다.
+`source !== 'live'`면 제목에 `Sample`, 본문 끝에 `Sample data — stock isn't confirmed.`, 하루 상한 2건.
+
+**위 1번의 답**: `Shopping in`은 되돌리지 않았다. `FIGMA_ADOPTION.md` §2 예외표 1행의 이유를
+개정하고 8행(`NEAR YOU` · `Using your location`)을 추가했다.
+
+**위 2·3번의 답**: 좌표는 저장하지 않는다 — 그래서 0007에 엮을 테이블이 없다. 기기에 남는 것은
+`trail:nearby:v1:{userId}:{tripId}` 하나이고 값은 `{매장id: 시각}`뿐이다. `alert-memory.ts`의 어떤
+함수 시그니처에도 좌표 타입이 없어 **컴파일러가 막는다.**
+
 ---
 
 ## N2. 자투리 시간 쇼핑 — "1시간 남는데 뭐 살까"
@@ -115,3 +139,7 @@
 
 `N3 → N2 → N1`. 만들어진 정도의 역순이고, 위험의 오름차순이다.
 N3는 스키마가 이미 있고, N2는 위치 없이 첫 버전이 나오며, N1만 새 개인정보 범주를 연다.
+
+**셋 다 끝났다.** 그리고 N1은 결국 새 개인정보 범주를 **열지 않았다** — 좌표를 서버로 보내는 경로를
+만들지 않았으므로 저장할 것도, 삭제할 것도, 유출될 것도 없다. 남은 것은 N1-3(웹 푸시)뿐이고,
+그것은 정확히 그 성질을 포기해야 열리기 때문에 보류다.

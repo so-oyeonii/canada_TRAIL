@@ -16,7 +16,8 @@
  *  stock image under a real shop's name is one more claim about that shop. */
 
 import Link from "next/link";
-import { TILE_ICONS } from "./icons";
+import { IconPin, TILE_ICONS } from "./icons";
+import { LOCATION_CHIP, LOCATION_CHIP_OFF } from "@/lib/discovery/alert-copy";
 import { tileArt } from "@/lib/tile-art";
 import type { DataSource, Recommendation, RecommendedStore } from "@/lib/state/types";
 import { priceLabel } from "@/lib/money/format";
@@ -67,6 +68,20 @@ export function StoreCard({ store, source, note, walkMinutes }: { store: Recomme
       <SourceBadge source={source} note={note} />
     </Link>
   </li>;
+}
+
+/** Rendered whenever a position is in memory, and never otherwise.
+ *
+ *  This is the withdrawal path, which is why it is a button and not a caption. A location
+ *  feature the traveller cannot see is running is a consent they have no way to take back,
+ *  and `Turn off` stops the watch itself rather than only the thing it feeds.
+ *
+ *  It is also the reason `SHOPPING IN` did not go back to the wireframe's
+ *  `Current Location` when N1 opened the permission (FIGMA_ADOPTION §2, rows 1 and 8):
+ *  that card draws `trips.city`, typed into a form, and the two values genuinely disagree
+ *  in an airport. The sensor gets its own label rather than borrowing one. */
+export function LocationChip({ onTurnOff, live = true }: { onTurnOff: () => void; live?: boolean }) {
+  return <div className="location-chip"><i><IconPin /></i><span>{live ? LOCATION_CHIP : `${LOCATION_CHIP} · paused`}</span><button type="button" onClick={onTurnOff}>{LOCATION_CHIP_OFF}</button></div>;
 }
 
 /** The skeleton G1 styled (`.is-loading`). It carries no numbers, because a placeholder

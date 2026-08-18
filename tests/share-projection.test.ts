@@ -45,8 +45,8 @@ const recipients = [
   { id: "55555555-5555-4555-8555-555555555555", name: "Coworkers", group_size: 12, is_self: false, relationship: "relationship colleagues", priority: 4, is_optional: true, preference_note: "", equal_value_group: null, archived_at: null },
 ];
 const stops = [
-  { recipient_id: recipients[0].id, product_name: "Ontario stoneware mug", store_name: "Spacing Store", area: "Queen West", status: "bought", handling: "Fragile", snapshot_price_cents: 4200, source: "sample", store_address: "store_address 401 Richmond St W", planned_day: 2, sequence: 3, walk_minutes: 7, rationale: "rationale she collects ceramics", saved: true, id: "66666666-6666-4666-8666-666666666666", trip_id: trip.id },
-  { recipient_id: null, product_name: "Maple tea tin", store_name: "St Lawrence Market", area: "Old Town", status: "planned", handling: "Standard", snapshot_price_cents: 1800, source: "live", store_address: "store_address 93 Front St E", planned_day: 1, sequence: 1, walk_minutes: 12, rationale: "", saved: false, id: "77777777-7777-4777-8777-777777777777", trip_id: trip.id },
+  { recipient_id: recipients[0].id, product_name: "Ontario stoneware mug", store_name: "Spacing Store", area: "Queen West", status: "bought", handling: "Fragile", snapshot_price_cents: 4200, source: "sample", store_address: "store_address 401 Richmond St W", planned_day: 2, sequence: 3, walk_minutes: 7, rationale: "rationale she collects ceramics", saved: true, id: "66666666-6666-4666-8666-666666666666", trip_id: trip.id, store_id: "88888888-8888-4888-8888-888888888888", store: { lat: "lat 43.6487", lng: "lng -79.3966" } },
+  { recipient_id: null, product_name: "Maple tea tin", store_name: "St Lawrence Market", area: "Old Town", status: "planned", handling: "Standard", snapshot_price_cents: 1800, source: "live", store_address: "store_address 93 Front St E", planned_day: 1, sequence: 1, walk_minutes: 12, rationale: "", saved: false, id: "77777777-7777-4777-8777-777777777777", trip_id: trip.id, store_id: "99999999-9999-4999-8999-999999999999", store: { lat: "lat 43.6487", lng: "lng -79.3966" } },
 ];
 const transfer = {
   status: "in_transit", bag_count: 3, source: "simulated", reference_code: "reference_code TRL-48173",
@@ -83,7 +83,15 @@ test("with every switch on, the projection emits exactly the keys on the list an
 
 test("no forbidden column, and no forbidden value, survives the projection", () => {
   const serialised = JSON.stringify(project(ALL_ON));
-  const forbidden = /hotel_address|hotel_name|reference_code|pass_|seal|eta_|dropoff|@|client_op|provider_|last4|token|priority|is_optional|allocation|rationale|planned_day|store_address|free_time|companions|approved_snapshot|preference_note|relationship/i;
+  // `lat|lng|coord|geo|distance|nearby` were added by N1. The proximity feature has no row
+  // to leak — a position is never written down anywhere — but the *reason* that is true is
+  // a set of decisions in `lib/discovery/*`, and this line is what keeps a later change
+  // from quietly putting one on a public page. The location terms are bounded (`lat`)
+  // because `simulated` contains `lat` and a scan that cries wolf gets widened until it
+  // stops catching anything. Phase 2's co-editing (0027-0029) inherits
+  // it: where the owner is standing is not visible to a member either, because there is
+  // nothing to make visible.
+  const forbidden = /hotel_address|hotel_name|reference_code|pass_|seal|eta_|dropoff|@|client_op|provider_|last4|token|priority|is_optional|allocation|rationale|planned_day|store_address|free_time|companions|approved_snapshot|preference_note|relationship|lat|lng|latitude|longitude|coord|geo|distance|nearby/i;
   const hit = serialised.match(forbidden);
   assert.equal(hit, null, `the shared page would have carried ${hit?.[0]}`);
 });

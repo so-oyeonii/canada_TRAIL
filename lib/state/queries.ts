@@ -18,7 +18,13 @@
  *  `stops.planned_date` (0024) is deliberately absent from the stop select: the column is
  *  not on the deployed database yet and naming it 400s the whole state read. `Stop.plannedDate`
  *  already exists in the shape and reads null until it is added here, in the same change that
- *  applies the migration — `Day n of m` and the today branch simply stay off until then. */
+ *  applies the migration — `Day n of m` and the today branch simply stay off until then.
+ *
+ *  The `stopStore` flag carries N1's one query change and **no migration at all**:
+ *  `stops.store_id` and `stores.lat/lng` are both 0001 columns. It is a flag anyway, for the
+ *  reason the paragraph above gives — a stop embed that PostgREST cannot resolve does not
+ *  degrade a nearby alert, it 400s the whole hydration for every screen. Off, the coordinates
+ *  read null, `Stop.storePoint` is null, and the proximity feature simply does not fire. */
 
 export const USER_SELECT = "*";
 
@@ -26,7 +32,7 @@ const purchaseFields = (t5: boolean) => `
       id, stop_id, actual_price_cents, quantity, bags, handling, currency, note, unplanned_label,
       ${t5 ? "client_key," : ""} recorded_at, voided_at, void_reason, updated_at`;
 
-export const tripSelect = (t5: boolean, t6 = true) => `
+export const tripSelect = (t5: boolean, t6 = true, stopStore = true) => `
   id, status, country, city, areas, start_date, end_date, ${t6 ? "timezone, provisional_until," : ""}
   hotel_name, hotel_address, hotel_verified_at, ${t5 ? "hotel_id," : ""} companions, free_time, currency, updated_at,
   plans!plans_trip_id_user_id_fkey (
@@ -43,6 +49,7 @@ export const tripSelect = (t5: boolean, t6 = true) => `
   stops!stops_trip_id_user_id_fkey (
     id, plan_id, sequence, planned_day, status, recipient_id, product_name, store_name, store_address,
     area, snapshot_price_cents, handling, walk_minutes, rationale, saved, replaced_stop_id, source, updated_at,
+    ${stopStore ? "store_id, store:stores!stops_store_id_fkey ( lat, lng )," : ""}
     purchases!purchases_stop_id_user_id_fkey (${purchaseFields(t5)}
     ),
     store_inquiries!store_inquiries_stop_id_user_id_fkey (
@@ -77,7 +84,7 @@ export const tripSelect = (t5: boolean, t6 = true) => `
 `;
 
 /** Kept as the pre-0009 shape for anything that does not want the flag. */
-export const TRIP_SELECT = tripSelect(false, false);
+export const TRIP_SELECT = tripSelect(false, false, false);
 
 /** `purchases(id)` is deliberately gone — `TRIP_SPEND_SELECT` answers the count and the
  *  sum with one row per trip instead of one row per purchase on the whole account. */

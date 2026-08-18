@@ -13,12 +13,12 @@ import { adminOrNull } from "@/lib/share/server";
  *  decides it should, and the new one is a new URL they have to choose to send. */
 export const dynamic = "force-dynamic";
 
-type Ctx = { params: Promise<{ tripId: string; shareId: string }> };
+type Ctx = { params: Promise<{ id: string; shareId: string }> };
 
 export async function DELETE(request: Request, ctx: Ctx) {
   const traveler = await getTraveler();
   if (!traveler) return json({ error: "unauthenticated" }, 401);
-  const { tripId, shareId } = await ctx.params;
+  const { id: tripId, shareId } = await ctx.params;
   if (!UUID.test(tripId) || !UUID.test(shareId)) return json({ error: "bad_share_id" }, 400);
   const body = await readBody<Record<string, unknown>>(request);
   if (!body.ok) return body.response;

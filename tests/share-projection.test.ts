@@ -199,8 +199,8 @@ const projection = read("lib/share/projection.ts");
 const server = read("lib/share/server.ts");
 const link = read("lib/share/link.ts");
 const migration = read("supabase/migrations/0026_trip_shares.sql");
-const listRoute = read("app/api/trips/[tripId]/share/route.ts");
-const revokeRoute = read("app/api/trips/[tripId]/share/[shareId]/route.ts");
+const listRoute = read("app/api/trips/[id]/share/route.ts");
+const revokeRoute = read("app/api/trips/[id]/share/[shareId]/route.ts");
 const page = read("app/s/[token]/page.tsx");
 const sheet = read("app/(app)/trips/share-sheet.tsx");
 

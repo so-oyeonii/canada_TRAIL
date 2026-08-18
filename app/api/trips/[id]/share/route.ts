@@ -20,7 +20,7 @@ import { parseShareScope, scopeColumns, shareRow, SHARE_LINK_LIMIT } from "@/lib
  *  show it again, because the database only ever had its sha256. */
 export const dynamic = "force-dynamic";
 
-type Ctx = { params: Promise<{ tripId: string }> };
+type Ctx = { params: Promise<{ id: string }> };
 
 const LIST_COLUMNS = "id, label, scope_recipients, scope_prices, scope_dates, scope_delivery, issued_at, expires_at, revoked_at, view_count, last_viewed_at";
 const origin = (request: Request) => { const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? "localhost:3000"; return `${request.headers.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https")}://${host}`; };
@@ -32,7 +32,7 @@ async function activeShares(db: Awaited<ReturnType<typeof createClient>>, tripId
 export async function GET(request: Request, ctx: Ctx) {
   const traveler = await getTraveler();
   if (!traveler) return json({ error: "unauthenticated" }, 401);
-  const { tripId } = await ctx.params;
+  const { id: tripId } = await ctx.params;
   if (!UUID.test(tripId)) return json({ error: "bad_trip_id" }, 400);
 
   const db = await createClient();
@@ -46,7 +46,7 @@ export async function GET(request: Request, ctx: Ctx) {
 export async function POST(request: Request, ctx: Ctx) {
   const traveler = await getTraveler();
   if (!traveler) return json({ error: "unauthenticated" }, 401);
-  const { tripId } = await ctx.params;
+  const { id: tripId } = await ctx.params;
   if (!UUID.test(tripId)) return json({ error: "bad_trip_id" }, 400);
   const body = await readBody<Record<string, unknown>>(request);
   if (!body.ok) return body.response;

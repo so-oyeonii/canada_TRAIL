@@ -1,0 +1,47 @@
+/* N1 · N2 · N3 — the skeletons G3 fills. G1 owns the geometry and the states;
+ *  G3 adds data, empty copy and the catalogue seed.
+ *
+ *  Wider viewports get more columns, not more air: `--app-max` opens the box and these
+ *  rules raise the density so a 1280px screen is not a phone with wallpaper. */
+
+/* ---- N1 reco rail -------------------------------------------------------- */
+.reco-rail{margin:0 0 var(--sp-5)}
+.reco-rail>ul{display:flex;gap:var(--sp-3);margin:0;padding:0 0 var(--sp-2);list-style:none;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;scroll-padding-left:var(--gutter)}
+.reco-rail>ul::-webkit-scrollbar{display:none}
+.reco-rail li{flex:0 0 112px;scroll-snap-align:start}
+/* The frame draws 47×54. A souvenir is not recognisable at that size and the link cannot reach 44px, so the tile is deliberately larger. */
+.reco-rail a{display:flex;flex-direction:column;gap:var(--sp-1);min-height:var(--tap);text-decoration:none;color:var(--text);border-radius:var(--r-m)}
+.reco-rail .tile-art{width:112px;height:128px}
+.reco-rail b{font-size:var(--fs-body-s);line-height:var(--lh-body-s);font-weight:var(--fw-med);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.reco-rail em{font-style:normal;font-family:var(--font-mono);font-size:var(--fs-label);color:var(--accent)}
+.reco-rail .badge{align-self:flex-start}
+.reco-rail .is-loading .tile-art{background:var(--surface-raised);animation:tile-pulse 1.4s var(--ease) infinite}
+
+/* ---- N2 store grid ------------------------------------------------------- */
+.store-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:var(--sp-3);margin:0 0 var(--sp-5);padding:0;list-style:none}
+.store-grid a{display:flex;flex-direction:column;gap:var(--sp-1);min-height:var(--tap);padding-bottom:var(--sp-1);text-decoration:none;color:var(--text);border-radius:var(--r-m)}
+.store-grid .tile-art{width:100%;aspect-ratio:4/3}
+.store-grid b{font-size:var(--fs-body);line-height:var(--lh-body-s);font-weight:var(--fw-med)}
+.store-grid small{font-family:var(--font-mono);font-size:var(--fs-label);line-height:var(--lh-label);color:var(--text-muted)}
+.store-grid .badge{align-self:flex-start;margin-top:2px}
+.store-grid .is-loading .tile-art{background:var(--surface-raised);animation:tile-pulse 1.4s var(--ease) infinite}
+@media(min-width:600px){.store-grid{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:960px){.store-grid{grid-template-columns:repeat(4,1fr)}.reco-rail li{flex-basis:132px}.reco-rail .tile-art{width:132px;height:150px}}
+
+/* ---- N3 trip sections ---------------------------------------------------- */
+.trip-sections{margin:0 0 var(--sp-6)}
+.trip-sections>ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:var(--sp-2)}
+.trip-row{display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:var(--sp-3);width:100%;min-height:76px;padding:var(--sp-3);border:1px solid var(--border);border-radius:var(--r-m);background:var(--surface);color:var(--text);text-align:left;text-decoration:none;cursor:pointer}
+.trip-row>.tile-art,.trip-row>i{width:40px;height:40px;flex:0 0 auto;border-radius:var(--r-s);display:grid;place-items:center;font-style:normal}
+.trip-row>span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.trip-row b{font-size:var(--fs-body);font-weight:var(--fw-med);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trip-row small{font-family:var(--font-mono);font-size:var(--fs-label);line-height:var(--lh-label);color:var(--text-muted)}
+.trip-row>em{font-style:normal;font-family:var(--font-mono);font-size:var(--fs-label);color:var(--text-muted);text-align:right}
+/* PAST leans muted but never below 4.66:1 — it is still readable history, not decoration. */
+.trip-sections--past .trip-row{background:transparent;border-color:var(--hairline)}
+.trip-sections--past .trip-row b{color:var(--text-muted);font-weight:var(--fw-reg)}
+.trip-empty{margin:0;padding:var(--sp-3);border:1px dashed var(--border-strong);border-radius:var(--r-m);font-size:var(--fs-body-s);line-height:var(--lh-body-s);color:var(--text-muted)}
+@media(min-width:960px){.trip-sections--upcoming>ul,.trip-sections--past>ul{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)}}
+
+@keyframes tile-pulse{0%,100%{opacity:1}50%{opacity:.55}}
+@media(prefers-reduced-motion:reduce){.reco-rail .is-loading .tile-art,.store-grid .is-loading .tile-art{animation:none;opacity:.8}}

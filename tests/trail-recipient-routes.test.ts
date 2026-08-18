@@ -11,7 +11,7 @@ import { carriesIdentity } from "../lib/api/http.ts";
 const KNOWN = [{ id: "id-a", isSelf: false }, { id: "id-b", isSelf: false }, { id: "id-c", isSelf: true }];
 const ROWS = [{ id: "id-a" }, { id: "id-b" }, { id: "id-c" }];
 const resolve = refResolver(ROWS, null);
-const plan = (ops: unknown[], known = KNOWN) => planRecipientOps(ops, resolve, known);
+const plan = (ops: unknown[], known = KNOWN, currency = "CAD") => planRecipientOps(ops, resolve, known, currency);
 
 test("a create needs a name and nothing else", () => {
   const parsed = parseRecipientCreate({ name: "  Mom  " });
@@ -69,6 +69,17 @@ test("an explicit ref map wins over position", () => {
 test("whole units become cents and nothing is rounded to ten", () => {
   const { ops } = plan([{ op: "update", ref: "r1", fields: { allocationAmount: 58 }, clearFields: [] }]);
   assert.equal(ops[0].op === "update" ? ops[0].allocationCents : 0, 5800);
+});
+
+// The AI writes these amounts straight to `plan_allocations`, so a hundredfold here is a
+// hundredfold on the server, not on a screen that a refresh would fix.
+test("a whole-unit allocation is read in the trip's currency, not always in cents", () => {
+  const ops = (currency: string) => plan([{ op: "update", ref: "r1", fields: { allocationAmount: 3000 }, clearFields: [] }], KNOWN, currency).ops;
+  const cents = (list: ReturnType<typeof ops>) => (list[0].op === "update" ? list[0].allocationCents : null);
+  assert.equal(cents(ops("CAD")), 300000);
+  assert.equal(cents(ops("JPY")), 3000);
+  assert.equal(cents(ops("KRW")), 3000);
+  assert.equal(cents(ops("EUR")), 300000);
 });
 
 test("a per-person amount keeps its basis for the route to multiply out", () => {

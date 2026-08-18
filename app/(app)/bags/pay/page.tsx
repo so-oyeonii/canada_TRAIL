@@ -20,7 +20,7 @@ import { IconAlert, IconArrow, IconRetry } from "@/components/icons";
 import type { Remedy } from "@/lib/transfers/eligibility";
 import { payMethods, useApp } from "../../app-state";
 import { Blocked } from "../../blocked";
-import { etaLabel, money, paymentFailureCopy, price } from "../../view";
+import { etaLabel, paymentFailureCopy, price } from "../../view";
 
 type PayStatus = "idle" | "confirming" | "processing" | "failed";
 
@@ -86,7 +86,7 @@ function PayScreen() {
       <section className="pay-methods"><header><small>PAY WITH</small></header>{payMethods.map((method) => <label key={method.id} className={payMethod === method.id ? "on" : ""}><input type="radio" name="pay-method" checked={payMethod === method.id} onChange={() => setPayMethod(method.id)} /><i>{method.mark}</i><span><b>{method.label}</b><small>{method.detail}</small></span></label>)}</section>
       {forceFail && <div className="ownership-note">Decline path armed by <code>?outcome=fail</code>. Remove it from the URL to charge normally.</div>}
       <div className="ownership-note">No money moves. Trail simulates the card charge; the amount is the fee frozen onto your delivery when you confirm it.</div>
-      <button className="main-button dark" disabled={status !== "idle" || (Boolean(blockCode) && blockCode !== "reserve_short")} onClick={() => void pay()}><span>{status === "confirming" ? "Confirming the delivery…" : status === "processing" ? "Contacting the card…" : `Approve and pay ${price(feeCents, transfer.currency || currency)}`}<small>{transfer.confirmedAt ? `Confirmed for ${money(transfer.feeCents)} ${transfer.currency}` : "Confirms the delivery, then charges the fee"}</small></span><i><IconArrow /></i></button>
+      <button className="main-button dark" disabled={status !== "idle" || (Boolean(blockCode) && blockCode !== "reserve_short")} onClick={() => void pay()}><span>{status === "confirming" ? "Confirming the delivery…" : status === "processing" ? "Contacting the card…" : `Approve and pay ${price(feeCents, transfer.currency || currency)}`}<small>{transfer.confirmedAt ? `Confirmed for ${price(transfer.feeCents, transfer.currency || currency)}` : "Confirms the delivery, then charges the fee"}</small></span><i><IconArrow /></i></button>
     </>}
   </div>;
 }

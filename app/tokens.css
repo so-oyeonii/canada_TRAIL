@@ -1,0 +1,30 @@
+/* G1 owns this file. Nothing else may declare a `:root` custom property.
+ *
+ *  Dark is the default, not a branch. Every one of the 25 wireframes is dark, and the
+ *  old `[data-theme="dark"]` overrides meant focus rings, tab bars and muted text were
+ *  maintained twice. Light is defined and calculated but not exposed: it is opt-in via
+ *  `[data-theme="light"]` and deliberately does NOT answer `prefers-color-scheme`,
+ *  because a light theme that switches on without review regresses contrast silently.
+ *
+ *  Contrast figures in the comments are WCAG 2.x relative luminance, computed against
+ *  --canvas #08121f / --surface #0e1d2e / --surface-raised #162840. */
+
+@font-face{font-family:"Inter";src:url("/fonts/inter-var.woff2") format("woff2");font-weight:400 700;font-style:normal;font-display:swap}
+@font-face{font-family:"Playfair Display";src:url("/fonts/playfair-var.woff2") format("woff2");font-weight:400 700;font-style:normal;font-display:swap}
+@font-face{font-family:"IBM Plex Mono";src:url("/fonts/plexmono-400.woff2") format("woff2");font-weight:400 500;font-style:normal;font-display:swap}
+@font-face{font-family:"IBM Plex Mono";src:url("/fonts/plexmono-600.woff2") format("woff2");font-weight:600 700;font-style:normal;font-display:swap}
+/* Metric-matched fallbacks: the line box is the same before and after the woff2 lands, so a slow font costs no layout shift. Percentages are the real font's ascent/descent divided by its own size-adjust. */
+@font-face{font-family:"Inter Fallback";src:local("Segoe UI"),local("Helvetica Neue"),local("Arial");size-adjust:107%;ascent-override:90.5%;descent-override:22.5%;line-gap-override:0%}
+@font-face{font-family:"Playfair Fallback";src:local("Georgia"),local("Times New Roman");size-adjust:104%;ascent-override:104%;descent-override:24.1%;line-gap-override:0%}
+@font-face{font-family:"Plex Fallback";src:local("Consolas"),local("Menlo"),local("DejaVu Sans Mono");size-adjust:100%;ascent-override:102.5%;descent-override:27.5%;line-gap-override:0%}
+
+:root{color-scheme:dark;--canvas:#08121f;--surface:#0e1d2e;--surface-raised:#162840;--surface-invert:#ede9e3;--hairline:#1f2d3d;--border:#2b3d52;--border-strong:#647b91;--text:#ede9e3;--text-muted:#879fb4;--accent:#e9a222;--accent-fill:#e9a222;--accent-hi:#f0b043;--accent-lo:#c9861a;--accent-soft:#2c2313;--accent-line:#6d5320;--on-accent:#08121f;--teal:#3ec9c1;--teal-fill:#3ec9c1;--teal-hi:#7ee0d6;--teal-soft:#10333a;--teal-line:#26787a;--success:#3ec9c1;--danger:#ff8a75;--danger-soft:#241a20;--danger-line:#5e3a34;--warn:#f0b043;--warn-soft:#2c2313;--warn-line:#6d5320;--focus:#7ee0d6;--scrim:rgba(4,11,20,.72);--font-serif:"Playfair Display","Playfair Fallback",Georgia,"Times New Roman",serif;--font-sans:"Inter","Inter Fallback",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--font-mono:"IBM Plex Mono","Plex Fallback",ui-monospace,"SFMono-Regular","Cascadia Mono",Consolas,monospace;--fs-hero:40px;--fs-display:32px;--fs-title:24px;--fs-h:20px;--fs-lead:16px;--fs-body:14px;--fs-body-s:13px;--fs-label:12px;--fs-label-s:11px;--fs-icon:24px;--lh-hero:1.05;--lh-display:1.08;--lh-title:1.2;--lh-h:1.25;--lh-lead:1.35;--lh-body:1.5;--lh-body-s:1.45;--lh-label:1.35;--ls-display:-.02em;--ls-title:-.02em;--ls-label:.08em;--fw-reg:400;--fw-med:500;--fw-bold:700;--sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;--sp-7:28px;--sp-8:32px;--gutter:var(--sp-5);--pad-card:var(--sp-4);--tap:44px;--tab-h:calc(var(--sp-4) + var(--fs-icon) + 1.35em + var(--sp-3));--app-max:100%;--r-s:10px;--r-m:14px;--r-l:22px;--r-pill:999px;--dur-1:.14s;--dur-2:.22s;--ease:cubic-bezier(.2,.7,.3,1)}
+/* Aliases for the pre-dark names. They exist so `:root` alone flips the whole app and so branches that are not merged yet keep compiling. G1-E deletes this one line. */
+:root{--ink:var(--text);--muted:var(--text-muted);--muted-strong:var(--text-muted);--muted-on-dark:var(--text-muted);--paper:var(--canvas);--white:var(--surface);--navy:var(--surface-raised);--navy-deep:var(--canvas);--navy-soft:var(--surface-raised);--navy-chip:var(--surface-raised);--lime:var(--accent-fill);--lime-soft:var(--accent-soft);--lime-tint:var(--accent-soft);--lime-line:var(--accent-line);--lime-ink:var(--accent);--peach:var(--warn);--peach-soft:var(--warn-soft);--peach-line:var(--warn-line);--blue:var(--teal-fill);--blue-soft:var(--teal-soft);--yellow:var(--accent-hi);--line:var(--hairline);--line-strong:var(--border-strong);--line-on-dark:var(--border);--soft:var(--surface-raised);--danger-ink:var(--danger);--warn-ink:var(--warn);--focus-on-dark:var(--focus);--fs-num:var(--fs-hero)}
+/* Defined, calculated, and not exposed. Opt in with `<html data-theme="light">` only after a contrast review. --accent-fill stays amber because it is a surface; --accent goes dark because it is ink. */
+[data-theme="light"]{color-scheme:light;--canvas:#f5f6f1;--surface:#ffffff;--surface-raised:#ebefea;--surface-invert:#0e1d2e;--hairline:#dde2dc;--border:#c9d2cb;--border-strong:#6b7a72;--text:#142227;--text-muted:#5a6a6f;--accent:#8a5406;--accent-fill:#e9a222;--accent-hi:#c9861a;--accent-lo:#a86e14;--accent-soft:#fdf1dc;--accent-line:#d9b473;--on-accent:#142227;--teal:#1d6b66;--teal-fill:#3ec9c1;--teal-hi:#1d6b66;--teal-soft:#e2f4f2;--teal-line:#8ccdc8;--success:#1d6b66;--danger:#a33622;--danger-soft:#fdeceb;--danger-line:#e8b3ab;--warn:#8a5406;--warn-soft:#fff6ec;--warn-line:#e0b083;--focus:#347d8d;--scrim:rgba(20,34,39,.55)}
+/* Three lines, immediate benefit: hairlines become borders, borders become interactive-strength, muted text becomes full text. */
+@media(prefers-contrast:more){:root{--hairline:#2b3d52;--border:#647b91;--text-muted:#ede9e3}[data-theme="light"]{--hairline:#c9d2cb;--border:#6b7a72;--text-muted:#142227}}
+/* Wider viewports get more columns, not more margin. The column rules live beside their components; this only opens the box. */
+@media(min-width:600px){:root{--app-max:560px;--gutter:var(--sp-6)}}
+@media(min-width:960px){:root{--app-max:720px}}

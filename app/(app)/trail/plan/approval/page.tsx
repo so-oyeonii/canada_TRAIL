@@ -15,7 +15,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconAlert, IconCheck, IconClose } from "@/components/icons";
 import { useApp } from "../../../app-state";
-import { money } from "../../../view";
+import { price } from "../../../view";
 import type { BudgetChange, BudgetChangeKind } from "@/lib/state/types";
 
 const kindCopy: Record<BudgetChangeKind, { title: string; body: string }> = {
@@ -56,7 +56,7 @@ export default function ApprovalLens() {
   if (!pendingBudgetChange) return <>
     <div className="result-title"><p>APPROVALS</p><h1>Nothing is waiting<br />on you.</h1><span>Trail never moves money between your buckets on its own. When it wants to, it asks here first.</span></div>
     {decided.length
-      ? <section className="handling-list"><header><span><small>WHAT YOU DECIDED</small><b>Every budget change, kept</b></span><em>{decided.length}</em></header><div>{decided.map((change) => <span key={change.id}><i>{change.status === "approved" ? "✓" : "×"}</i><b>{change.reason}</b><small>{change.status === "approved" ? "You approved this" : "You declined this"} · {new Date(change.decidedAt ?? change.createdAt).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}</small></span>)}</div></section>
+      ? <section className="handling-list"><header><span><small>WHAT YOU DECIDED</small><b>Every budget change, kept</b></span><em>{decided.length}</em></header><div>{decided.map((change) => <span key={change.id}><i>{change.status === "approved" ? <IconCheck /> : <IconClose />}</i><b>{change.reason}</b><small>{change.status === "approved" ? "You approved this" : "You declined this"} · {new Date(change.decidedAt ?? change.createdAt).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}</small></span>)}</div></section>
       : <div className="offline-note"><b>No budget change has ever been proposed on this trip.</b><span>Your buckets are exactly what you set when you created it.</span></div>}
     <button className="back-to-chat" onClick={() => router.push("/trail/plan/budget")}>Back to the budget</button>
   </>;
@@ -71,13 +71,13 @@ export default function ApprovalLens() {
 
     <section className="proposal-card"><header><span><small>{proposerCopy[change.proposedBy] ?? "Proposed"}</small><b>{change.reason}</b></span><em>PROPOSED</em></header>
       {after
-        ? <div className="proposal-diff">{BUCKETS.map(({ key, label, tone }) => { const from = before[key], to = after[key], delta = to - from; return <span key={key}><i className={tone} /><small>{label}</small><b>{currency} ${money(from)}</b><em className={delta === 0 ? undefined : delta > 0 ? "up" : "down"}>{delta === 0 ? "unchanged" : `${delta > 0 ? "+" : "−"}${currency} $${money(Math.abs(delta))}`}</em><strong>{currency} ${money(to)}</strong></span>; })}</div>
+        ? <div className="proposal-diff">{BUCKETS.map(({ key, label, tone }) => { const from = before[key], to = after[key], delta = to - from; return <span key={key}><i className={tone} /><small>{label}</small><b>{price(from, currency)}</b><em className={delta === 0 ? undefined : delta > 0 ? "up" : "down"}>{delta === 0 ? "unchanged" : `${delta > 0 ? "+" : "−"}${price(Math.abs(delta), currency)}`}</em><strong>{price(to, currency)}</strong></span>; })}</div>
         : <p className="recipient-note">Trail could not read this proposal back. Decline it and ask again.</p>}
-      {after && after.totalCents !== before.totalCents && <p className="recipient-note">Your trip total would go from {currency} ${money(before.totalCents)} to <b>{currency} ${money(after.totalCents)}</b>.</p>}
+      {after && after.totalCents !== before.totalCents && <p className="recipient-note">Your trip total would go from {price(before.totalCents, currency)} to <b>{price(after.totalCents, currency)}</b>.</p>}
       {change.after?.allocations && <p className="recipient-note">The gift split for {change.after.allocations.length} {change.after.allocations.length === 1 ? "person" : "people"} is applied with it.</p>}
     </section>
 
-    <div className="ownership-note">None of this has happened. Your budget is still {currency} ${money(before.plannedCents)} spendable until you tap approve, and declining changes nothing at all.</div>
+    <div className="ownership-note">None of this has happened. Your budget is still {price(before.plannedCents, currency)} spendable until you tap approve, and declining changes nothing at all.</div>
 
     <label className="stacked"><small>WHY (OPTIONAL — KEPT WITH YOUR DECISION)</small><input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Rather keep the flexible budget" /></label>
 

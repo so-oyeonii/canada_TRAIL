@@ -17,7 +17,9 @@
 
 import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { Brand } from "@/components/chrome";
 import { type Plan as Brief, type PlanKey, type PlanPatch } from "@/app/trail-brief";
+import { fromMinor } from "@/lib/money/format";
 import type { OutboxMethod, OutboxOp } from "@/lib/state/outbox";
 import { boughtStops, draftItems, deliveryStep as stepFromEvents, routeStops, selectedBagCount as countBags } from "@/lib/state/selectors";
 import { computeWallet } from "@/lib/state/shape";
@@ -37,6 +39,14 @@ export type RecipientDraft = { name?: string; relationship?: string; groupSize?:
 /** One person's slice. `basis` is what decides whether the amount is per head or
  *  the whole group's — a team of twelve at 39 each is not 39. */
 export type AllocationEntry = { recipientId: string; amountCents: number; basis?: "per_person" | "group_total"; bucket?: "planned" | "flexible" };
+/** Every column of `trips` a browser may write. 0020 enforces the same list as a column
+ *  GRANT. If the two ever drift the database answers 42501 and the traveller sees a save
+ *  fail for a reason nothing on screen can explain — so they are changed together, and
+ *  `tests/trail-trip-grants.test.ts` compares them. `status`, `currency` and
+ *  `hotel_verified_at` are absent on purpose: a lifecycle, the meaning of every stored
+ *  cent, and a fact the hotel gave us. */
+export const TRIP_WRITABLE = ["country", "city", "areas", "start_date", "end_date", "hotel_name", "hotel_address", "companions", "free_time"] as const;
+export type TripPatch = Partial<Record<(typeof TRIP_WRITABLE)[number], unknown>>;
 
 export const payMethods = [{ id: "apple", label: "Apple Pay", detail: "Touch or Face ID", mark: "" }, { id: "visa", label: "Visa", detail: "Saved card ending 4242", mark: "V" }, { id: "other", label: "Another card", detail: "Add at the partner point", mark: "+" }];
 export const starters = [
@@ -136,7 +146,7 @@ function useAppState() {
   /** Seeded from the plan the server holds, then whatever the traveler has since
    *  typed. Derived, not copied into state: a traveler who set CAD 250 in
    *  onboarding never sees the CAD 80 a constant used to put here. */
-  const brief: Brief = useMemo(() => ({ ...initialBrief, ...(serverPlan ? { budget: Math.round(serverPlan.plannedCents / 100), category: serverPlan.category || initialBrief.category, preference: serverPlan.preference || initialBrief.preference, localOnly: serverPlan.localOnly, easyPack: serverPlan.easyPack, hotelDelivery: serverPlan.hotelDelivery } : {}), ...briefEdits }), [serverPlan, briefEdits]);
+  const brief: Brief = useMemo(() => ({ ...initialBrief, ...(serverPlan ? { budget: Math.round(fromMinor(serverPlan.plannedCents, trip?.currency ?? "CAD")), category: serverPlan.category || initialBrief.category, preference: serverPlan.preference || initialBrief.preference, localOnly: serverPlan.localOnly, easyPack: serverPlan.easyPack, hotelDelivery: serverPlan.hotelDelivery } : {}), ...briefEdits }), [serverPlan, briefEdits, trip]);
   const approvedBrief = approvedByTap ?? (serverPlan?.status === "approved" ? brief : null);
   const activeBrief = approvedBrief ?? brief;
   const estimates = useMemo(() => { const count = stops.length || (brief.budget < 60 ? 1 : brief.budget < 130 ? 2 : 3); return { stops: count, minutes: 35 + count * 22 }; }, [brief.budget, stops.length]);
@@ -325,10 +335,11 @@ function useAppState() {
    *  its plan together, because since 0013 a plan is not something a browser may
    *  write on its own. It is not queued — a hotel change made underground is
    *  reported as failed rather than pretended into the cache. */
-  const saveTrip = useCallback(async (patch: Record<string, unknown>) => {
+  const saveTrip = useCallback(async (patch: TripPatch) => {
     if (!tripId) return { ok: false, message: "No trip open." };
     const { error: failed } = await supabaseClient().from("trips").update(patch).eq("id", tripId);
-    if (failed) return { ok: false, message: failed.message };
+    // 42501 is "permission denied for column". A Postgres sentence is not an answer to a traveller.
+    if (failed) return { ok: false, message: failed.code === "42501" ? "Trail cannot change that on this trip." : failed.message };
     await refresh();
     return { ok: true, message: "" };
   }, [refresh, tripId]);
@@ -357,7 +368,7 @@ function useAppState() {
 }
 
 function Boot({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
-  return <div className="app-shell"><main className="app-main boot-screen"><div className="brand"><span>T</span><b>TRAIL</b></div><h1>{title}</h1><p>{body}</p>{action}</main></div>;
+  return <div className="app-shell"><main className="app-main boot-screen"><Brand /><h1>{title}</h1><p>{body}</p>{action}</main></div>;
 }
 
 /** No trip means no screen under `(app)` has anything to render, so the provider

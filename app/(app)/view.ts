@@ -12,9 +12,10 @@
 import type { DataSource, Handling, HandoffFailureCode, IneligibleCode } from "@/lib/state/types";
 import type { Remedy } from "@/lib/transfers/eligibility";
 
-/** Minor units in, a number a traveler recognises out. Never rounds a cent away. */
-export const money = (cents: number) => (Math.abs(cents) % 100 === 0 ? String(Math.round(cents / 100)) : (cents / 100).toFixed(2));
-export const price = (cents: number, currency = "CAD") => `${currency} $${money(cents)}`;
+/** Money is `lib/money/format.ts` and nothing else. Both take the currency as a required
+ *  argument on purpose: a default of "CAD" is how every screen came to divide by a hard
+ *  100 and print a `$` in front of a yen amount. */
+export { amount as money, priceLabel as price } from "@/lib/money/format";
 
 const TONES = ["peach", "blue", "yellow"] as const;
 export const stopTone = (index: number) => TONES[index % TONES.length];

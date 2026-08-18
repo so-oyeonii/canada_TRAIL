@@ -15,7 +15,11 @@ const state = read("app/(app)/app-state.tsx");
 
 test("the split screen never snaps an amount to ten", () => {
   assert.ok(!/\/\s*10\s*\)\s*\*\s*10|Math\.round\([^)]*\/\s*10\)/.test(people), "the slider's ten-dollar snap is back in the allocation screen");
-  assert.match(people, /Math\.round\(Number\(amount\) \* 100\)/);
+  // The typed number goes to minor units through the currency table and nothing else.
+  // It used to read `Math.round(Number(amount) * 100)`, which was the same promise made
+  // to CAD only — a yen amount came out a hundredfold.
+  assert.match(people, /toMinor\(Number\(value\), currency\)/);
+  assert.ok(!/\*\s*100/.test(people), "a hard 100 is back in the allocation screen");
 });
 
 test("a group's amount says what it means before it is sent", () => {

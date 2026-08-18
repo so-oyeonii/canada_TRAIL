@@ -1,0 +1,164 @@
+/* G1 primitives. G2–G5 assemble screens out of these instead of writing new buttons.
+ *
+ *  Every interactive variant is at least 44×44 (2.5.8), every state is carried by more
+ *  than colour (1.4.1), and nothing here declares `outline:none`. Disabled is
+ *  `aria-disabled="true"` by default so the element keeps focus and can say why; only
+ *  the controls that must not submit use the real `disabled` attribute. */
+
+/* ---- text roles ---------------------------------------------------------- */
+.section-label{display:block;margin:0 0 var(--sp-2);font-family:var(--font-mono);font-size:var(--fs-label-s);line-height:var(--lh-label);font-weight:var(--fw-med);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--text-muted)}
+.section-label.is-teal{color:var(--teal)}.section-label.is-accent{color:var(--accent)}
+.section-head{display:flex;justify-content:space-between;align-items:baseline;gap:var(--sp-2);margin-bottom:var(--sp-2)}.section-head .section-label{margin:0}
+.num{font-family:var(--font-mono);font-feature-settings:"tnum" 1,"kern" 1;font-variant-numeric:tabular-nums}
+.hero-num{font-family:var(--font-mono);font-size:var(--fs-hero);line-height:var(--lh-hero);letter-spacing:var(--ls-title);font-feature-settings:"tnum" 1}
+.lede{font-size:var(--fs-lead);line-height:var(--lh-lead);color:var(--text-muted);margin:0 0 var(--sp-3)}
+
+/* ---- button -------------------------------------------------------------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-2);min-height:var(--tap);min-width:var(--tap);padding:var(--sp-2) var(--sp-4);border:1px solid transparent;border-radius:var(--r-s);background:transparent;color:var(--text);font-family:var(--font-sans);font-size:var(--fs-body);font-weight:var(--fw-bold);line-height:var(--lh-body);text-align:center;text-decoration:none;cursor:pointer;transition:background var(--dur-1) var(--ease),border-color var(--dur-1) var(--ease)}
+.btn>svg{width:1.25em;height:1.25em;flex:0 0 auto}
+.btn--block{display:flex;width:100%}
+.btn--primary{background:var(--accent-fill);color:var(--on-accent)}
+.btn--primary:hover{background:var(--accent-hi)}.btn--primary:active{background:var(--accent-lo)}
+.btn--teal{background:var(--teal-fill);color:var(--on-accent)}.btn--teal:hover{background:var(--teal-hi)}
+.btn--ghost{background:var(--surface-raised);border-color:var(--border-strong);color:var(--text)}.btn--ghost:hover{border-color:var(--text-muted)}
+.btn--quiet{background:transparent;color:var(--accent);padding-inline:var(--sp-2)}.btn--quiet:hover{background:var(--accent-soft)}
+.btn--danger{background:transparent;border-color:var(--danger);color:var(--danger)}.btn--danger:hover{background:var(--danger-soft)}
+/* Never a translucent amber: that lands at 2.60:1. A disabled control is a different surface, not a faded one. */
+.btn:disabled,.btn[aria-disabled="true"]{background:var(--surface-raised);border-color:var(--border-strong);color:var(--text-muted);cursor:not-allowed}
+.btn:disabled:hover,.btn[aria-disabled="true"]:hover{background:var(--surface-raised)}
+.btn[aria-busy="true"]{cursor:progress}
+.btn-icon{display:inline-grid;place-items:center;width:var(--tap);height:var(--tap);min-width:var(--tap);min-height:var(--tap);flex:0 0 auto;padding:0;border:1px solid var(--border-strong);border-radius:50%;background:var(--surface-raised);color:var(--text);font-size:var(--fs-lead);cursor:pointer}
+.btn-icon>svg{width:var(--fs-icon);height:var(--fs-icon)}
+.btn-row{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
+.spinner{width:1em;height:1em;flex:0 0 auto;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ---- field --------------------------------------------------------------- */
+.field{display:flex;flex-direction:column;gap:var(--sp-1);margin-bottom:var(--sp-3)}
+.field>span:not(.field-error):not(.field-hint),.field>label{display:flex;align-items:baseline;gap:var(--sp-2);font-family:var(--font-mono);font-size:var(--fs-label);line-height:var(--lh-label);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--text-muted)}
+.field :is(input,select,textarea){width:100%;min-height:var(--tap);border:1px solid var(--border-strong);border-radius:var(--r-s);background:var(--surface-raised);color:var(--text);padding:var(--sp-2) var(--sp-3);font-family:inherit;font-size:var(--fs-body)}
+.field :is(input,select,textarea)::placeholder{color:var(--text-muted)}
+.field :is(input,select,textarea):read-only{background:var(--surface);color:var(--text-muted)}
+.field :is(input,select,textarea)[aria-invalid="true"]{border-color:var(--danger)}
+.field-error{display:flex;align-items:center;gap:var(--sp-1);font-size:var(--fs-body-s);line-height:var(--lh-body-s);color:var(--danger)}
+.field-hint{font-size:var(--fs-body-s);line-height:var(--lh-body-s);color:var(--text-muted)}
+.field-pair{display:grid;grid-template-columns:1fr;gap:var(--sp-3)}
+@media(min-width:600px){.field-pair{grid-template-columns:1fr 1fr}}
+
+/* ---- choice (radio / checkbox row) --------------------------------------- */
+/* Element-qualified so it cannot collide with the `.choice` in the /workflow mock-up. */
+label.choice{position:relative;display:grid;grid-template-columns:24px 1fr auto;align-items:center;gap:var(--sp-3);min-height:var(--tap);padding:var(--sp-3);border:1px solid var(--border-strong);border-radius:var(--r-s);background:var(--surface);cursor:pointer}
+/* The control stays 24px: Chrome generates no ::after on a replaced element, so the 44px
+   target is the <label> itself — which is why `.choice` is element-qualified. */
+label.choice input{width:24px;height:24px;flex:0 0 auto;accent-color:var(--accent-fill);margin:0}
+label.choice>span{display:flex;flex-direction:column;gap:2px;min-width:0}
+label.choice b{font-size:var(--fs-body)}
+label.choice small{font-size:var(--fs-body-s);line-height:var(--lh-body-s);color:var(--text-muted)}
+/* selection is border + fill + a check glyph — never the border alone */
+label.choice:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+label.choice .choice-check{display:none;color:var(--accent)}
+label.choice:has(input:checked) .choice-check{display:grid}
+.radio-list{display:flex;flex-direction:column;gap:var(--sp-2);margin:0;padding:0;list-style:none}
+
+/* ---- toggle is in globals.css (role="switch"); nothing here duplicates it -- */
+
+/* ---- notice -------------------------------------------------------------- */
+.notice{display:grid;grid-template-columns:24px 1fr;gap:var(--sp-1) var(--sp-3);border:1px solid var(--teal-line);border-radius:var(--r-m);background:var(--teal-soft);padding:var(--sp-3);margin-bottom:var(--sp-3)}
+.notice>svg{grid-row:1/3;width:24px;height:24px;color:var(--teal)}
+.notice b{font-size:var(--fs-body);color:var(--teal)}
+.notice p{grid-column:2;margin:0;font-size:var(--fs-body-s);line-height:var(--lh-body-s);color:var(--text)}
+.notice-actions{grid-column:2;display:flex;flex-wrap:wrap;gap:var(--sp-2);margin-top:var(--sp-2)}
+.notice--warn{border-color:var(--warn-line);background:var(--warn-soft)}.notice--warn>svg,.notice--warn b{color:var(--warn)}
+.notice--danger{border-color:var(--danger-line);background:var(--danger-soft)}.notice--danger>svg,.notice--danger b{color:var(--danger)}
+/* Offline and sync-pending are functional states in this app: a shop has no signal and the traveller must be able to tell "saved" from "queued". */
+.notice--offline{border-color:var(--border-strong);background:var(--surface-raised)}.notice--offline>svg,.notice--offline b{color:var(--text)}
+
+/* ---- chip / badge -------------------------------------------------------- */
+.badge,.chip{display:inline-flex;align-items:center;gap:var(--sp-1);border:1px solid var(--border);border-radius:var(--r-pill);background:var(--surface-raised);padding:2px var(--sp-2);font-family:var(--font-mono);font-size:var(--fs-label-s);line-height:var(--lh-label);font-weight:var(--fw-med);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--text-muted);white-space:nowrap}
+.badge>svg,.chip>svg{width:1em;height:1em}
+.badge--sample{border-color:var(--border-strong);color:var(--text)}
+.badge--simulated{border-color:var(--warn-line);background:var(--warn-soft);color:var(--warn)}
+.badge--pending{border-color:var(--warn-line);background:var(--warn-soft);color:var(--warn)}
+.badge--done{border-color:var(--teal-line);background:var(--teal-soft);color:var(--teal)}
+.badge--live{border-color:var(--teal-line);background:var(--teal-soft);color:var(--teal)}
+.badge--danger{border-color:var(--danger-line);background:var(--danger-soft);color:var(--danger)}
+.badge--accent{border-color:var(--accent-line);background:var(--accent-soft);color:var(--accent)}
+/* `OVER PLAN` was 4.90:1 at 11px. This is 7.35:1 at 12px. */
+.badge--over{border-color:var(--danger-line);background:var(--danger-soft);color:var(--danger);font-size:var(--fs-label);font-weight:var(--fw-bold)}
+.chip--button{min-height:var(--tap);padding-inline:var(--sp-3);border-color:var(--border-strong);color:var(--text);cursor:pointer}
+
+/* ---- info stack / stat tiles (G5) ---------------------------------------- */
+.info-stack{margin:0;border:1px solid var(--border);border-radius:var(--r-m);background:var(--surface);overflow:hidden}
+.info-stack>div{display:flex;justify-content:space-between;align-items:baseline;gap:var(--sp-3);min-height:var(--tap);padding:var(--sp-3);border-bottom:1px solid var(--hairline)}
+.info-stack>div:last-child{border-bottom:0}
+.info-stack dt{font-family:var(--font-mono);font-size:var(--fs-label);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--text-muted)}
+.info-stack dd{margin:0;font-size:var(--fs-body);font-weight:var(--fw-med);text-align:right;overflow-wrap:anywhere}
+.stat-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:var(--sp-2);margin-bottom:var(--sp-3)}
+.stat-tiles>div{display:flex;flex-direction:column;gap:2px;border:1px solid var(--border);border-radius:var(--r-m);background:var(--surface);padding:var(--sp-3)}
+.stat-tiles small{font-family:var(--font-mono);font-size:var(--fs-label-s);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--text-muted)}
+.stat-tiles b{font-family:var(--font-mono);font-size:var(--fs-h);color:var(--text)}
+.stat-tiles em{font-style:normal;font-size:var(--fs-body-s);color:var(--text-muted)}
+
+/* ---- tile art (stands in for photography; see G1 plan §5) ----------------- */
+.tile-art{position:relative;display:grid;place-items:center;border-radius:var(--r-m);background:linear-gradient(var(--art-angle,140deg),var(--art-a,#162840),var(--art-b,#0a1826));color:var(--art-ink,var(--text));overflow:hidden}
+.tile-art[data-tone="1"]{--art-a:#3b2c14;--art-b:#171008;--art-ink:#f0b043}
+.tile-art[data-tone="2"]{--art-a:#123a3c;--art-b:#08191c;--art-ink:#3ec9c1}
+.tile-art[data-tone="3"]{--art-a:#3a201c;--art-b:#180d0c;--art-ink:#ff8a75}
+.tile-art[data-tone="4"]{--art-a:#26203f;--art-b:#100d1c;--art-ink:#a89bf0}
+.tile-art[data-tone="5"]{--art-a:#16304a;--art-b:#0a1826;--art-ink:#8fc3ee}
+.tile-art[data-angle="0"]{--art-angle:140deg}.tile-art[data-angle="1"]{--art-angle:200deg}.tile-art[data-angle="2"]{--art-angle:60deg}.tile-art[data-angle="3"]{--art-angle:320deg}
+.tile-art>svg{width:38%;height:38%;opacity:.9}
+/* Only --text may sit on a tile: --text-muted drops to 3.88:1 on the lighter tones. */
+.tile-art>b,.tile-art>span{color:var(--text)}
+
+/* ---- timeline (N4) ------------------------------------------------------- */
+.timeline{list-style:none;margin:var(--sp-3) 0;padding:0}
+.timeline>li{position:relative;display:grid;grid-template-columns:24px 1fr auto;align-items:center;gap:var(--sp-1) var(--sp-3);min-height:var(--tap);padding-bottom:var(--sp-4)}
+.timeline>li:last-child{padding-bottom:0}
+.timeline>li:not(:last-child)::before{content:"";position:absolute;left:11px;top:26px;bottom:0;border-left:2px solid var(--border-strong)}
+.timeline>li.is-done:not(:last-child)::before{border-color:var(--teal)}
+.timeline-dot{grid-row:1;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--surface);border:2px solid var(--border-strong);color:var(--text-muted);position:relative;z-index:1}
+.timeline-dot>svg{width:14px;height:14px}
+.timeline>li>b{font-size:var(--fs-body);color:var(--text-muted);font-weight:var(--fw-med)}
+.timeline>li>time,.timeline>li>.num{font-family:var(--font-mono);font-size:var(--fs-label);color:var(--text-muted)}
+.timeline>li>p{grid-column:2/-1;margin:0;font-size:var(--fs-body-s);line-height:var(--lh-body-s);color:var(--text-muted)}
+.timeline>li.is-done .timeline-dot{background:var(--teal-fill);border-color:var(--teal-fill);color:var(--on-accent)}
+.timeline>li.is-done>b{color:var(--text);font-weight:var(--fw-bold)}
+.timeline>li.is-current .timeline-dot{background:var(--accent-fill);border-color:var(--accent-fill);color:var(--on-accent);box-shadow:0 0 0 4px var(--accent-soft)}
+.timeline>li.is-current>b{color:var(--text);font-weight:var(--fw-bold)}
+/* The wireframe's future step was 2.32:1 text on a 1.06:1 dot. Muted on surface is 5.33:1 and the ring is 3.88:1. */
+.timeline>li.is-future .timeline-dot{background:var(--surface);border-color:var(--border-strong)}
+.timeline>li.is-future>b{color:var(--text-muted)}
+.timeline--compact{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;margin:var(--sp-5) 0 var(--sp-3)}
+.timeline--compact>li{display:flex;flex-direction:column;align-items:center;text-align:center;gap:var(--sp-2);padding:0}
+.timeline--compact>li:not(:last-child)::before{left:50%;right:-50%;top:11px;bottom:auto;border-left:0;border-top:2px solid var(--border-strong)}
+.timeline--compact>li.is-done:not(:last-child)::before{border-top-color:var(--teal)}
+.timeline--compact>li>b{font-size:var(--fs-label-s);line-height:var(--lh-label)}
+
+/* ---- QR pass: the one surface that does NOT invert -------------------------
+ *  A scanner needs a light field and dark modules. Forcing the values here means a
+ *  future light theme cannot flip it either. */
+.qr-card{display:flex;flex-direction:column;align-items:center;gap:var(--sp-3);border-radius:var(--r-l);background:#ede9e3;color:#08121f;padding:var(--sp-5);margin-bottom:var(--sp-3);color-scheme:light}
+.qr-card header{display:flex;justify-content:space-between;align-items:center;gap:var(--sp-2);width:100%}
+.qr-card .section-label{color:#4a5a68;margin:0}
+.qr-card svg.qr{display:block;width:min(212px,60vw);height:auto;background:#fff;padding:var(--sp-2);border-radius:var(--r-s)}
+.qr-card svg.qr rect{fill:#08121f}
+.qr-card b{font-family:var(--font-mono);font-size:var(--fs-lead);letter-spacing:.06em;color:#08121f}
+.qr-card small{font-size:var(--fs-body-s);line-height:var(--lh-body-s);color:#3d4d5c;text-align:center}
+.qr-card.is-expired{background:#cfcdc7;color:#2b2b28}
+
+/* ---- trip context bar (N5, consumed by G2) ------------------------------- */
+.trip-context{display:flex;align-items:center;gap:var(--sp-2);margin:0 0 var(--sp-3);flex-wrap:wrap}
+.chip-trip{display:inline-flex;align-items:center;gap:var(--sp-2);min-height:var(--tap);padding:0 var(--sp-3);border:1px solid var(--border-strong);border-radius:var(--r-pill);background:var(--surface-raised);color:var(--text);font-size:var(--fs-body);font-weight:var(--fw-med);cursor:pointer}
+.chip-trip .flag{width:20px;height:14px;flex:0 0 auto;border-radius:2px}
+.chip-trip>svg:last-child{width:16px;height:16px;color:var(--text-muted)}
+.chip-ai{display:inline-flex;align-items:center;gap:var(--sp-2);min-height:var(--tap);padding:0 var(--sp-3);border:1px solid var(--teal-line);border-radius:var(--r-pill);background:var(--teal-soft);color:var(--teal);font-size:var(--fs-body);font-weight:var(--fw-bold);text-decoration:none}
+.chip-ai>svg{width:18px;height:18px}
+.trip-context-sub{flex:1 0 100%;font-family:var(--font-mono);font-size:var(--fs-label);line-height:var(--lh-label);color:var(--text-muted)}
+
+/* ---- motion ------------------------------------------------------------- */
+@media(prefers-reduced-motion:reduce){.spinner{animation:none}.timeline>li.is-current .timeline-dot{box-shadow:none;outline:2px solid var(--accent);outline-offset:2px}*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+/* ---- header subtitle (G5) ------------------------------------------------ */
+.header-titles{display:flex;flex-direction:column;align-items:center;gap:0;min-width:0}
+.header-subtitle{font-family:var(--font-mono);font-size:var(--fs-label-s);line-height:var(--lh-label);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--text-muted)}

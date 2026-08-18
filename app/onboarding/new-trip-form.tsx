@@ -2,7 +2,10 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Brand } from "@/components/chrome";
+import { IconArrow, IconCheck } from "@/components/icons";
 import { DELIVERY_RESERVE, QUOTE_BAGS, splitBudget } from "./budget";
+import { currencySymbol } from "../../lib/money/format";
 import { FREE_TIME, MINOR_UNITS_BY_CURRENCY } from "../../lib/trips/input";
 import "./onboarding.css";
 
@@ -82,7 +85,7 @@ export default function NewTripForm({ email }: { email: string }) {
   };
 
   return <div className="app-shell"><main className="app-main onboarding-screen">
-    <header className="app-header"><div className="brand"><span>T</span><b>TRAIL</b></div><div className="header-action"><span className="draft-badge">{email}</span></div></header>
+    <header className="app-header"><Brand /><div className="header-action"><span className="draft-badge">{email}</span></div></header>
 
     <div className="onboarding-progress">{STEPS.map((label, index) => <span key={label} className={index <= step ? "on" : ""}><i /><small>{label}</small></span>)}</div>
 
@@ -114,11 +117,11 @@ export default function NewTripForm({ email }: { email: string }) {
       {step === 3 && <>
         <div className="onboarding-intro"><p>STEP 4 · BUDGET</p><h1>One budget for<br />the whole trip.</h1><small>Trail splits it so the delivery fee is protected before you start spending.</small></div>
         <label className="stacked"><small>CURRENCY</small><select value={currency} onChange={(e) => setCurrency(e.target.value)}>{CURRENCIES.map((option) => <option key={option}>{option}</option>)}</select></label>
-        <div className="budget-editor"><div><span><small>TOTAL SHOPPING BUDGET</small><b>{currency} ${total}</b></span></div><input type="range" min="40" max="1000" step="10" value={total} onChange={(e) => setTotal(Number(e.target.value))} /><div className="range-values"><span>40</span><span>1000</span></div></div>
+        <div className="budget-editor"><div><span><small>TOTAL SHOPPING BUDGET</small><b>{currency} {currencySymbol(currency)}{total}</b></span></div><input type="range" min="40" max="1000" step="10" value={total} onChange={(e) => setTotal(Number(e.target.value))} /><div className="range-values"><span>40</span><span>1000</span></div></div>
         <section className="bucket-preview">
-          <span><i className="planned" /><small>Planned for gifts</small><b>{currency} ${buckets.planned}</b></span>
-          <span><i className="reserve" /><small>Protected for delivery</small><b>{currency} ${buckets.reserve}</b><em>{quoted ? `Quoted for ${city.trim()}` : "Trail’s standard rate"}</em></span>
-          <span><i className="flex" /><small>Flexible</small><b>{currency} ${buckets.flexible}</b></span>
+          <span><i className="planned" /><small>Planned for gifts</small><b>{currency} {currencySymbol(currency)}{buckets.planned}</b></span>
+          <span><i className="reserve" /><small>Protected for delivery</small><b>{currency} {currencySymbol(currency)}{buckets.reserve}</b><em>{quoted ? `Quoted for ${city.trim()}` : "Trail’s standard rate"}</em></span>
+          <span><i className="flex" /><small>Flexible</small><b>{currency} {currencySymbol(currency)}{buckets.flexible}</b></span>
         </section>
         <div className="ownership-note">Only the planned amount is spendable while you shop. The protected amount is the bag delivery fee Trail quotes for this city — it is not an estimate made on this phone. Moving money out of flexible needs your approval.</div>
       </>}
@@ -128,8 +131,8 @@ export default function NewTripForm({ email }: { email: string }) {
       <div className="onboarding-actions">
         {step > 0 && <button type="button" className="back-to-chat" onClick={() => setStep(step - 1)}>Back</button>}
         {step < STEPS.length - 1
-          ? <button type="button" className="main-button" disabled={!canContinue} onClick={() => setStep(step + 1)}><span>Continue<small>{STEPS[step + 1]}</small></span><i>→</i></button>
-          : <button type="submit" className="main-button dark" disabled={saving || !canContinue}><span>{saving ? "Saving your trip…" : "Create my trip"}<small>You can change any of this later</small></span><i>✓</i></button>}
+          ? <button type="button" className="main-button" disabled={!canContinue} onClick={() => setStep(step + 1)}><span>Continue<small>{STEPS[step + 1]}</small></span><IconArrow /></button>
+          : <button type="submit" className="main-button dark" disabled={saving || !canContinue}><span>{saving ? "Saving your trip…" : "Create my trip"}<small>You can change any of this later</small></span><IconCheck /></button>}
       </div>
     </form>
   </main></div>;

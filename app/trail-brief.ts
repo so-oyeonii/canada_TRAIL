@@ -1,3 +1,5 @@
+import { CURRENCIES, MINOR_UNITS } from "../lib/money/format.ts";
+
 /** Shared Trail AI contract: what the model may say, what it may return, and how the server
  *  refuses the parts it should not have said. Prompt + schema + sanitizers live here together
  *  so a rule can never exist in one of the three and be missing from the other two. */
@@ -13,9 +15,10 @@ export type PlanKey = keyof Plan;
 
 export const CATEGORIES = ["Home & design", "Food & treats", "Art & stationery", "Open to ideas"] as const;
 export const PREFERENCES = ["Thoughtful and personal", "Thoughtful and useful", "Practical and useful", "Fun and distinctly local"] as const;
-export const CURRENCIES = ["CAD", "USD", "EUR", "GBP", "JPY", "KRW"] as const;
-/** Whole units → minor units. A JPY total multiplied by 100 is a hundredfold overcharge. */
-export const MINOR_UNITS: Record<string, number> = { CAD: 100, USD: 100, EUR: 100, GBP: 100, JPY: 1, KRW: 1 };
+/** Currencies and their minor units now live in `lib/money/format.ts`, which the screens
+ *  read too. Re-exported here so the prompt, the schema and the sanitizers keep their
+ *  single import. */
+export { CURRENCIES, MINOR_UNITS };
 export const BUDGET_MIN = 40;
 export const BUDGET_MAX = 300;
 export const TOTAL_MIN = 20;

@@ -20,7 +20,16 @@ import { MINOR_UNITS } from "@/app/trail-brief";
  *    would refuse anything else, and a refused insert is a trip with no wallet.
  *
  *  A plan that fails to write takes its trip with it. Half a trip is worse than
- *  none: every screen downstream reads "a trip exists" as "a budget exists". */
+ *  none: every screen downstream reads "a trip exists" as "a budget exists".
+ *
+ *  Migration 0020 revokes DELETE on `trips` from `authenticated` -- the trip row is the
+ *  root of the purchase, transfer and receipt cascade, and a browser must not be able to
+ *  take that tree with it. This route uses the traveller's own client, so the compensating
+ *  delete is revoked here too. It is left in place and its failure is now *reported*
+ *  rather than swallowed: G3's 0021 replaces the whole thing with a
+ *  `discard_provisional_trip(uuid)` definer function, and until it lands a failed plan
+ *  write leaves a wallet-less trip behind. Saying so out loud is the point -- a silent
+ *  `await ... .delete()` whose error nobody reads is how that trip becomes invisible. */
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
@@ -53,8 +62,9 @@ export async function POST(request: Request) {
   }).select("id").maybeSingle();
 
   if (plan.error || !plan.data) {
-    await db.from("trips").delete().eq("id", tripId);
-    return json({ error: "plan_write_failed", detail: plan.error?.message ?? "no row" }, 500);
+    const undone = await db.from("trips").delete().eq("id", tripId);
+    if (undone.error) console.error("[trips] plan write failed and the trip could not be withdrawn", { tripId, plan: plan.error?.message, cleanup: undone.error.message });
+    return json({ error: "plan_write_failed", detail: plan.error?.message ?? "no row", tripId, cleanup: undone.error ? "orphaned" : "withdrawn" }, 500);
   }
 
   return json({ tripId, planId: plan.data.id as string, buckets, reserveSource: quote.currency }, 201);

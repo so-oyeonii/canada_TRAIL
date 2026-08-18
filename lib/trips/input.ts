@@ -10,7 +10,8 @@
  *  30,000 yen trip is not stored as three million. The delivery reserve is never
  *  read from this body at all: the server quotes it from `delivery_pricing`. */
 
-import { CURRENCIES, MINOR_UNITS, TOTAL_MAX, TOTAL_MIN } from "../../app/trail-brief.ts";
+import { CURRENCIES, minorUnits, toMinor } from "../money/format.ts";
+import { TOTAL_MAX, TOTAL_MIN } from "../../app/trail-brief.ts";
 
 export const FREE_TIME = ["1 hour", "2 hours", "3 hours", "Half day", "Full day"] as const;
 export const MAX_AREAS = 12;
@@ -23,9 +24,11 @@ const text = (v: unknown, max: number) => (typeof v === "string" ? v.replace(CON
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const date = (v: unknown): { ok: true; value: string | null } | { ok: false } => (v === undefined || v === null || v === "" ? { ok: true, value: null } : typeof v === "string" && DATE.test(v) && Number.isFinite(Date.parse(v)) ? { ok: true, value: v } : { ok: false });
 
-/** Whole units of the currency the traveller picked → minor units of it. */
-export const MINOR_UNITS_BY_CURRENCY = (currency: string | null | undefined) => MINOR_UNITS[currency ?? ""] ?? 100;
-export const toMinorUnits = (units: number, currency: string) => units * MINOR_UNITS_BY_CURRENCY(currency);
+/** Whole units of the currency the traveller picked → minor units of it. Both names are
+ *  kept because the onboarding form and `tests/trail-trips.test.ts` import them; the table
+ *  itself is `lib/money/format.ts`. */
+export const MINOR_UNITS_BY_CURRENCY = minorUnits;
+export const toMinorUnits = toMinor;
 
 export function parseTripCreate(body: Record<string, unknown>): TripParse {
   const country = text(body.country, 80);

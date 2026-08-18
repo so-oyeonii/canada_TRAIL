@@ -36,3 +36,17 @@ export function IconPeople(p: IconProps) { return <svg {...line} {...p}><circle 
 export function IconEdit(p: IconProps) { return <svg {...line} {...p}><path d="M4 20h4L19 9l-4-4L4 16Z" /><path d="M14.5 5.5 18.5 9.5" /></svg>; }
 export function IconClock(p: IconProps) { return <svg {...line} {...p}><circle cx="12" cy="12" r="8.5" /><path d="M12 7v5.4l3.4 2" /></svg>; }
 export function IconCloud(p: IconProps) { return <svg {...line} {...p}><path d="M7 18.5a4 4 0 0 1-.4-8A5.5 5.5 0 0 1 17.3 10a3.9 3.9 0 0 1 .5 8.5Z" /></svg>; }
+
+/* --- G1 additions: bag/delivery icons requested by G5, and the six pictograms
+ *     `lib/tile-art.ts` can pick from. All decorative, all `aria-hidden`. */
+export function IconQr(p: IconProps) { return <svg {...line} {...p}><rect x="3.5" y="3.5" width="6.5" height="6.5" rx="1" /><rect x="14" y="3.5" width="6.5" height="6.5" rx="1" /><rect x="3.5" y="14" width="6.5" height="6.5" rx="1" /><path d="M14 14h3v3h-3zM20.5 14v3M17.5 20.5h3M14 20.5h.01" /></svg>; }
+export function IconCard(p: IconProps) { return <svg {...line} {...p}><rect x="2.5" y="5" width="19" height="14" rx="2.5" /><path d="M2.5 9.5h19" /><path d="M6 14.5h4" /></svg>; }
+export function IconReceipt(p: IconProps) { return <svg {...line} {...p}><path d="M5.5 3.5h13v17l-2.2-1.5-2.1 1.5-2.2-1.5-2.1 1.5-2.2-1.5-2.2 1.5Z" /><path d="M9 8h6M9 12h6" /></svg>; }
+export function IconCup(p: IconProps) { return <svg {...line} {...p}><path d="M5 8h12v6a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5Z" /><path d="M17 9.5h1.5a2.5 2.5 0 0 1 0 5H17" /><path d="M8 5V3.5M12 5V3.5" /></svg>; }
+export function IconLeaf(p: IconProps) { return <svg {...line} {...p}><path d="M20 4c0 9-5.2 13-9.5 13A5.5 5.5 0 0 1 5 11.5C5 7 9 4 20 4Z" /><path d="M15.5 8.5 4.5 19.5" /></svg>; }
+export function IconGift(p: IconProps) { return <svg {...line} {...p}><rect x="3.5" y="9" width="17" height="11" rx="1.5" /><path d="M2.5 9h19v3.5h-19z" /><path d="M12 9v11" /><path d="M12 9C10.5 5.5 9 4 7.5 4a2 2 0 0 0 0 5Zm0 0c1.5-3.5 3-5 4.5-5a2 2 0 0 1 0 5Z" /></svg>; }
+export function IconMap(p: IconProps) { return <svg {...line} {...p}><path d="M9 4.5 3.5 6.8v12.7L9 17.2l6 2.3 5.5-2.3V4.5L15 6.8Z" /><path d="M9 4.5v12.7M15 6.8v12.7" /></svg>; }
+
+export type TileIconName = "bag" | "cup" | "leaf" | "gift" | "shop" | "map";
+/** Keyed by `tileArt().icon` so a caller never writes a switch. */
+export const TILE_ICONS: Record<TileIconName, (p: IconProps) => React.JSX.Element> = { bag: IconBag, cup: IconCup, leaf: IconLeaf, gift: IconGift, shop: IconShop, map: IconMap };

@@ -85,7 +85,8 @@
 ### 유지
 `app/` 전체(페이지·CSS·폰트), `public/`, `postcss.config.mjs`, Tailwind 4, `next.config.ts`. **앱 코드는 vinext를 직접 참조하지 않는다** — 전수 grep 확인. 이식은 인프라 레이어에 국한된다.
 
-검증: `npx next build` 통과 → Vercel 프리뷰 배포 → `/`, `/workflow`, `/api/chat` 3개 경로 확인.
+검증: `npx next build` 통과 → Vercel 프리뷰 배포 → `/`, `/login`, `/api/chat` 3개 경로 확인.
+(`/workflow`는 내부 와이어프레임 보드라 배포본에서 404다 — `lib/env/deployment.ts`.)
 
 ---
 

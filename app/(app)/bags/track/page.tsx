@@ -14,7 +14,7 @@ import { IconBag, IconCheck, IconChilled } from "@/components/icons";
 import { DELIVERY_STEPS } from "@/lib/state/selectors";
 import { useApp } from "../../app-state";
 import { Blocked, HandoffFailed } from "../../blocked";
-import { clockTime, etaLabel, money, price, sourceChip } from "../../view";
+import { clockTime, etaLabel, price, sourceChip } from "../../view";
 
 const STATUS_COPY: Record<string, string> = { draft: "Not confirmed", awaiting_payment: "Confirmed · waiting for payment", paid: "Paid · take the bags to the counter", dropped_off: "With the partner", in_transit: "On the way to your hotel", delivered: "Delivered to your hotel", failed: "The hotel did not take them", cancelled: "Cancelled" };
 
@@ -54,6 +54,6 @@ export default function TrackPage() {
 
     {transfer.items.some((item) => item.handling === "Chilled") && <div className="cold-chain"><i><IconChilled /></i><span><b>Chilled handling</b><small>Four hours from the till. Trail checks it again at the counter.</small></span></div>}
     {transfer.issues.length > 0 && <div className="offline-note"><b>{transfer.issues.length} report{transfer.issues.length === 1 ? "" : "s"} open.</b><span>{transfer.issues[0].description || transfer.issues[0].kind} · {transfer.issues[0].status}</span></div>}
-    {delivered && transfer.receipt && <div className="offline-note"><b>Receipt saved.</b><span>{money(transfer.receipt.purchasesCents)} {currency} of purchases · {money(transfer.receipt.transferFeeCents)} {currency} delivery.</span></div>}
+    {delivered && transfer.receipt && <div className="offline-note"><b>Receipt saved.</b><span>{price(transfer.receipt.purchasesCents, currency)} of purchases · {price(transfer.receipt.transferFeeCents, currency)} delivery.</span></div>}
   </div>;
 }

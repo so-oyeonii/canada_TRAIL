@@ -20,15 +20,16 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconAlert, IconArrow, IconCheck, IconPeople, IconPlus } from "@/components/icons";
 import { useApp, type AllocationEntry } from "../../../app-state";
-import { money } from "../../../view";
+import { toMinor } from "@/lib/money/format";
+import { money, price } from "../../../view";
 import type { Recipient } from "@/lib/state/types";
 
 type Row = { amount: string; basis: "per_person" | "group_total" };
 type Conflict = { equalValueGroup: string; recipientIds: string[]; amounts: number[] };
 type Overrun = { overCents: number; allocatedCents: number; plannedCents: number; coveredByFlexible: boolean; proposal: Record<string, unknown> };
 
-const seedRow = (person: Recipient): Row => ({ amount: person.allocationCents === null ? "" : money(person.allocationCents), basis: "group_total" });
-const toCents = (amount: string) => Math.round(Number(amount) * 100);
+const seedRow = (person: Recipient, currency: string): Row => ({ amount: person.allocationCents === null ? "" : money(person.allocationCents, currency), basis: "group_total" });
+const toCents = (value: string, currency: string) => toMinor(Number(value), currency);
 const valid = (amount: string) => amount.trim() !== "" && Number.isFinite(Number(amount)) && Number(amount) >= 0;
 
 export default function PeopleLens() {
@@ -44,10 +45,10 @@ export default function PeopleLens() {
   const [conflicts, setConflicts] = useState<Conflict[]>([]);
   const [problem, setProblem] = useState("");
 
-  const row = (person: Recipient): Row => rows[person.id] ?? seedRow(person);
+  const row = (person: Recipient): Row => rows[person.id] ?? seedRow(person, currency);
   const setRow = (id: string, patch: Partial<Row>) => setRows((current) => ({ ...current, [id]: { ...(current[id] ?? { amount: "", basis: "group_total" as const }), ...patch } }));
 
-  const entries: AllocationEntry[] = useMemo(() => recipients.map((person) => ({ person, entry: rows[person.id] ?? seedRow(person) })).filter(({ entry }) => valid(entry.amount)).map(({ person, entry }) => ({ recipientId: person.id, amountCents: toCents(entry.amount), basis: entry.basis })), [recipients, rows]);
+  const entries: AllocationEntry[] = useMemo(() => recipients.map((person) => ({ person, entry: rows[person.id] ?? seedRow(person, currency) })).filter(({ entry }) => valid(entry.amount)).map(({ person, entry }) => ({ recipientId: person.id, amountCents: toCents(entry.amount, currency), basis: entry.basis })), [currency, recipients, rows]);
   // What the split comes to, read the way the server will read it: a per-person
   // figure is multiplied by the group before anything is compared to the bucket.
   const plannedTotal = entries.reduce((sum, entry) => { const person = recipients.find((p) => p.id === entry.recipientId); return sum + entry.amountCents * (entry.basis === "per_person" ? person?.groupSize ?? 1 : 1); }, 0);
@@ -97,9 +98,9 @@ export default function PeopleLens() {
   return <>
     <div className="result-title"><p>WHO THIS TRIP IS FOR</p><h1>Divide the<br /><em>shopping budget.</em></h1><span>Only the planned bucket can be divided. The delivery reserve is held back for your bags, and the flexible bucket needs your approval before anything touches it.</span></div>
 
-    {pendingBudgetChange && <div className="budget-warning" role="status"><b>A budget change is waiting for you</b><span>{pendingBudgetChange.reason}</span><button onClick={() => router.push("/trail/plan/approval")}>Review it →</button></div>}
+    {pendingBudgetChange && <div className="budget-warning" role="status"><b>A budget change is waiting for you</b><span>{pendingBudgetChange.reason}</span><button onClick={() => router.push("/trail/plan/approval")}>Review it <span aria-hidden="true">→</span></button></div>}
 
-    <section className="split-meter"><div><span><small>ALLOCATED</small><b>{currency} ${money(plannedTotal)}</b></span><em>of {currency} ${money(wallet.plannedCents)} planned</em></div><div className="range-values"><span>{recipients.length} {recipients.length === 1 ? "person" : "people"}</span><span className={over > 0 ? "over" : undefined}>{over > 0 ? `${currency} $${money(over)} over` : `${currency} $${money(-over)} left to divide`}</span></div></section>
+    <section className="split-meter"><div><span><small>ALLOCATED</small><b>{price(plannedTotal, currency)}</b></span><em>of {price(wallet.plannedCents, currency)} planned</em></div><div className="range-values"><span>{recipients.length} {recipients.length === 1 ? "person" : "people"}</span><span className={over > 0 ? "over" : undefined}>{over > 0 ? `${price(over, currency)} over` : `${price(-over, currency)} left to divide`}</span></div></section>
 
     {!recipients.length && <div className="offline-note"><b>Nobody is on this trip yet.</b><span>Add the people you are shopping for, or tell Trail about them in a chat and apply what it suggests.</span></div>}
 
@@ -110,13 +111,13 @@ export default function PeopleLens() {
         <label><small>AMOUNT ({currency})</small><input inputMode="decimal" value={row(person).amount} onChange={(e) => { clearVerdicts(); setRow(person.id, { amount: e.target.value }); }} placeholder="Not allocated" disabled={!editable} /></label>
         {person.groupSize > 1 && <label><small>THAT AMOUNT IS</small><select value={row(person).basis} onChange={(e) => { clearVerdicts(); setRow(person.id, { basis: e.target.value as Row["basis"] }); }} disabled={!editable}><option value="group_total">the whole group</option><option value="per_person">each person</option></select></label>}
       </div>
-      {person.groupSize > 1 && row(person).basis === "per_person" && valid(row(person).amount) && <p className="recipient-note">{person.groupSize} × {currency} ${money(toCents(row(person).amount))} = <b>{currency} ${money(toCents(row(person).amount) * person.groupSize)}</b></p>}
+      {person.groupSize > 1 && row(person).basis === "per_person" && valid(row(person).amount) && <p className="recipient-note">{person.groupSize} × {price(toCents(row(person).amount, currency), currency)} = <b>{price(toCents(row(person).amount, currency) * person.groupSize, currency)}</b></p>}
     </article>)}</div>
 
-    {conflicts.map((conflict) => <div className="blocked-panel" key={conflict.equalValueGroup} role="alert"><i><IconAlert /></i><b>“{conflict.equalValueGroup}” gifts are meant to be equal</b><p>These came in on different amounts: {conflict.amounts.map((cents) => `${currency} $${money(cents)}`).join(", ")}. Trail will not level them up — putting a number in your plan you never said is worse than asking.</p><small>Set them to the same amount, or take the equal-value tag off one of them in a chat with Trail.</small></div>)}
+    {conflicts.map((conflict) => <div className="blocked-panel" key={conflict.equalValueGroup} role="alert"><i><IconAlert /></i><b>“{conflict.equalValueGroup}” gifts are meant to be equal</b><p>These came in on different amounts: {conflict.amounts.map((cents) => price(cents, currency)).join(", ")}. Trail will not level them up — putting a number in your plan you never said is worse than asking.</p><small>Set them to the same amount, or take the equal-value tag off one of them in a chat with Trail.</small></div>)}
 
-    {overrun && <div className="blocked-panel" role="alert"><i><IconAlert /></i><b>{currency} ${money(overrun.overCents)} over the shopping bucket</b>
-      <p>Your split comes to {currency} ${money(overrun.allocatedCents)} and the planned bucket is {currency} ${money(overrun.plannedCents)}. Nothing has been saved.</p>
+    {overrun && <div className="blocked-panel" role="alert"><i><IconAlert /></i><b>{price(overrun.overCents, currency)} over the shopping bucket</b>
+      <p>Your split comes to {price(overrun.allocatedCents, currency)} and the planned bucket is {price(overrun.plannedCents, currency)}. Nothing has been saved.</p>
       <small>{overrun.coveredByFlexible ? "Trail can move the difference out of your flexible budget — that is your call, not ours." : "Your flexible budget does not cover all of it. Lower a gift, or raise the trip total in a chat with Trail."}</small>
       <div className="blocked-actions">{overrun.coveredByFlexible && <button onClick={() => void ask()} disabled={busy}>Raise it for approval</button>}<button onClick={clearVerdicts}>Change the split</button></div>
     </div>}

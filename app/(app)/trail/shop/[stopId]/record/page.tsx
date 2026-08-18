@@ -18,7 +18,8 @@ import { Header } from "@/components/chrome";
 import { IconCheck, IconClose } from "@/components/icons";
 import type { Handling } from "@/lib/state/types";
 import { useApp, type PurchaseDraft } from "../../../../app-state";
-import { money } from "../../../../view";
+import { fromMinor, minorUnits, toMinor } from "@/lib/money/format";
+import { price } from "../../../../view";
 
 const draftKey = (stopId: string) => `trail:draft:record:${stopId}`;
 const HANDLINGS: Handling[] = ["Standard", "Heavy", "Fragile", "Chilled"];
@@ -67,14 +68,16 @@ export default function RecordPurchasePage() {
   if (!draft) return <div className="screen record-screen"><Header title="Record a purchase" back={cancel} /><h1>{stop.storeName}</h1><p>Opening this purchase…</p></div>;
 
   const after = wallet.spendableCents + (existing?.actualPriceCents ?? 0) - draft.actualPriceCents;
+  // The till shows whole units of the trip's currency. Yen has no cents, so neither has the step.
+  const units = minorUnits(currency), step = units === 1 ? "1" : "0.01";
 
   return <div className="screen record-screen"><Header title="Record a purchase" back={cancel} action={<button className="round-button" onClick={cancel} aria-label="Cancel purchase record"><IconClose /></button>} />
     <section className="purchase-sheet"><header><span><small>{existing ? "EDIT PURCHASE" : "BOUGHT IN STORE"}</small><b>{stop.storeName}</b></span></header>
       <h1 className="visually-hidden">Record a purchase at {stop.storeName}</h1>
-      <label>Total paid, tax included<input type="number" min="0.01" step="0.01" inputMode="decimal" value={draft.actualPriceCents / 100} onChange={(e) => edit({ actualPriceCents: Math.round(Number(e.target.value) * 100) })} /></label>
+      <label>Total paid, tax included<input type="number" min={step} step={step} inputMode={units === 1 ? "numeric" : "decimal"} value={fromMinor(draft.actualPriceCents, currency)} onChange={(e) => edit({ actualPriceCents: toMinor(Number(e.target.value), currency) })} /></label>
       <div className="sheet-pair"><label>Quantity<input type="number" min="1" inputMode="numeric" value={draft.quantity} onChange={(e) => edit({ quantity: Number(e.target.value) })} /></label><label>Shopping bags<input type="number" min="1" inputMode="numeric" value={draft.bags} onChange={(e) => edit({ bags: Number(e.target.value) })} /></label></div>
       <label>Handling<select value={draft.handling} onChange={(e) => edit({ handling: e.target.value as Handling })}>{HANDLINGS.map((option) => <option key={option}>{option}</option>)}</select></label>
-      <div className="sheet-impact"><span>Gift budget after saving</span><b className={after < 0 ? "negative" : ""}>{currency} {money(after)}</b></div>
+      <div className="sheet-impact"><span>Gift budget after saving</span><b className={after < 0 ? "negative" : ""}>{price(after, currency)}</b></div>
       {error && <p className="form-error" role="alert">{error}</p>}
       <button className="main-button" disabled={saving} onClick={() => void confirm()}><span>{saving ? "Saving…" : "Save purchase"}<small>Updates your budget and what can be sent to the hotel</small></span><i><IconCheck /></i></button>
       {existing && <button className="refund-button" onClick={() => { void removePurchase(stopId); clearDraft(); notify("Purchase removed and budget restored"); router.push("/trail/shop"); }}>Remove purchase / refund</button>}

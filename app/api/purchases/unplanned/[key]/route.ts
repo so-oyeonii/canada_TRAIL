@@ -2,6 +2,7 @@ import { createClient, getTraveler } from "@/lib/supabase/server";
 import { json, readBody, UUID } from "@/lib/api/http";
 import { parsePurchaseInput } from "@/lib/purchases/record";
 import { loadTrailState } from "@/lib/state/load";
+import { loadTrip } from "@/lib/transfers/context";
 
 /** Money spent outside the plan.
  *
@@ -60,7 +61,11 @@ export async function PUT(request: Request, ctx: Ctx) {
   const existing = await db.from("purchases").select(COLUMNS).eq("client_key", key).maybeSingle();
   if (existing.error) return json({ error: "purchase_unavailable" }, 500);
 
-  const row = { actual_price_cents: input.actualPriceCents, quantity: input.quantity, bags: input.bags, handling: input.handling, currency: input.currency, note: input.note, unplanned_label: input.label, recorded_at: input.occurredAt, voided_at: null, void_reason: null, client_op_id: input.clientOpId };
+  // The currency is the trip's, never the body's. A client that sends cents and the
+  // name of the unit they are in can disagree with itself, and the row would keep the
+  // disagreement. Same principle as never trusting a `user_id` off the wire.
+  const tripRow = await loadTrip(db, tripId);
+  const row = { actual_price_cents: input.actualPriceCents, quantity: input.quantity, bags: input.bags, handling: input.handling, currency: tripRow?.currency ?? "CAD", note: input.note, unplanned_label: input.label, recorded_at: input.occurredAt, voided_at: null, void_reason: null, client_op_id: input.clientOpId };
   const written = existing.data
     ? await db.from("purchases").update(row).eq("id", existing.data.id).select("id").maybeSingle()
     : await db.from("purchases").insert({ ...row, client_key: key, stop_id: null, trip_id: tripId, user_id: uid }).select("id").maybeSingle();

@@ -3,20 +3,23 @@ import { headers } from "next/headers";
 import "./globals.css";
 import "./profile.css";
 import "./handsfree.css";
+// After the screen styles so a primitive wins where a legacy rule shares its name.
+import "./components.css";
+import "./discovery.css";
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   // No maximumScale: pinch zoom is how a traveler reads a 10px label in daylight.
   viewportFit: "cover",
-  themeColor: "#12343d", // matches --navy
+  themeColor: "#08121f", // matches --canvas
 };
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
   const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "localhost:3000";
   const protocol = requestHeaders.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  const socialImage = `${protocol}://${host}/og.png`;
+  const socialImage = `${protocol}://${host}/og.jpg`;
 
   return {
     title: "TRAIL V3 — Hands-free souvenir travel",
@@ -33,5 +36,5 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>{children}</body></html>;
+  return <html lang="en"><head><link rel="preload" href="/fonts/inter-var.woff2" as="font" type="font/woff2" crossOrigin="anonymous" /></head><body>{children}</body></html>;
 }

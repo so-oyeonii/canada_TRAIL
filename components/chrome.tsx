@@ -4,8 +4,15 @@
  *  the icons. `Toggle` already carried `role="switch"` + `aria-checked`; it is
  *  copied character for character so the routes inherit no new behaviour. */
 
+import Image from "next/image";
 import { IconBack } from "./icons";
 
-export function Brand() { return <div className="brand"><span>T</span><b>TRAIL</b></div>; }
-export function Header({ title, back, action }: { title?: string; back?: () => void; action?: React.ReactNode }) { return <header className="app-header">{back ? <button className="round-button" onClick={back} aria-label="Go back"><IconBack /></button> : <Brand />}{title && <b className="header-title">{title}</b>}<div className="header-action">{action}</div></header>; }
+/** The pin is drawn with a transparent sky, so it sits on the paper and on the
+ *  navy tracking screen without a second asset. `alt` is empty on purpose: the
+ *  wordmark beside it already carries the name. */
+export function Brand() { return <div className="brand"><Image src="/logo-mark.png" alt="" width={32} height={32} /><b>TRAIL</b></div>; }
+/** `subtitle` is the second line G5 asked for (`Tracking ID`, `Day 2 of 5`). It is mono
+ *  and muted, so the hierarchy is weight and colour rather than a smaller size — the
+ *  scale bottoms out at 11px on purpose. */
+export function Header({ title, subtitle, back, action }: { title?: string; subtitle?: string; back?: () => void; action?: React.ReactNode }) { return <header className="app-header">{back ? <button className="round-button" onClick={back} aria-label="Go back"><IconBack /></button> : <Brand />}{title && (subtitle ? <span className="header-titles"><b className="header-title">{title}</b><small className="header-subtitle">{subtitle}</small></span> : <b className="header-title">{title}</b>)}<div className="header-action">{action}</div></header>; }
 export function Toggle({ on, onChange, label }: { on: boolean; onChange: (value: boolean) => void; label: string }) { return <button className={on ? "toggle on" : "toggle"} role="switch" aria-checked={on} aria-label={label} onClick={() => onChange(!on)}><i /></button>; }

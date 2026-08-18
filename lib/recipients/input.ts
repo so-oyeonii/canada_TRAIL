@@ -15,6 +15,7 @@
  *  client sends or from the trip's own creation order — a ref that resolves to
  *  nobody is rejected, never promoted into a new person. */
 
+import { toMinor } from "../money/format.ts";
 import type { RecipientOp } from "../../app/trail-brief.ts";
 
 export const MAX_GROUP_SIZE = 30;
@@ -64,7 +65,7 @@ export type OpRejection = { ref: string | null; field: string; reason: "unknown_
 /** Re-reads what `sanitizeRecipientOps` produced. The chat route sanitises for
  *  the model's sake; this runs again because the body arrives from a browser and
  *  a browser is not the chat route. */
-export function planRecipientOps(raw: unknown, resolve: (ref: string) => string | null, known: { id: string; isSelf: boolean }[]): { ops: AppliedOp[]; rejected: OpRejection[] } {
+export function planRecipientOps(raw: unknown, resolve: (ref: string) => string | null, known: { id: string; isSelf: boolean }[], currency: string): { ops: AppliedOp[]; rejected: OpRejection[] } {
   const ops: AppliedOp[] = [], rejected: OpRejection[] = [];
   let selfTaken = known.some((k) => k.isSelf);
   for (const entry of (Array.isArray(raw) ? raw : []).slice(0, MAX_RECIPIENT_OPS)) {
@@ -96,10 +97,11 @@ export function planRecipientOps(raw: unknown, resolve: (ref: string) => string 
     if (patch.is_self) { const current = known.find((k) => k.id === recipientId); if (selfTaken && !current?.isSelf) { rejected.push({ ref, field: "isSelf", reason: "duplicate_self" }); delete patch.is_self; } else selfTaken = true; }
     if (kind === "add" && !patch.name) { rejected.push({ ref, field: "label", reason: "missing_name" }); continue; }
 
-    // Whole units in, cents out. `clearFields` on the amount means "no allocation
-    // for this person", which is a 0, not a skipped write.
+    // Whole units in, minor units of the trip's currency out — 30,000 yen is 30,000, not
+    // 3,000,000. `clearFields` on the amount means "no allocation for this person",
+    // which is a 0, not a skipped write.
     const unit = fields.allocationAmount;
-    const allocationCents = typeof unit === "number" && Number.isInteger(unit) && unit >= 0 ? unit * 100 : clear.has("allocationAmount") ? 0 : null;
+    const allocationCents = typeof unit === "number" && Number.isInteger(unit) && unit >= 0 ? toMinor(unit, currency) : clear.has("allocationAmount") ? 0 : null;
     const basis = fields.allocationBasis === "per_person" || fields.allocationBasis === "group_total" ? fields.allocationBasis : null;
     if (kind === "add") ops.push({ op: "add", ref: null, patch, allocationCents, basis });
     else ops.push({ op: "update", ref: ref!, recipientId: recipientId!, patch, allocationCents, basis });

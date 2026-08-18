@@ -27,8 +27,17 @@ const EASY = { min: 1, max: 7, low: "Very difficult", high: "Very easy" } as con
 
 /** The wallet numbers the T4 task is scored against. If the frame in
  *  /public/survey/f8.png shows different figures, change them here and the
- *  prompt, the placeholder and the export header all follow. */
-export const WALLET = { planned: 210, spent: 176, flexible: 31, reserved: 9, answer: 34 };
+ *  prompt, the placeholder and the export header all follow.
+ *
+ *  These are the split the app actually produces for a CAD $250 Toronto trip, not
+ *  the wireframe's. The reserve was 9 here and in `docs/APP_SPEC.md`; migration 0005
+ *  says that figure was "mockup; the cost work puts the floor near $15" and seeds 15,
+ *  which is what `quoteFee()` charges. Asking a respondent what "Reserved for delivery
+ *  CAD $9" means, over a screen that reads $15, measures nothing.
+ *
+ *  `answer` is `planned − spent`: the delivery reserve and the flexible bucket are both
+ *  outside what a traveller may shop with, which is the whole point of the task. */
+export const WALLET = { planned: 200, spent: 176, flexible: 35, reserved: 15, answer: 24 };
 
 const taskTail = (id: string) => [
   { id: `${id}_done`, kind: "single" as const, prompt: "Did you finish this task?", choices: [

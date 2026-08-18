@@ -7,6 +7,17 @@ const nextConfig: NextConfig = {
      *  "dev" and reuses one cache, which is what you want while iterating. */
     NEXT_PUBLIC_BUILD_ID: process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.NEXT_PUBLIC_BUILD_ID ?? "dev",
   },
+  /** The People lens became Gifts ▸ Split, and the old path has to keep working for tab
+   *  memory, bookmarks and every link Trail has already sent.
+   *
+   *  It lived as a page calling `permanentRedirect()`, and that never actually redirected:
+   *  the request answered 200 with the `NEXT_REDIRECT;replace;…;308` digest serialised into
+   *  the document as an error, so the traveller landed on an error screen instead of on
+   *  Split. Here it is a routing rule, resolved before any component renders, which is what
+   *  a permanent alias is. */
+  async redirects() {
+    return [{ source: "/trail/plan/people", destination: "/trail/plan/gifts/split", permanent: true }];
+  },
   /** `/s/*` is a share link: a public URL, with a token in its path, showing someone's
    *  gift list. Three headers, each closing a different leak.
    *

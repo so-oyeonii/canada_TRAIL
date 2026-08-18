@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/chrome";
 import { IconArrow, IconBag, IconCheck, IconChilled, IconFragile } from "@/components/icons";
-import { isStoredKey, useApp } from "../../app-state";
+import { isStoredKey, useTrip } from "../../app-state";
 
 /** The bag picker, keyed by purchase id instead of a position in an array. A bag
  *  whose purchase has not reached the server yet is listed and not selectable —
@@ -11,7 +11,7 @@ import { isStoredKey, useApp } from "../../app-state";
  *  better than quietly dropping it. */
 export default function BagSelectPage() {
   const router = useRouter();
-  const { items, toggleItem, selectedBagCount, trip, currency } = useApp();
+  const { items, toggleItem, selectedBagCount, trip, currency } = useTrip();
 
   return <div className="screen drop-screen"><Header title="Hotel bag transfer" back={() => router.push("/bags")} action={<span className="draft-badge">{selectedBagCount} {selectedBagCount === 1 ? "BAG" : "BAGS"}</span>} />
     <div className="bag-visual"><i>TRAIL</i><i>LOCAL</i><span><IconCheck /></span></div>

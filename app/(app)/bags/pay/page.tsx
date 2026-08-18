@@ -19,7 +19,7 @@ import { Header } from "@/components/chrome";
 import { warmOfflineRoutes } from "@/app/sw-register";
 import { IconAlert, IconArrow, IconRetry } from "@/components/icons";
 import type { Remedy } from "@/lib/transfers/eligibility";
-import { payMethods, useApp } from "../../app-state";
+import { payMethods, useTrip } from "../../app-state";
 import { Blocked } from "../../blocked";
 import { etaLabel, flexibleRemedyLabel, paymentFailureCopy, price, priceExact } from "../../view";
 
@@ -28,7 +28,7 @@ type PayStatus = "idle" | "confirming" | "processing" | "failed";
 function PayScreen() {
   const router = useRouter();
   const forceFail = useSearchParams().get("outcome") === "fail";
-  const app = useApp();
+  const app = useTrip();
   const { trip, transfer, quote, selectedBagCount, bagCount, eligibility, wallet, confirmTransfer, issuePass, refresh, setPaymentRef, notify, currency, loadDropoffPoints } = app;
   useEffect(() => { void loadDropoffPoints(Math.max(1, selectedBagCount || bagCount)); }, [loadDropoffPoints, selectedBagCount, bagCount]);
   /** No default. This screen is an approval gate (constitution 1), and a

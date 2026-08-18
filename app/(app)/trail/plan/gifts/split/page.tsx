@@ -19,7 +19,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconAlert, IconArrow, IconCheck, IconPeople, IconPlus } from "@/components/icons";
-import { useApp, type AllocationEntry } from "../../../../app-state";
+import { useTrip, type AllocationEntry } from "../../../../app-state";
 import { toMinor } from "@/lib/money/format";
 import { money, price } from "../../../../view";
 import type { Recipient } from "@/lib/state/types";
@@ -34,7 +34,7 @@ const valid = (amount: string) => amount.trim() !== "" && Number.isFinite(Number
 
 export default function PeopleLens() {
   const router = useRouter();
-  const { recipients, wallet, currency, planId, serverPlan, pendingBudgetChange, addRecipient, archiveRecipient, saveAllocations, proposeBudgetChange, notify } = useApp();
+  const { recipients, wallet, currency, planId, serverPlan, pendingBudgetChange, addRecipient, archiveRecipient, saveAllocations, proposeBudgetChange, notify } = useTrip();
   const [rows, setRows] = useState<Record<string, Row>>({});
   const [name, setName] = useState("");
   const [relationship, setRelationship] = useState("");

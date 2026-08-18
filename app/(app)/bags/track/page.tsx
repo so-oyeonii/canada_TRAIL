@@ -20,7 +20,7 @@ import { useState } from "react";
 import { Header } from "@/components/chrome";
 import { IconAlert, IconArrow, IconBag, IconCheck, IconChilled, IconClock, IconQr } from "@/components/icons";
 import { timelineRows } from "@/lib/state/selectors";
-import { useApp } from "../../app-state";
+import { useTrip } from "../../app-state";
 import { Blocked, HandoffFailed } from "../../blocked";
 import { clockTime, etaLabel, price, priceExact, sourceChip } from "../../view";
 
@@ -32,7 +32,7 @@ const STATE_WORD: Record<string, string> = { done: "Done", current: "Happening n
 
 export default function TrackPage() {
   const router = useRouter();
-  const app = useApp();
+  const app = useTrip();
   const { trip, transfer: live, lastDelivered, selectedBagCount, bagCount, paymentRef, reportEvent, reportIssue, advanceSimulation, notify, currency } = app;
   // A delivered run is closed, so `transfer` is null by then. Tracking is still where
   // its receipt lives, so the finished one is read back rather than shown as "no bags".

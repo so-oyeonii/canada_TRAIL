@@ -17,13 +17,13 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { IconBag, IconCard, IconChilled, IconClock, IconFragile, IconHotel, IconPin } from "@/components/icons";
-import { useApp } from "../../../app-state";
+import { useTrip } from "../../../app-state";
 import { bagsHref } from "../../../landing";
 import { etaLabel, price, sourceChip, weightLabel } from "../../../view";
 
 export default function DeliveryLens() {
   const router = useRouter();
-  const app = useApp();
+  const app = useTrip();
   const { trip, items, transfer, bought, bagCount, quote, pricingSource, points, partnerCount, wallet, currency, loadDropoffPoints } = app;
   useEffect(() => { void loadDropoffPoints(Math.max(1, bagCount)); }, [loadDropoffPoints, bagCount]);
 

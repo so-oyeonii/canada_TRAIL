@@ -15,20 +15,24 @@ import { usePathname, useRouter } from "next/navigation";
 import { Avatar, Header } from "@/components/chrome";
 import { IconArrow } from "@/components/icons";
 import { TripContextBar } from "@/components/trip-context-bar";
-import { useApp } from "../../app-state";
-import { inMotion, tripDay, under } from "../../landing";
+import { useTrip } from "../../app-state";
+import { useTripSwitcher } from "../../trip-switcher";
+import { dayOfTrip } from "@/lib/trips/status";
+import { inMotion, under } from "../../landing";
 
 const lenses = [{ href: "/trail/plan/gifts", label: "Gifts" }, { href: "/trail/plan/map", label: "Map" }, { href: "/trail/plan/budget", label: "Budget" }, { href: "/trail/plan/delivery", label: "Delivery" }];
 
 export default function PlanLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const app = useApp();
+  const app = useTrip();
+  const switcher = useTripSwitcher();
   const { trip, routeDirty, pendingBudgetChange } = app;
   const approval = pathname === "/trail/plan/approval";
 
   return <div className="screen picks-screen"><Header back={approval ? () => router.push("/trail/plan/budget") : undefined} action={<Avatar city={trip.city} />} />
-    {!approval && <TripContextBar trip={{ id: trip.id, city: trip.city, country: trip.country }} day={tripDay(trip)} />}
+    {!approval && <TripContextBar trip={{ id: trip.id, city: trip.city, country: trip.country }} day={app.hydrated ? dayOfTrip(trip.startDate, trip.endDate, trip.timezone) : null} onOpenSwitcher={switcher.open} switcherOpen={switcher.isOpen} />}
+    {switcher.sheet}
     {routeDirty && <div className="route-dirty"><b>Plan changed — rebuild the route</b><span>Your brief changed after you approved this route. Refresh the route in your brief before shopping.</span></div>}
     {/* Once a partner is holding the bags, the plan they were picked from cannot move
         under them. Each lens disables its own inputs; this is the sentence that says why. */}

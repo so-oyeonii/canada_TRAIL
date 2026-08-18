@@ -20,7 +20,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Header } from "@/components/chrome";
 import { IconArrow, IconBag, IconCheck, IconClock } from "@/components/icons";
-import { useApp } from "../app-state";
+import { useTrip } from "../app-state";
 import { price, sourceChip, weightLabel } from "../view";
 
 const timeLeft = (minutes: number | null | undefined) => {
@@ -32,7 +32,7 @@ const timeLeft = (minutes: number | null | undefined) => {
 
 export default function BagsEntryPage() {
   const router = useRouter();
-  const app = useApp();
+  const app = useTrip();
   const { trip, items, transfer, bought, bagCount, quote, points, partnerCount, wallet, currency, loadDropoffPoints } = app;
   useEffect(() => { void loadDropoffPoints(Math.max(1, bagCount)); }, [loadDropoffPoints, bagCount]);
 

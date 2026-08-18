@@ -24,12 +24,16 @@ import { MINOR_UNITS } from "@/app/trail-brief";
  *
  *  Migration 0020 revokes DELETE on `trips` from `authenticated` -- the trip row is the
  *  root of the purchase, transfer and receipt cascade, and a browser must not be able to
- *  take that tree with it. This route uses the traveller's own client, so the compensating
- *  delete is revoked here too. It is left in place and its failure is now *reported*
- *  rather than swallowed: G3's 0021 replaces the whole thing with a
- *  `discard_provisional_trip(uuid)` definer function, and until it lands a failed plan
- *  write leaves a wallet-less trip behind. Saying so out loud is the point -- a silent
- *  `await ... .delete()` whose error nobody reads is how that trip becomes invisible. */
+ *  take that tree with it. So the compensating delete goes through 0021's
+ *  `discard_provisional_trip(uuid)`, a definer function that can only reach a row that is
+ *  still marked `provisional_until` and still has no plan -- which is precisely the row
+ *  this branch just created and failed to finish.
+ *
+ *  When even that fails (0021 not applied yet, say) the answer carries
+ *  `{ cleanup: "orphaned", tripId }` and the trip stays visible in `My Trips` as
+ *  `Incomplete - no budget`. It is never hidden: a trip with no wallet renders
+ *  `CAD $0 budget`, and a zero that looks like an answer is the failure mode worth
+ *  shouting about. */
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
@@ -62,9 +66,10 @@ export async function POST(request: Request) {
   }).select("id").maybeSingle();
 
   if (plan.error || !plan.data) {
-    const undone = await db.from("trips").delete().eq("id", tripId);
-    if (undone.error) console.error("[trips] plan write failed and the trip could not be withdrawn", { tripId, plan: plan.error?.message, cleanup: undone.error.message });
-    return json({ error: "plan_write_failed", detail: plan.error?.message ?? "no row", tripId, cleanup: undone.error ? "orphaned" : "withdrawn" }, 500);
+    const undone = await db.rpc("discard_provisional_trip", { p_trip_id: tripId });
+    const withdrawn = !undone.error && undone.data === true;
+    if (!withdrawn) console.error("[trips] plan write failed and the trip could not be withdrawn", { tripId, plan: plan.error?.message, cleanup: undone.error?.message ?? "row not provisional" });
+    return json({ error: "plan_write_failed", detail: plan.error?.message ?? "no row", tripId, cleanup: withdrawn ? "withdrawn" : "orphaned" }, 500);
   }
 
   return json({ tripId, planId: plan.data.id as string, buckets, reserveSource: quote.currency }, 201);

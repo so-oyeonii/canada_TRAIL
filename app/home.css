@@ -1,0 +1,20 @@
+/* G3 · Home dashboard and `Made for {city}`. Tokens only; `:root` is G1's. */
+
+/* ---- Shopping in --------------------------------------------------------- */
+/* The wireframe's `Current Location` card. Renamed in FIGMA_ADOPTION §2 because the value
+   is a form answer, not a sensor reading — so it is styled as a fact about the trip and
+   not as a live readout. */
+.home-place{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:var(--sp-3);min-height:var(--tap);margin:0 0 var(--sp-4);padding:var(--sp-3);border:1px solid var(--border);border-radius:var(--r-m);background:var(--surface)}
+.home-place>i{display:grid;place-items:center;width:32px;height:32px;border-radius:var(--r-s);background:var(--surface-raised);color:var(--accent)}
+.home-place>span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.home-place small{font-family:var(--font-mono);font-size:var(--fs-label);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--text-muted)}
+.home-place b{font-size:var(--fs-body);font-weight:var(--fw-med);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.home-place>em{font-style:normal;font-family:var(--font-mono);font-size:var(--fs-label);color:var(--text-muted);text-align:right;max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ---- Made for {city} ----------------------------------------------------- */
+.mf-categories{display:flex;flex-direction:column;gap:var(--sp-2);margin:0 0 var(--sp-5)}
+.mf-memory{margin:var(--sp-2) 0 0;padding:0 0 0 var(--sp-4);font-size:var(--fs-body-s);line-height:var(--lh-body-s);color:var(--text-muted)}
+.mf-memory b{color:var(--text);font-weight:var(--fw-med)}
+.made-for-screen section{margin:0 0 var(--sp-5)}
+.made-for-screen .recipient-note{margin:0 0 var(--sp-2)}
+@media(min-width:960px){.mf-categories{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)}}

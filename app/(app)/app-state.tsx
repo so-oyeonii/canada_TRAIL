@@ -26,7 +26,6 @@ import { boughtStops, draftItems, deliveryStep as stepFromEvents, routeStops, se
 import { computeWallet } from "@/lib/state/shape";
 import { EMPTY_WALLET, type DraftItem, type DropoffPoint, type Handling, type IssueKind, type ItemKey, type Purchase, type Stop, type StopId, type StopStatus, type TrailState } from "@/lib/state/types";
 import { useTrailState } from "@/lib/state/use-trail-state";
-import { createClient as supabaseClient } from "@/lib/supabase/client";
 import { type CachedPass, readPass, shouldReissue, writePass } from "@/lib/transfers/pass-cache";
 import type { Eligibility } from "@/lib/transfers/eligibility";
 
@@ -41,14 +40,22 @@ export type RecipientDraft = { name?: string; relationship?: string; groupSize?:
 /** One person's slice. `basis` is what decides whether the amount is per head or
  *  the whole group's — a team of twelve at 39 each is not 39. */
 export type AllocationEntry = { recipientId: string; amountCents: number; basis?: "per_person" | "group_total"; bucket?: "planned" | "flexible" };
-/** Every column of `trips` a browser may write. 0020 enforces the same list as a column
- *  GRANT. If the two ever drift the database answers 42501 and the traveller sees a save
- *  fail for a reason nothing on screen can explain — so they are changed together, and
- *  `tests/trail-trip-grants.test.ts` compares them. `status`, `currency` and
- *  `hotel_verified_at` are absent on purpose: a lifecycle, the meaning of every stored
- *  cent, and a fact the hotel gave us. */
-export const TRIP_WRITABLE = ["country", "city", "areas", "start_date", "end_date", "hotel_name", "hotel_address", "companions", "free_time"] as const;
+/** Every column of `trips` writable under a traveller's session. 0020 and 0021 enforce the
+ *  same list as column GRANTs. If the two ever drift the database answers 42501 and the
+ *  traveller sees a save fail for a reason nothing on screen can explain — so they are
+ *  changed together, and `tests/trail-trip-grants.test.ts` compares them. `status`,
+ *  `currency`, `hotel_verified_at` and `provisional_until` are absent on purpose: a
+ *  lifecycle, the meaning of every stored cent, a fact the hotel gave us, and a piece of
+ *  server bookkeeping.
+ *
+ *  `timezone` is granted (0021) but never sent from a form: `PATCH /api/trips/{id}` derives
+ *  it from the city, on the server, under the traveller's own session — which is why the
+ *  grant has to exist at all. */
+export const TRIP_WRITABLE = ["country", "city", "areas", "start_date", "end_date", "hotel_name", "hotel_address", "companions", "free_time", "timezone"] as const;
 export type TripPatch = Partial<Record<(typeof TRIP_WRITABLE)[number], unknown>>;
+/** What a screen may put in a `PATCH /api/trips/{id}` body. camelCase, and a strict subset:
+ *  the fields the server owns are refused by name rather than silently dropped. */
+export type TripEdit = Partial<{ country: string; city: string; areas: string[]; startDate: string | null; endDate: string | null; hotelName: string; hotelAddress: string; companions: string; freeTime: string }>;
 
 /** Three fixed rows, and not one of them is a stored payment method — there is no
  *  PSP, no vault and no token, so a "saved cards" list would be a list of cards that
@@ -109,16 +116,28 @@ export function withDrafts(state: TrailState, drafts: Record<string, Draft>): Tr
 }
 
 export type AppValue = ReturnType<typeof useAppState>;
-/** What the screens get. The provider renders nothing under `(app)` until the
- *  trip is loaded, so every screen may read `trip` without a guard — and none of
- *  them may invent one when it is missing. */
+/** The trip-scoped contract. `trip` is non-null, which is what nine screens are written
+ *  against — and none of them may invent one when it is missing. */
 export type AppReady = AppValue & { trip: NonNullable<AppValue["trip"]> };
-const AppContext = createContext<AppReady | null>(null);
-export function useApp(): AppReady { const value = useContext(AppContext); if (!value) throw new Error("useApp called outside AppProvider"); return value; }
+const AppContext = createContext<AppValue | null>(null);
+
+/** For the screens that exist without a trip: Home and `My Trips`. A traveller between
+ *  trips still has an app. */
+export function useApp(): AppValue { const value = useContext(AppContext); if (!value) throw new Error("useApp called outside AppProvider"); return value; }
+
+/** For everything under `/trail/*`, `/bags/*` and `/ask/*`. `<TripGate>` is what keeps a
+ *  traveller out of those without a trip, so this throw is a routing bug rather than
+ *  something a traveller can reach — and it is a throw rather than an empty state because
+ *  an empty delivery screen is indistinguishable from a delivery that disappeared. */
+export function useTrip(): AppReady {
+  const value = useApp();
+  if (!value.trip) throw new Error("useTrip called outside <TripGate>");
+  return value as AppReady;
+}
 
 function useAppState() {
   const trail = useTrailState();
-  const { status, error, fromCache, queued, syncedAt, refresh, queue, flush, pending } = trail;
+  const { status, error, fromCache, queued, syncedAt, refresh, queue, flush, pending, selectTrip } = trail;
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [picked, setPicked] = useState<{ transferId: string | null; map: Record<ItemKey, boolean> } | null>(null);
   const [quote, setQuote] = useState<Quote | null>(null);
@@ -150,6 +169,9 @@ function useAppState() {
 
   const view = useMemo(() => (trail.state ? withDrafts(trail.state, drafts) : null), [trail.state, drafts]);
   const trip = view?.trip ?? null;
+  // The list outlives a trip that has not loaded: `My Trips` is drawable from the cached
+  // index alone, which is what makes switching trips work on a platform with no signal.
+  const trips = view?.trips ?? trail.trips;
   const serverPlan = view?.plan ?? null;
   const wallet = view?.wallet ?? EMPTY_WALLET;
   const stops = useMemo(() => (view ? routeStops(view) : []), [view]);
@@ -412,19 +434,39 @@ function useAppState() {
     return reply;
   }, [call, refresh]);
 
-  /** Editing a trip goes to Supabase directly and RLS is what proves the row is
-   *  the caller's. Creating one does not: `POST /api/trips` writes the trip and
-   *  its plan together, because since 0013 a plan is not something a browser may
-   *  write on its own. It is not queued — a hotel change made underground is
-   *  reported as failed rather than pretended into the cache. */
-  const saveTrip = useCallback(async (patch: TripPatch) => {
-    if (!tripId) return { ok: false, message: "No trip open." };
-    const { error: failed } = await supabaseClient().from("trips").update(patch).eq("id", tripId);
-    // 42501 is "permission denied for column". A Postgres sentence is not an answer to a traveller.
-    if (failed) return { ok: false, message: failed.code === "42501" ? "Trail cannot change that on this trip." : failed.message };
-    await refresh();
-    return { ok: true, message: "" };
-  }, [refresh, tripId]);
+  /** Editing a trip goes through `PATCH /api/trips/{id}` now. It used to call supabase-js
+   *  from here, which stopped being viable the moment 0020 replaced the blanket UPDATE with
+   *  a column GRANT: a refused field came back as `42501: permission denied for column
+   *  trips.currency`, and that is not an answer to hand someone standing in a hotel lobby.
+   *  The route names every refusal, and it is also where `timezone` follows the city.
+   *
+   *  Still not queued — a hotel changed underground is reported as failed rather than
+   *  pretended into the cache. */
+  const saveTrip = useCallback(async (edit: TripEdit, id: string | null = null) => {
+    const target = id ?? tripId;
+    if (!target) return { ok: false, message: "No trip open." };
+    const reply = await call("PATCH", `/api/trips/${target}`, edit);
+    if (reply.ok) { await refresh(); return { ok: true, message: "" }; }
+    const named: Record<string, string> = {
+      currency_locked: "A trip's currency is fixed when it is created — every amount already saved is stored in it.",
+      status_is_derived: "Trail decides whether a trip is current or past from its dates.",
+      server_owned_field: "Trail keeps that field itself.",
+      field_not_writable: "Trail cannot change that on this trip.",
+      unknown_timezone: "Trail does not know that city's time zone, so it left the old one in place.",
+      trip_not_found: "That trip is not on this account any more.",
+    };
+    const code = String(reply.data.error ?? "");
+    return { ok: false, message: named[code] ?? (reply.status === 0 ? "You are offline. Nothing was saved." : "Trail could not save this trip.") };
+  }, [call, refresh, tripId]);
+
+  /** Ending a trip. Never a delete: `trips` is the root of the purchase, transfer and
+   *  receipt cascade, so 0020 revoked DELETE and 0021 gave `archive_trip()` instead. */
+  const archiveTrip = useCallback(async (id: string) => {
+    const reply = await call("DELETE", `/api/trips/${id}`, {});
+    if (reply.ok) { await refresh(); notify("Trip archived"); return { ok: true, message: "" }; }
+    if (reply.status === 503) return { ok: false, message: "Trail cannot archive trips on this server yet." };
+    return { ok: false, message: reply.status === 0 ? "You are offline. Nothing was changed." : "Trail could not archive that trip." };
+  }, [call, notify, refresh]);
 
   const retrySync = useCallback(async () => { const { dropped } = await flush(); settle(); if (!dropped.length) { setFailure(null); notify("Changes saved"); } }, [flush, notify, settle]);
 
@@ -440,11 +482,11 @@ function useAppState() {
 
   return {
     status, error, fromCache, queued, syncedAt, offline, hydrated, refresh, retrySync, failure, clearFailure: () => setFailure(null), pending,
-    state: view, trip, serverPlan, wallet, currency, stops, bought, transfer, lastDelivered: view?.lastDelivered ?? null, pastTransfers: view?.pastTransfers ?? [], trips: view?.trips ?? [], labels: view?.labels ?? { stops: null, transfer: null, payment: null },
+    state: view, trip, tripId, selectTrip, serverPlan, wallet, currency, stops, bought, transfer, lastDelivered: view?.lastDelivered ?? null, pastTransfers: view?.pastTransfers ?? [], trips, labels: view?.labels ?? { stops: null, transfer: null, payment: null },
     items, selectedItems, selectedBagCount, bagCount, toggleItem, deliveryStep, shoppingStarted, todayStopCount, unplannedPurchases: view?.unplannedPurchases ?? [],
     quote, pricingSource, points, partnerCount, eligibility, setEligibility, loadDropoffPoints,
     recipients, budgetChanges, pendingBudgetChange, planId, addRecipient, updateRecipient, archiveRecipient, saveAllocations, applyRecipientOps, proposeBudgetChange, decideBudgetChange,
-    saveTrip, savePurchase, removePurchase, setStopStatus, toggleSaved, openTransfer, saveManifest, confirmTransfer, reportEvent, reportIssue, advanceSimulation,
+    saveTrip, archiveTrip, savePurchase, removePurchase, setStopStatus, toggleSaved, openTransfer, saveManifest, confirmTransfer, reportEvent, reportIssue, advanceSimulation,
     paymentRef, setPaymentRef, pass, passError, issuePass, memoryEnabled, setMemoryEnabled: setMemoryOverride, notify, toast,
     plan: brief, activePlan: activeBrief, approvedPlan: approvedBrief, approvePlan: approveBrief, updatePlan: updateBrief, applyPatch, clearFields, applyTags, clearTags, preferenceTags, routeTag, routeDirty, setRouteDirty, estimates,
     messages, setMessages, input, setInput, thinking, setThinking, suggestion, setSuggestion,
@@ -455,21 +497,41 @@ function Boot({ title, body, action }: { title: string; body: string; action?: R
   return <div className="app-shell"><main className="app-main boot-screen"><Brand /><h1>{title}</h1><p>{body}</p>{action}</main></div>;
 }
 
-/** No trip means no screen under `(app)` has anything to render, so the provider
- *  routes rather than letting nine screens each invent an empty state. The server
- *  layout redirects too; this catches the traveler whose last trip goes away while
- *  the app is open, and it never redirects on a cached read. */
+/** The provider used to refuse to render anything under `(app)` without a trip, which made
+ *  "trip loaded" the price of admission to the whole app — including Home and `My Trips`,
+ *  the two screens whose entire job is to exist between trips. The gate moved down to
+ *  `<TripGate>`; what is left here is the account-level one.
+ *
+ *  Only a traveller with **no trips at all** is sent to onboarding, and never on a cached
+ *  read: a phone in a basement showing yesterday's trip must not be bounced into a form. */
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const value = useAppState();
   const router = useRouter();
-  const noTrip = value.status === "ready" && !value.fromCache && !value.trip;
+  const emptyAccount = value.status === "ready" && !value.fromCache && !value.trip && value.trips.length === 0;
   useEffect(() => { if (value.status === "signed-out") router.replace("/login"); }, [router, value.status]);
-  useEffect(() => { if (noTrip) router.replace("/onboarding"); }, [noTrip, router]);
+  useEffect(() => { if (emptyAccount) router.replace("/onboarding"); }, [emptyAccount, router]);
 
-  if (value.status === "idle" || value.status === "loading") return <Boot title="Opening your trip…" body="Reading what this device saved, then checking with Trail." />;
-  if (value.status === "signed-out") return <Boot title="Signed out" body="Your session ended. Sign in to get back to your trip." />;
-  if (!value.trip) return value.status === "error"
-    ? <Boot title="Trail could not load your trip" body="You are offline or the server is unreachable. Nothing you recorded has been lost." action={<button className="main-button" onClick={() => value.refresh()}><span>Try again<small>Re-read this trip from Trail</small></span><i>↻</i></button>} />
+  if (value.status === "idle" || value.status === "loading") return <Boot title="Opening your trips…" body="Reading what this device saved, then checking with Trail." />;
+  if (value.status === "signed-out") return <Boot title="Signed out" body="Your session ended. Sign in to get back to your trips." />;
+  if (!value.trip && !value.trips.length) return value.status === "error"
+    ? <Boot title="Trail could not load your account" body="You are offline or the server is unreachable. Nothing you recorded has been lost." action={<button className="main-button" onClick={() => value.refresh()}><span>Try again<small>Re-read this account from Trail</small></span><i>↻</i></button>} />
     : <Boot title="No trip yet" body="Taking you to set one up." />;
-  return <AppContext.Provider value={value as AppReady}>{children}</AppContext.Provider>;
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+}
+
+/** The trip-scoped boundary. `/trail/*`, `/bags/*` and `/ask/*` are all about one trip and
+ *  read `trip` without a guard, so this is what proves there is one before they render.
+ *
+ *  A traveller who has trips but none of them open goes to `My Trips` to pick — not to
+ *  onboarding. Being between trips is not the same as never having made one, and the two
+ *  used to share a redirect. */
+export function TripGate({ children }: { children: React.ReactNode }) {
+  const value = useApp();
+  const router = useRouter();
+  const noTrip = value.status === "ready" && !value.fromCache && !value.trip;
+  useEffect(() => { if (noTrip) router.replace(value.trips.length ? "/trips" : "/onboarding"); }, [noTrip, router, value.trips.length]);
+
+  if (value.trip) return <>{children}</>;
+  if (value.status === "error") return <Boot title="Trail could not load this trip" body="You are offline or the server is unreachable. Nothing you recorded has been lost." action={<button className="main-button" onClick={() => value.refresh()}><span>Try again<small>Re-read this trip from Trail</small></span><i>↻</i></button>} />;
+  return <Boot title="Opening your trip…" body={value.trips.length ? "Choose a trip if this does not open." : "Taking you to set one up."} />;
 }

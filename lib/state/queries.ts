@@ -12,6 +12,9 @@
  *  remembers the answer. Without that, shipping the code first would turn every
  *  screen into an error instead of a slightly older one.
  *
+ *  The `t6` flag does the same job for 0021's `trips.timezone` and `trips.provisional_until`.
+ *  Same shape, same retry, same reason.
+ *
  *  `stops.planned_date` (0024) is deliberately absent from the stop select: the column is
  *  not on the deployed database yet and naming it 400s the whole state read. `Stop.plannedDate`
  *  already exists in the shape and reads null until it is added here, in the same change that
@@ -23,8 +26,8 @@ const purchaseFields = (t5: boolean) => `
       id, stop_id, actual_price_cents, quantity, bags, handling, currency, note, unplanned_label,
       ${t5 ? "client_key," : ""} recorded_at, voided_at, void_reason, updated_at`;
 
-export const tripSelect = (t5: boolean) => `
-  id, status, country, city, areas, start_date, end_date,
+export const tripSelect = (t5: boolean, t6 = true) => `
+  id, status, country, city, areas, start_date, end_date, ${t6 ? "timezone, provisional_until," : ""}
   hotel_name, hotel_address, hotel_verified_at, ${t5 ? "hotel_id," : ""} companions, free_time, currency, updated_at,
   plans!plans_trip_id_user_id_fkey (
     id, status, version, total_cents, planned_cents, delivery_reserve_cents, flexible_cents,
@@ -74,13 +77,27 @@ export const tripSelect = (t5: boolean) => `
 `;
 
 /** Kept as the pre-0009 shape for anything that does not want the flag. */
-export const TRIP_SELECT = tripSelect(false);
+export const TRIP_SELECT = tripSelect(false, false);
 
-export const TRIP_LIST_SELECT = `
-  id, status, city, country, start_date, end_date, currency, updated_at,
-  plans!plans_trip_id_user_id_fkey ( status ),
-  purchases!purchases_trip_id_user_id_fkey ( id ),
+/** `purchases(id)` is deliberately gone — `TRIP_SPEND_SELECT` answers the count and the
+ *  sum with one row per trip instead of one row per purchase on the whole account. */
+export const tripListSelect = (t6 = true) => `
+  id, status, city, country, start_date, end_date, currency, updated_at, ${t6 ? "hotel_name, timezone, provisional_until," : ""}
+  plans!plans_trip_id_user_id_fkey ( status, total_cents ),
   bag_transfers!bag_transfers_trip_id_user_id_fkey ( id, status )
+`;
+export const TRIP_LIST_SELECT = tripListSelect(false);
+
+/** The 0022 view. Read as its own query rather than embedded: PostgREST would have to
+ *  infer a relationship to it, and this schema already names every FK constraint by hand
+ *  to stay clear of PGRST201 — a view gives nothing to hint at. */
+export const TRIP_SPEND_SELECT = "trip_id, purchase_count, spent_cents, bag_count, budget_cents, plan_status";
+
+/** 0023's catalogue. The FK constraint is named for the same PGRST201 reason. */
+export const RECOMMENDATION_SELECT = `
+  id, name, subtitle, category, price_cents, price_is_estimate, currency, handling, weight_grams,
+  preference_tags, source, source_note,
+  store:stores!products_store_id_fkey ( id, name, area, address, lat, lng )
 `;
 
 /** A column or relationship the database does not have yet. Anything else is a

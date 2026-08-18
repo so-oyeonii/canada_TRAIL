@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { IconArrow } from "@/components/icons";
-import { useApp } from "../../../app-state";
+import { useTrip } from "../../../app-state";
 import { price, stopMark } from "../../../view";
 
 /** Read-only, and every number is the server's. The delivery reserve is shown
@@ -13,7 +13,7 @@ import { price, stopMark } from "../../../view";
  *  why the sentence under it says "trip budget" and not "shopping budget" — the
  *  shoppable amount is the row above it minus what has been spent. */
 export default function BudgetLens() {
-  const { trip, wallet, bought, stops, recipients, currency } = useApp();
+  const { trip, wallet, bought, stops, recipients, currency } = useTrip();
   const over = wallet.spendableCents < 0;
   const allocated = recipients.filter((person) => person.allocationCents !== null).length;
 

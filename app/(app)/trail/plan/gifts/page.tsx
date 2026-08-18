@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { IconArrow, IconBag, IconCheck, IconSpark } from "@/components/icons";
-import { useApp } from "../../../app-state";
+import { useTrip } from "../../../app-state";
 import { handlingLabel, price, sourceChip, stopMark, stopTone, walkLabel } from "../../../view";
 
 /** Replace is gone with the sample catalog: a replacement is a new stop whose
@@ -16,7 +16,7 @@ import { handlingLabel, price, sourceChip, stopMark, stopTone, walkLabel } from 
  *  (FIGMA_ADOPTION §5). */
 export default function GiftsLens() {
   const router = useRouter();
-  const { trip, wallet, stops, recipients, toggleSaved, notify } = useApp();
+  const { trip, wallet, stops, recipients, toggleSaved, notify } = useTrip();
   const allocated = recipients.filter((person) => person.allocationCents !== null).length;
   const nameFor = (id: string | null) => recipients.find((person) => person.id === id)?.name ?? "";
   const split = <Link className="plan-row" href="/trail/plan/gifts/split"><span><b>Divide the budget by person</b><small>{allocated} of {recipients.length} allocated</small></span><IconArrow /></Link>;

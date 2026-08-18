@@ -15,12 +15,12 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Header } from "@/components/chrome";
-import { IconCheck, IconClose } from "@/components/icons";
+import { IconAlert, IconCheck, IconClose } from "@/components/icons";
 import type { Handling } from "@/lib/state/types";
-import { useApp, type PurchaseDraft } from "../../../../app-state";
+import { useTrip, type PurchaseDraft } from "../../../../app-state";
 import { fromMinor, minorUnits, toMinor } from "@/lib/money/format";
 import { budgetScale } from "@/app/trail-brief";
-import { price } from "../../../../view";
+import { flexibleRemedyLabel, price } from "../../../../view";
 
 const draftKey = (stopId: string) => `trail:draft:record:${stopId}`;
 const HANDLINGS: Handling[] = ["Standard", "Heavy", "Fragile", "Chilled"];
@@ -28,12 +28,15 @@ const HANDLINGS: Handling[] = ["Standard", "Heavy", "Fragile", "Chilled"];
 export default function RecordPurchasePage() {
   const router = useRouter();
   const { stopId } = useParams<{ stopId: string }>();
-  const { stops, wallet, currency, savePurchase, removePurchase, notify, queued } = useApp();
+  const { stops, wallet, currency, savePurchase, removePurchase, notify, queued, proposeBudgetChange, decideBudgetChange } = useTrip();
   const stop = stops.find((entry) => entry.id === stopId) ?? null;
   const existing = stop?.purchase && !stop.purchase.voidedAt ? stop.purchase : null;
   const [draft, setDraft] = useState<PurchaseDraft | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  /** Frame -5. Set when Confirm would take the traveller past their planned bucket, and
+   *  the screen becomes the Budget Update instead of saving behind their back. */
+  const [overBy, setOverBy] = useState<number | null>(null);
 
   // Read once, after hydration, for the stop this URL names. `localStorage` is not
   // available on the server, and re-running when the purchase changes would
@@ -53,20 +56,67 @@ export default function RecordPurchasePage() {
   const clearDraft = () => { try { localStorage.removeItem(draftKey(stopId)); } catch { /* quota */ } };
   const cancel = () => { clearDraft(); router.push("/trail/shop"); };
 
-  const confirm = async () => {
-    if (!draft || saving) return;
-    if (!Number.isFinite(draft.actualPriceCents) || draft.actualPriceCents <= 0 || draft.quantity < 1 || draft.bags < 1) { setError("Enter a positive total, quantity and bag count."); return; }
+  const store = async () => {
+    if (!draft) return false;
     setSaving(true);
     const reply = await savePurchase(stopId, { ...draft, actualPriceCents: Math.round(draft.actualPriceCents) });
     setSaving(false);
-    if (!reply.ok) { setError(reply.status === 409 ? "This purchase was already saved from another device. Trail kept that one." : "Trail refused this purchase. Check the amount and try again."); return; }
+    if (!reply.ok) { setError(reply.status === 409 ? "This purchase was already saved from another device. Trail kept that one." : "Trail refused this purchase. Check the amount and try again."); return false; }
     clearDraft();
     notify(queued > 0 ? "Purchase saved on this phone · syncing" : "Purchase saved");
     router.push("/trail/shop");
+    return true;
+  };
+
+  const confirm = async () => {
+    if (!draft || saving) return;
+    if (!Number.isFinite(draft.actualPriceCents) || draft.actualPriceCents <= 0 || draft.quantity < 1 || draft.bags < 1) { setError("Enter a positive total, quantity and bag count."); return; }
+    // Constitution 5: the shopping bucket is `planned − spent`, and flexible money does not
+    // move without a tap. Going past it is not refused — the purchase already happened —
+    // but it is not waved through either.
+    const short = wallet.spendableCents + (existing?.actualPriceCents ?? 0) - draft.actualPriceCents;
+    if (short < 0) { setError(""); setOverBy(Math.round(-short)); return; }
+    await store();
+  };
+
+  /** The one tap that moves money, with the amount, the bucket it leaves and what is left
+   *  after it written on the button. Proposing and approving are two requests because 0013
+   *  makes them two rows; if the approval half fails the proposal is still waiting on the
+   *  approval screen, so nothing is lost and nothing was applied. */
+  const drawFromFlexible = async () => {
+    if (overBy === null || saving) return;
+    setSaving(true); setError("");
+    const proposal = await proposeBudgetChange({ kind: "bucket_move", reason: `Purchase at ${stop?.storeName ?? "the store"} went over the shopping budget`, plan: { plannedCents: wallet.plannedCents + overBy, flexibleCents: wallet.flexibleCents - overBy } });
+    const changeId = proposal.ok ? String((proposal.data as { budgetChangeId?: string }).budgetChangeId ?? "") : "";
+    if (!proposal.ok || !changeId) { setSaving(false); setError("Trail could not move that money. Nothing was changed and the purchase is not saved."); return; }
+    const decided = await decideBudgetChange(changeId, "approve");
+    setSaving(false);
+    if (!decided.ok) { setError("Trail recorded the request but could not apply it. Open Approvals to finish it — your budget has not changed."); return; }
+    setOverBy(null);
+    await store();
   };
 
   if (!stop) return <div className="screen record-screen"><Header title="Record Purchase" back={() => router.push("/trail/shop")} /><h1>That stop is not on your route.</h1><p className="alert-copy">It may have been replaced by another stop.</p><button className="back-to-chat" onClick={() => router.push("/trail/shop")}>Back to today’s route</button></div>;
   if (!draft) return <div className="screen record-screen"><Header title="Record Purchase" back={cancel} /><h1>{stop.storeName}</h1><p>Opening this purchase…</p></div>;
+
+  if (overBy !== null) {
+    const coverable = wallet.flexibleCents >= overBy;
+    return <div className="screen record-screen"><Header title="Budget Update" back={() => setOverBy(null)} />
+      <section className="purchase-sheet"><header><span><small>OVER YOUR PLANNED SHOPPING</small><b>{stop.storeName}</b></span></header>
+        <h1>This is {price(overBy, currency)} more than your shopping budget holds.</h1>
+        <div className="sheet-impact plain"><span>Planned shopping left</span><b>{price(wallet.spendableCents + (existing?.actualPriceCents ?? 0), currency)}</b></div>
+        <div className="sheet-impact plain"><span>This purchase</span><b>{price(draft.actualPriceCents, currency)}</b></div>
+        <div className="sheet-impact plain"><span>Flexible budget</span><b>{price(wallet.flexibleCents, currency)}</b></div>
+        <p className="ownership-note">Nothing has moved. Your delivery reserve is not touched either way — it is what pays to get these bags to the hotel.</p>
+        {error && <p className="form-error" role="alert"><IconAlert /> {error}</p>}
+        {/* The label carries the amount, the bucket it comes out of and the balance left,
+            because a tap on a vaguer button is not an approval of a number nobody saw. */}
+        <button className="main-button dark" disabled={saving || !coverable} onClick={() => void drawFromFlexible()}><span>{saving ? "Recording your approval…" : flexibleRemedyLabel(overBy, wallet.flexibleCents, currency)}<small>{coverable ? "Moves it out of flexible and saves the purchase" : "Flexible does not hold enough for this"}</small></span><i><IconCheck /></i></button>
+        <button className="back-to-chat" disabled={saving} onClick={() => void store()}>Record it and stay over plan</button>
+        <button className="back-to-chat" disabled={saving} onClick={() => setOverBy(null)}>Change the amount</button>
+      </section>
+    </div>;
+  }
 
   const after = wallet.spendableCents + (existing?.actualPriceCents ?? 0) - draft.actualPriceCents;
   // The till shows whole units of the trip's currency. Yen has no cents, so neither has the step.

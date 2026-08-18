@@ -2,8 +2,8 @@
  *  rules that matter here (which plan wins, what counts as spent, which transfer
  *  is the live one) are testable without a database. */
 
-import type { BudgetChangeRow, IssueRow, PaymentRow, PlanRow, PurchaseRow, ReceiptRow, RecipientRow, StopRow, StoreRow, TransferEventRow, TransferItemRow, TransferRow, TripListRow, TripRow, UserRow } from "./rows";
-import type { Allocation, BudgetChange, BudgetSnapshot, Payment, Plan, Purchase, Receipt, Recipient, SourceLabels, Stop, TrailState, TransferEvent, TransferIssue, TransferItem, TransferSummary, TravelerProfile, Trip, TripSummary, Wallet, Transfer, DropoffStore, Inquiry } from "./types";
+import type { BudgetChangeRow, IssueRow, PaymentRow, PlanRow, ProductRow, PurchaseRow, ReceiptRow, RecipientRow, StopRow, StoreRow, TransferEventRow, TransferItemRow, TransferRow, TripListRow, TripRow, TripSpendRow, UserRow } from "./rows";
+import type { Allocation, BudgetChange, BudgetSnapshot, Payment, Plan, Purchase, Receipt, Recipient, Recommendation, SourceLabels, Stop, TrailState, TransferEvent, TransferIssue, TransferItem, TransferSummary, TravelerProfile, Trip, TripSummary, Wallet, Transfer, DropoffStore, Inquiry } from "./types";
 import { EMPTY_WALLET } from "./types.ts";
 import { PREFERENCE_TAGS, ROUTE_TAGS, type PreferenceTag, type RouteTag } from "../../app/trail-brief.ts";
 
@@ -28,7 +28,9 @@ export function shapeUser(row: UserRow | null, id: string, email: string): Trave
 export function shapeTrip(row: TripRow): Trip {
   // hotelId is null until 0011 is applied and the trip is linked to a `hotels`
   // row; the delivery policy for that hotel is what decides `hotel_refuses`.
-  return { id: row.id, status: row.status, country: row.country, city: row.city, areas: row.areas ?? [], startDate: row.start_date, endDate: row.end_date, hotelId: row.hotel_id ?? null, hotelName: row.hotel_name, hotelAddress: row.hotel_address, hotelVerifiedAt: row.hotel_verified_at, companions: row.companions, freeTime: row.free_time, currency: row.currency };
+  // `timezone` falls back to UTC, not to the device's zone: a wrong zone that looks local
+  // is harder to notice than one that is obviously a default.
+  return { id: row.id, status: row.status, country: row.country, city: row.city, areas: row.areas ?? [], startDate: row.start_date, endDate: row.end_date, timezone: row.timezone || "UTC", hotelId: row.hotel_id ?? null, hotelName: row.hotel_name, hotelAddress: row.hotel_address, hotelVerifiedAt: row.hotel_verified_at, companions: row.companions, freeTime: row.free_time, currency: row.currency, provisionalUntil: row.provisional_until ?? null };
 }
 
 /** The approved plan if there is one, otherwise the newest draft. Superseded
@@ -139,11 +141,23 @@ export function splitTransfers(rows: TransferRow[] | null) {
   return { transfer: live ? shapeTransfer(live) : null, lastDelivered: delivered ? shapeTransfer(delivered) : null, pastTransfers: ordered.filter((_, i) => i !== liveIndex).map(shapeTransferSummary) };
 }
 
-export function shapeTripSummary(row: TripListRow): TripSummary {
+/** Carries the view's numbers across; it does not add anything up. If this function ever
+ *  starts summing purchases itself there are two answers to "what did this trip cost" and
+ *  no way to tell which one a card is showing. No `spend` row means the summary view is
+ *  not on this database — every count stays null, and null is drawn as "not counted yet". */
+export function shapeTripSummary(row: TripListRow, spend?: TripSpendRow | null): TripSummary {
   const statuses = (row.plans ?? []).map((p) => p.status);
+  const live = (row.plans ?? []).find((p) => p.status === "approved") ?? (row.plans ?? []).find((p) => p.status === "draft") ?? null;
   const planStatus = statuses.includes("approved") ? "approved" : statuses.includes("draft") ? "draft" : statuses[0] ?? null;
   const open = (row.bag_transfers ?? []).find((t) => !CLOSED_TRANSFERS.has(t.status)) ?? null;
-  return { id: row.id, status: row.status, city: row.city, country: row.country, startDate: row.start_date, endDate: row.end_date, currency: row.currency, planStatus, purchaseCount: (row.purchases ?? []).length, openTransferId: open?.id ?? null };
+  const budget = spend?.budget_cents ?? live?.total_cents ?? null;
+  return { id: row.id, status: row.status, city: row.city, country: row.country, startDate: row.start_date, endDate: row.end_date, currency: row.currency, timezone: row.timezone || "UTC", hotelName: row.hotel_name ?? "", planStatus, budgetCents: budget ?? null, spentCents: spend ? spend.spent_cents : null, bagCount: spend ? spend.bag_count : null, purchaseCount: spend ? spend.purchase_count : null, provisionalUntil: row.provisional_until ?? null, openTransferId: open?.id ?? null };
+}
+
+/** The row's own `source` travels through untouched. The label is built at the card, per
+ *  card, so one row turning `live` cannot leave a section header claiming otherwise. */
+export function shapeRecommendation(row: ProductRow): Recommendation {
+  return { id: row.id, name: row.name, subtitle: row.subtitle ?? "", category: row.category, priceCents: row.price_cents, priceIsEstimate: row.price_is_estimate ?? true, currency: row.currency, handling: row.handling, weightGrams: row.weight_grams, preferenceTags: row.preference_tags ?? [], source: row.source, sourceNote: row.source_note ?? "", store: row.store ? { id: row.store.id, name: row.store.name, area: row.store.area, address: row.store.address, lat: row.store.lat, lng: row.store.lng } : null };
 }
 
 /** Constitution 5: the delivery reserve is displayed, never added to what can be
@@ -165,10 +179,11 @@ export function newestTimestamp(values: (string | null | undefined)[], fallback:
   return best ?? fallback;      // fallback only when there is nothing stored yet
 }
 
-export function shapeState(input: { user: UserRow | null; userId: string; email: string; trip: TripRow | null; list: TripListRow[]; serverTime?: string }): TrailState {
+export function shapeState(input: { user: UserRow | null; userId: string; email: string; trip: TripRow | null; list: TripListRow[]; spend?: TripSpendRow[]; serverTime?: string }): TrailState {
   const serverTime = input.serverTime ?? new Date().toISOString();
   const user = shapeUser(input.user, input.userId, input.email);
-  const trips = (input.list ?? []).map(shapeTripSummary);
+  const spendByTrip = new Map((input.spend ?? []).map((row) => [row.trip_id, row]));
+  const trips = (input.list ?? []).map((row) => shapeTripSummary(row, spendByTrip.get(row.id) ?? null));
   const row = input.trip;
   if (!row) return { serverTime, stateVersion: newestTimestamp(input.list.map((t) => t.updated_at), serverTime), user, activeTripId: null, trips, trip: null, plan: null, wallet: EMPTY_WALLET, recipients: [], budgetChanges: [], pendingBudgetChange: null, stops: [], unplannedPurchases: [], transfer: null, lastDelivered: null, pastTransfers: [], labels: { stops: null, transfer: null, payment: null } };
 

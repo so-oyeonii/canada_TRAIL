@@ -13,13 +13,13 @@ import { useEffect, useState } from "react";
 import { Header } from "@/components/chrome";
 import { IconArrow, IconCheck, IconChilled, IconClock, IconFragile, IconHotel, IconPin } from "@/components/icons";
 import type { Remedy } from "@/lib/transfers/eligibility";
-import { useApp } from "../../app-state";
+import { useTrip } from "../../app-state";
 import { Blocked } from "../../blocked";
 import { clockTime, etaLabel, price, sourceChip, weightLabel } from "../../view";
 
 export default function BagReviewPage() {
   const router = useRouter();
-  const app = useApp();
+  const app = useTrip();
   const { trip, transfer, selectedItems, selectedBagCount, quote, points, partnerCount, eligibility, wallet, currency, openTransfer, saveManifest, loadDropoffPoints, notify } = app;
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");

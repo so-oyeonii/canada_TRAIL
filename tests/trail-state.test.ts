@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { computeWallet, newestTimestamp, pickPlan, shapeState, splitTransfers } from "../lib/state/shape.ts";
 import { boughtStops, deliveryStep, draftItems, purchaseAt, routeStops, savedStops, selectedBagCount, stopById } from "../lib/state/selectors.ts";
-import { CACHE_PREFIX, cacheKey, dropOtherCaches, readCache, writeCache } from "../lib/state/store.ts";
+import { adoptLegacyOutbox, CACHE_PREFIX, CACHE_TRIP_LIMIT, cacheKey, dropOtherCaches, readCache, readIndex, readOutbox, writeCache, writeIndex, writeOutbox } from "../lib/state/store.ts";
 import { classify, enqueue, flush, newOp } from "../lib/state/outbox.ts";
 import type { TripRow } from "../lib/state/rows.ts";
 import type { TrailState } from "../lib/state/types.ts";
@@ -138,23 +138,71 @@ class FakeStorage {
 
 test("the cache is namespaced per user and another traveler's copy is dropped", () => {
   const storage = new FakeStorage();
-  writeCache(storage, "user-a", build(), []);
-  writeCache(storage, "user-b", build(), []);
-  assert.ok(readCache(storage, "user-a"));
+  writeCache(storage, "user-a", "trip-1", build());
+  writeCache(storage, "user-b", "trip-1", build());
+  assert.ok(readCache(storage, "user-a", "trip-1"));
   dropOtherCaches(storage, "user-b");
-  assert.equal(readCache(storage, "user-a"), null, "a shared phone must not keep the previous traveler's trip");
-  assert.ok(readCache(storage, "user-b"));
+  assert.equal(readCache(storage, "user-a", "trip-1"), null, "a shared phone must not keep the previous traveler's trip");
+  assert.ok(readCache(storage, "user-b", "trip-1"));
   dropOtherCaches(storage, null);
-  assert.equal(readCache(storage, "user-b"), null);
+  assert.equal(readCache(storage, "user-b", "trip-1"), null);
+});
+
+test("one traveller's other trips survive the sweep that drops another traveller's", () => {
+  const storage = new FakeStorage();
+  writeCache(storage, "user-a", "trip-1", build());
+  writeCache(storage, "user-a", "trip-2", build());
+  writeIndex(storage, "user-a", [], "trip-2");
+  dropOtherCaches(storage, "user-a");
+  // Both are this user's, and both are the offline copy of a trip they can switch to.
+  assert.ok(readCache(storage, "user-a", "trip-1"), "switching trips underground would have nothing to paint");
+  assert.ok(readCache(storage, "user-a", "trip-2"));
+  assert.ok(readIndex(storage, "user-a"));
+});
+
+test("the outbox belongs to the traveller, not to the trip they had open", () => {
+  const storage = new FakeStorage();
+  const queued = [newOp("PUT", "/api/purchases/s-1", { actualPriceCents: 4200 }, "op-1")];
+  writeOutbox(storage, "user-a", queued);
+  // The v4 shape kept the queue inside the trip entry, so this next line used to erase a
+  // purchase recorded in a basement the moment the traveller opened another city.
+  writeCache(storage, "user-a", "trip-2", build());
+  assert.equal(readOutbox(storage, "user-a").length, 1, "an unsent purchase was lost by switching trips");
+  assert.equal(readOutbox(storage, "user-a")[0].opId, "op-1");
+});
+
+test("only three trips keep a full copy, and the newest survive", () => {
+  const storage = new FakeStorage();
+  for (const id of ["trip-1", "trip-2", "trip-3", "trip-4"]) writeCache(storage, "user-a", id, build());
+  const kept = ["trip-1", "trip-2", "trip-3", "trip-4"].filter((id) => readCache(storage, "user-a", id));
+  assert.equal(kept.length, CACHE_TRIP_LIMIT, "thirty cached trips is how a phone hits the quota and loses the outbox with it");
+  assert.ok(kept.includes("trip-4"), "the trip just written is never the one evicted");
 });
 
 test("a cache written by an older version is ignored rather than half-read", () => {
   const storage = new FakeStorage();
-  storage.setItem(cacheKey("user-a"), JSON.stringify({ v: 3, userId: "user-a", state: build(), outbox: [] }));
-  assert.equal(readCache(storage, "user-a"), null);
-  storage.setItem(cacheKey("user-a"), "{oops");
-  assert.equal(readCache(storage, "user-a"), null);
-  assert.ok(cacheKey("user-a").startsWith(`${CACHE_PREFIX}:`));
+  storage.setItem(cacheKey("user-a", "trip-1"), JSON.stringify({ v: 4, userId: "user-a", tripId: "trip-1", state: build() }));
+  assert.equal(readCache(storage, "user-a", "trip-1"), null);
+  storage.setItem(cacheKey("user-a", "trip-1"), "{oops");
+  assert.equal(readCache(storage, "user-a", "trip-1"), null);
+  assert.ok(cacheKey("user-a", "trip-1").startsWith(`${CACHE_PREFIX}:`));
+});
+
+test("the v4 entry goes, but not before its queue is lifted out of it", () => {
+  const storage = new FakeStorage();
+  const stranded = newOp("PUT", "/api/purchases/s-9", { actualPriceCents: 6100 }, "op-v4");
+  storage.setItem("trail-cache-v4:user-a", JSON.stringify({ v: 4, userId: "user-a", state: build(), outbox: [stranded] }));
+  // FIGMA_ADOPTION §4 forbids sweeping `trail-cache-v4:*` blind, and this is why: the
+  // entry is a cache, but the queue inside it is a write that never reached the server.
+  const adopted = adoptLegacyOutbox(storage, "user-a", []);
+  assert.equal(adopted.length, 1);
+  assert.equal(readOutbox(storage, "user-a")[0].opId, "op-v4");
+  assert.equal(adoptLegacyOutbox(storage, "user-a", adopted).length, 1, "running it twice must not charge the traveller twice");
+  writeCache(storage, "user-a", "trip-1", build());
+  dropOtherCaches(storage, "user-a");
+  assert.equal(storage.getItem("trail-cache-v4:user-a"), null);
+  assert.equal(readOutbox(storage, "user-a").length, 1, "the queue survives the sweep that drops the entry it was in");
+  assert.ok(readCache(storage, "user-a", "trip-1"));
 });
 
 // ── outbox ───────────────────────────────────────────────────

@@ -12,16 +12,10 @@
 -- thresholds (<=8 short, <=20 moderate, unlimited any) — which is exactly why "moderate walk" is
 -- not a product tag: it cannot hang off a product row, so it would filter nothing.
 --
--- The enum types are defined HERE and nowhere else. G3's migration adds the `products` column and
--- references `public.preference_tag`; if the numbering ever puts that file first, move the two
--- `create type` statements there and leave this file owning `plans` only. One definition, one file.
-
-create type public.preference_tag as enum (
-  'local', 'handmade', 'not_touristy', 'easy_to_pack',
-  'edible', 'useful', 'keepsake', 'budget_friendly'
-);
-
-create type public.route_tag as enum ('short_walk', 'moderate_walk', 'any_walk');
+-- The enum types are defined in **0023** (G3's catalogue), not here. That file adds
+-- `products.preference_tags` and the coordinator numbered it before this one, so the type has to
+-- exist by then; the alternative -- defining it twice -- is the failure this note was written to
+-- prevent. This file owns the `plans` columns only. One definition, one file.
 
 alter table public.plans
   add column preference_tags public.preference_tag[] not null default '{}',

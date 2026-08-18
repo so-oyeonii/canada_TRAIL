@@ -125,9 +125,9 @@
 | `0020` | **`trips` 컬럼 GRANT 잠금** + DELETE revoke + 트리거 2개 | **G0** |
 | `0021` | 트립 생애주기 전이 + `trips.timezone` + `archive_trip()` + `discard_provisional_trip()` | G3 |
 | `0022` | 과거 여행 지출 집계 뷰 (`security_invoker` 필수) | G3 |
-| `0023` | 카탈로그 시드 + 추천 조회 | G3 |
+| `0023` | 카탈로그 시드 + 추천 조회 + **`preference_tag`·`route_tag` enum 정의** | G3 |
 | `0024` | `stops.planned_date` | G2 |
-| `0025` | `preference_tags` 두 enum | G4 |
+| `0025` | `plans.preference_tags` · `plans.route_tag` · `update_plan_brief()` (**enum 정의는 `0023`**) | G4 |
 | `0026` | `trip_shares` — 1단계 읽기 전용 공유 (철회 가능한 토큰) | G6 |
 | `0027` | `trip_members` + `trip_invites` — 2단계 공동 편집 | G6 |
 | `0028` | 기존 15개 테이블 정책 재작성 — 2단계 | G6 |
@@ -172,6 +172,22 @@
 **GRANT 목록과 `TRIP_WRITABLE`은 이제 테스트가 대조한다** (`tests/trail-trip-grants.test.ts`).
 스캔 대상은 전 마이그레이션의 합집합이므로, `0021`이 `timezone`을 GRANT하면 그 테스트가
 `app/(app)/app-state.tsx`의 `TRIP_WRITABLE`에도 넣으라고 알려 준다.
+
+### G3 → 전 그룹 회신 (`0021`·`0022`·`0023` 작성 완료, 원격 미적용)
+
+1. **`timezone`은 `0021`이 컬럼 추가와 같은 파일에서 GRANT한다.** `TRIP_WRITABLE`에도 들어갔다.
+   폼은 이 필드를 보내지 않는다 — `PATCH /api/trips/[id]`가 도시에서 유도해 서버가 쓴다.
+2. **`provisional_until`은 GRANT에 없다.** 서버 전용이고 `parseTripPatch`가 이름으로 거절한다.
+3. **`POST /api/trips`의 보상 삭제는 `discard_provisional_trip(uuid)`로 대체됐다.** 그 함수가
+   실패하면 응답은 여전히 `{ cleanup: "orphaned", tripId }`를 싣고, 그 트립은 `My Trips`에
+   `Incomplete — no budget`으로 **보인다.** 숨기지 않는다.
+4. **enum 정의는 `0023`으로 옮겼다.** `0025`는 `plans`만 담당한다. 정의가 두 곳이면
+   마이그레이션이 중간에 실패하므로 `tests/trail-trip-status.test.ts`가 한 곳임을 강제한다.
+5. **`0024`(`stops.planned_date`)는 `0021~0023` 뒤에 적용한다.** 0024 파일의 주석과 같다.
+6. **캐시가 `trail-cache-v4:*` → `v5`로 갈렸다. §4의 "v4를 스윕하지 마라"는 그대로 지켰다** —
+   `adoptLegacyOutbox()`가 v4 엔트리 안의 미전송 큐를 v5 키로 **먼저 옮긴 뒤에야** 엔트리를
+   지운다(`opId` 기준 멱등). 구매 초안(`trail:draft:record:*`)은 접두사가 달라 애초에 대상이 아니다.
+   **v5의 아웃박스는 유저당 하나**이므로 트립 전환이 미전송 쓰기를 지우지 않는다.
 
 ### 나머지 계약
 

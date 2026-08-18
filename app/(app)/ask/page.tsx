@@ -8,14 +8,14 @@ import { AskSummary } from "@/components/ask-summary";
 import { Bubble, ChipRow, Typing } from "@/components/chat";
 import { Avatar, Header } from "@/components/chrome";
 import { IconChevronRight, IconClose, IconPlus, IconSend } from "@/components/icons";
-import { greeting, starters, useApp } from "../app-state";
+import { greeting, starters, useTrip } from "../app-state";
 import { dateRange } from "../view";
 import { missingFields, readyToPlan, toGoLabel } from "./ready";
 import { applyReply, chatPayload, refMap, summaryInput, type AskApp } from "./wiring";
 import "@/app/ask.css";
 
 export default function AskPage() {
-  const app = useApp();
+  const app = useTrip();
   const router = useRouter();
   const { trip, wallet, recipients, messages, setMessages, input, setInput, thinking, setThinking, suggestion, setSuggestion, memoryEnabled, applyPatch, applyTags, clearFields, clearTags, applyRecipientOps, archiveRecipient, proposeBudgetChange, approvePlan, notify } = app;
   const [attachmentName, setAttachmentName] = useState("");

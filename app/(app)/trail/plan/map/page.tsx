@@ -3,12 +3,12 @@
 import { Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { IconArrow } from "@/components/icons";
-import { useApp } from "../../../app-state";
+import { useTrip } from "../../../app-state";
 import { sourceChip, walkLabel } from "../../../view";
 
 export default function MapLens() {
   const router = useRouter();
-  const { trip, stops, estimates, labels } = useApp();
+  const { trip, stops, estimates, labels } = useTrip();
 
   return <>
     <div className="result-title"><p>TODAY&rsquo;S ROUTE</p><h1>Today&rsquo;s route</h1><span>{stops.length ? "Stop order comes from the plan Trail built. Reordering and skipping arrive with the live map." : "There is no route to walk yet."}</span></div>

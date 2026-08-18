@@ -25,7 +25,7 @@ import { Header } from "@/components/chrome";
 import { IconAlert, IconArrow, IconCheck, IconCloud, IconQr, IconRetry } from "@/components/icons";
 import { QrCode } from "@/components/qr";
 import { passExpired } from "@/lib/transfers/pass-cache";
-import { useApp } from "../../app-state";
+import { useTrip } from "../../app-state";
 import { clockTime, etaLabel, sourceChip } from "../../view";
 
 const HOW_IT_WORKS = [
@@ -45,7 +45,7 @@ const PASS_ERROR: Record<string, string> = {
 
 export default function DropPage() {
   const router = useRouter();
-  const app = useApp();
+  const app = useTrip();
   const { trip, transfer, pass, passError, issuePass, reportEvent, deliveryStep, offline, notify } = app;
   const [busy, setBusy] = useState("");
   const [reissued, setReissued] = useState(false);

@@ -43,9 +43,30 @@ export type ItemKey = string;
 
 export type TravelerProfile = { id: string; email: string; displayName: string | null; homeCurrency: string; locale: string; memoryEnabled: boolean; firstRunDoneAt: string | null };
 
-export type TripSummary = { id: string; status: TripStatus; city: string; country: string; startDate: string | null; endDate: string | null; currency: string; planStatus: PlanStatus | null; purchaseCount: number; openTransferId: string | null };
+/** One card in `My Trips`. Every count below is `number | null` and null is not zero:
+ *  the summary view (0022) may not exist on the database this build is talking to, and
+ *  `CAD $0 spent` on a trip that cost 400 is worse than saying nothing was counted.
+ *  `provisionalUntil` non-null means the trip has no wallet behind it — the card says so
+ *  instead of drawing a zero budget. */
+export type TripSummary = { id: string; status: TripStatus; city: string; country: string; startDate: string | null; endDate: string | null; currency: string; timezone: string; hotelName: string; planStatus: PlanStatus | null; budgetCents: number | null; spentCents: number | null; bagCount: number | null; purchaseCount: number | null; provisionalUntil: string | null; openTransferId: string | null };
 
-export type Trip = { id: string; status: TripStatus; country: string; city: string; areas: string[]; startDate: string | null; endDate: string | null; hotelId: string | null; hotelName: string; hotelAddress: string; hotelVerifiedAt: string | null; companions: string; freeTime: string; currency: string };
+/** Which of the three sections of `My Trips` a trip belongs in. Derived from `status`,
+ *  which since 0021 is itself derived from the dates and the trip's own zone. */
+export type TripSection = "current" | "upcoming" | "past";
+
+export type Trip = { id: string; status: TripStatus; country: string; city: string; areas: string[]; startDate: string | null; endDate: string | null; timezone: string; hotelId: string | null; hotelName: string; hotelAddress: string; hotelVerifiedAt: string | null; companions: string; freeTime: string; currency: string; provisionalUntil: string | null };
+
+/** A shop in the catalogue, as `GET /api/recommendations` returns it. The coordinates are
+ *  in the *response* and never in `TrailState`: the browser measures the distance itself
+ *  and nothing about where the traveller is standing is stored or sent. */
+export type RecommendedStore = { id: string; name: string; area: string; address: string; lat: number | null; lng: number | null };
+/** `priceIsEstimate` is a column, not copy, so the `~` in front of the amount cannot drift
+ *  away from the number it qualifies. `sourceNote` is what makes the Sample chip
+ *  explainable rather than decorative — it becomes the chip's accessible description. */
+export type Recommendation = { id: string; name: string; subtitle: string; category: string; priceCents: number; priceIsEstimate: boolean; currency: string; handling: Handling; weightGrams: number | null; preferenceTags: string[]; source: DataSource; sourceNote: string; store: RecommendedStore | null };
+/** A thing the traveller told Trail to remember across trips. Consent is a row, and its
+ *  timestamp is the server's — a browser does not get to say when it was given. */
+export type MemoryConstraint = { id: string; kind: "avoid" | "prefer"; value: string; sourceTripId: string | null; consentedAt: string };
 
 export type Allocation = { recipientId: string; amountCents: number; bucket: BudgetBucket };
 

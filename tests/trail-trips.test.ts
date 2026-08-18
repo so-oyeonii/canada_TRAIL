@@ -80,5 +80,10 @@ test("the trips route decides the reserve and the split itself", () => {
   assert.ok(/getTraveler\(\)/.test(route), "the route must read identity from the session");
   assert.ok(/quoteFee\(/.test(route), "the reserve must come from the price list, not from the body");
   assert.ok(!/body\.body\.(planned|reserve|flexible|buckets)/.test(route), "no bucket may be accepted from the client");
-  assert.ok(/from\("trips"\)\.delete\(\)/.test(route), "a failed plan write must take its trip with it");
+  // Not `.delete()` any more: 0020 revoked DELETE on `trips` from the browser, and this route
+  // runs on the traveller's own session. 0021's definer function is the replacement, and it can
+  // only reach a row that is still provisional -- i.e. one that has no plan behind it.
+  assert.ok(!/from\("trips"\)\.delete\(\)/.test(route), "the compensating delete is revoked and would fail silently");
+  assert.ok(/rpc\("discard_provisional_trip"/.test(route), "a failed plan write must still take its trip with it");
+  assert.ok(/cleanup: withdrawn \? "withdrawn" : "orphaned"/.test(route) || /"orphaned"/.test(route), "a trip that could not be withdrawn has to be reported, not swallowed");
 });

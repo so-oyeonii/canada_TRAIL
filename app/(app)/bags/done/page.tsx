@@ -22,12 +22,12 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Header } from "@/components/chrome";
 import { IconArrow, IconCheck, IconReceipt } from "@/components/icons";
-import { useApp } from "../../app-state";
+import { useTrip } from "../../app-state";
 import { clockTime, priceExact, sourceChip } from "../../view";
 
 export default function DeliveryDonePage() {
   const router = useRouter();
-  const { trip, lastDelivered, currency, hydrated } = useApp();
+  const { trip, lastDelivered, currency, hydrated } = useTrip();
   const receipt = lastDelivered?.receipt ?? null;
   const payment = lastDelivered?.payment ?? null;
   const ok = lastDelivered?.status === "delivered";

@@ -7,6 +7,8 @@ import "./handsfree.css";
 // After the screen styles so a primitive wins where a legacy rule shares its name.
 import "./components.css";
 import "./discovery.css";
+import "./trips.css";
+import "./home.css";
 import "./bags.css";
 import "./nav.css";
 

@@ -12,13 +12,13 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Header } from "@/components/chrome";
 import { IconBag, IconCheck } from "@/components/icons";
-import { useApp } from "../../app-state";
+import { useTrip } from "../../app-state";
 import { tripDay } from "../../landing";
 import { handlingLabel, price, walkLabel } from "../../view";
 
 export default function ShopPage() {
   const router = useRouter();
-  const app = useApp();
+  const app = useTrip();
   const { trip, plan, stops, bought, wallet, bagCount, currency, setStopStatus, notify, partnerCount, loadDropoffPoints } = app;
   useEffect(() => { void loadDropoffPoints(Math.max(1, bagCount)); }, [loadDropoffPoints, bagCount]);
   const over = wallet.spendableCents < 0;

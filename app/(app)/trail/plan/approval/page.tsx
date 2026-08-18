@@ -14,7 +14,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconAlert, IconCheck, IconClose } from "@/components/icons";
-import { useApp } from "../../../app-state";
+import { useTrip } from "../../../app-state";
 import { price } from "../../../view";
 import type { BudgetChange, BudgetChangeKind } from "@/lib/state/types";
 
@@ -35,7 +35,7 @@ const BUCKETS = [
 
 export default function ApprovalLens() {
   const router = useRouter();
-  const { pendingBudgetChange, budgetChanges, wallet, currency, decideBudgetChange } = useApp();
+  const { pendingBudgetChange, budgetChanges, wallet, currency, decideBudgetChange } = useTrip();
   const [busy, setBusy] = useState<"approve" | "reject" | null>(null);
   const [problem, setProblem] = useState("");
   const [note, setNote] = useState("");

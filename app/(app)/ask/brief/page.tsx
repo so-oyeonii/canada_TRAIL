@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { Header, Toggle } from "@/components/chrome";
 import { IconArrow, IconBag, IconChevronDown, IconEdit, IconRoute, IconSpark } from "@/components/icons";
-import { useApp } from "../../app-state";
+import { useTrip } from "../../app-state";
 import { currencySymbol, toMinor } from "@/lib/money/format";
 import { budgetRange, MAX_PREFERENCE_TAGS, PREFERENCE_TAGS, PREFERENCE_TAG_LABEL, ROUTE_TAGS, ROUTE_TAG_LABEL, type PreferenceTag } from "@/app/trail-brief";
 import { price } from "../../view";
@@ -15,7 +15,7 @@ const details = ["Recipient", "Budget", "Type", "Route", "Time", "Packing", "Hot
 
 export default function BriefPage() {
   const router = useRouter();
-  const { trip, plan, wallet, updatePlan, preferenceTags, routeTag, applyTags, routeDirty, estimates, approvePlan, currency } = useApp();
+  const { trip, plan, wallet, updatePlan, preferenceTags, routeTag, applyTags, routeDirty, estimates, approvePlan, currency } = useTrip();
   const range = budgetRange(currency);
   // Toggling a tag replaces the whole set, because that is what the column stores and what the
   // model is asked to send: a set, not a stream of individual flips.

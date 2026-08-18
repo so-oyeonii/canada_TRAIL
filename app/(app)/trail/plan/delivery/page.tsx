@@ -52,7 +52,7 @@ export default function DeliveryLens() {
     </dl>
     {feeCents !== null && !reserved && <p className="quiet-note" role="status">Your delivery reserve holds {price(wallet.reserveCents, currency)}. That is {price(feeCents - wallet.reserveCents, currency)} short of this fee — you approve where the difference comes from before anything is charged.</p>}
 
-    <section className="bag-summary"><h2 className="section-label">BAGS ON THIS DELIVERY</h2>
+    <section className="bag-summary"><h2 className="section-title">Bags on this delivery</h2>
       <ul className="bag-chips">
         <li><IconBag />{bagCount} {bagCount === 1 ? "bag" : "bags"} from {bought.length} stop{bought.length === 1 ? "" : "s"}</li>
         {handlings.has("Fragile") && <li><IconFragile />Fragile · packed and sealed at the counter</li>}

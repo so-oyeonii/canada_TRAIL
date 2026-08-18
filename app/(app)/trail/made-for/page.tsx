@@ -77,7 +77,7 @@ export default function MadeForCityPage() {
     <NearbyBanner products={feed.products} />
 
     <section aria-labelledby="mf-gifts">
-      <div className="profile-section-label"><b id="mf-gifts">POPULAR LOCAL GIFTS</b><span>{categories.length || 0} kinds in {trip.city}</span></div>
+      <div className="profile-section-label"><b id="mf-gifts">Popular local gifts</b><span>{categories.length || 0} kinds in {trip.city}</span></div>
       {feed.loading
         ? <ul className="reco-rail"><TileSkeleton count={3} /></ul>
         : categories.length
@@ -86,7 +86,7 @@ export default function MadeForCityPage() {
     </section>
 
     <section aria-labelledby="mf-near">
-      <div className="profile-section-label"><b id="mf-near">NEAR YOUR ITINERARY</b><span>{stores.length} {stores.length === 1 ? "store" : "stores"}</span></div>
+      <div className="profile-section-label"><b id="mf-near">Near your itinerary</b><span>{stores.length} {stores.length === 1 ? "store" : "stores"}</span></div>
       {/* A number of minutes needs a position. Without one this says where, not how far. */}
       <p className="recipient-note">{walks.length ? `${walks.length} ${walks.length === 1 ? "store" : "stores"} within ${Math.max(...walks)} min of you.` : areas.length ? `${stores.length} ${stores.length === 1 ? "store" : "stores"} in ${areas.join(", ")}.` : "No stores listed for this city yet."}</p>
       {nearby.point
@@ -104,7 +104,7 @@ export default function MadeForCityPage() {
     </section>
 
     {memory && memory.length > 0 && <section className="ai-memory-card" aria-labelledby="mf-remember">
-      <header><i><IconSpark /></i><span><small id="mf-remember">TRAIL REMEMBERS</small><b>{memoryEnabled ? "Used to rank this list" : "Not being used right now"}</b></span><em>{memory.length}</em></header>
+      <header><i><IconSpark /></i><span><small id="mf-remember">Trail remembers</small><b>{memoryEnabled ? "Used to rank this list" : "Not being used right now"}</b></span><em>{memory.length}</em></header>
       <ul className="mf-memory">{memory.map((row) => <li key={row.id}><b>{row.kind === "avoid" ? "Avoid" : "Prefer"}</b> {row.value}</li>)}</ul>
       {memoryEnabled
         ? <p>Trail ranks the list above with these. Every route and every transfer is still yours to approve.</p>

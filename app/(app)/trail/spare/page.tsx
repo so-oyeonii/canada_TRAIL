@@ -92,7 +92,7 @@ export default function SparePage() {
 
   return <div className="screen spare-screen"><Header title="Time to spare" action={<Avatar city={trip.city} />} />
 
-    <fieldset className="spare-set"><legend className="section-label">TIME LEFT</legend>
+    <fieldset className="spare-set"><legend className="section-label">How long you have</legend>
       <div className="chip-row" role="group" aria-label="How long you have">
         {SPARE_CHIPS.map((chip) => <button type="button" key={chip.minutes} className="chip--button" aria-pressed={minutes === chip.minutes} onClick={() => { setUntil(""); setMinutes(minutes === chip.minutes ? null : chip.minutes); }}>{chip.label}</button>)}
       </div>
@@ -101,7 +101,7 @@ export default function SparePage() {
       <label className="spare-until"><span>Until</span><input type="time" value={until} onChange={(event) => { setUntil(event.target.value); setMinutes(minutesUntilClock(event.target.value, trip.timezone)); }} /></label>
     </fieldset>
 
-    <fieldset className="spare-set"><legend className="section-label">WHERE YOU ARE</legend>
+    <fieldset className="spare-set"><legend className="section-label">Where you are</legend>
       <div className="chip-row" role="group" aria-label="Which neighbourhood you are in">
         {areas.map((name) => <button type="button" key={name} className="chip--button" aria-pressed={area === name} onClick={() => setArea(area === name ? null : name)}>{name}</button>)}
         {!areas.length && <span className="quiet-note">This trip has no neighbourhoods listed yet.</span>}
@@ -116,21 +116,21 @@ export default function SparePage() {
         : <button type="button" className="back-to-chat" onClick={nearby.ask}>{nearby.status === "asking" ? "Asking…" : nearby.status === "denied" ? "Location is off — showing neighbourhoods" : nearby.status === "unavailable" ? "This device cannot give a position" : "Use my location"}</button>}
     </fieldset>
 
-    <fieldset className="spare-set priority-set"><legend className="section-label">NEXT STOP</legend>
+    <fieldset className="spare-set priority-set"><legend className="section-label">Next stop</legend>
       <div className="choice-row">{ENDS.map((end) => <label className="choice choice--seg" key={end.value}><input type="radio" name="spare-end" value={end.value} checked={endsAt === end.value} onChange={() => setEndsAt(end.value)} /><span><b>{end.label}</b></span><i className="choice-check"><IconCheck /></i></label>)}</div>
       <small className="quiet-note">Trail is not told which hotel, only that it is one.</small>
     </fieldset>
 
     <form className="spare-say" onSubmit={(event) => { event.preventDefault(); acceptPrefill(); }}>
-      <label className="section-label" htmlFor="spare-text">OR JUST SAY IT</label>
+      <label className="section-label" htmlFor="spare-text">In your own words</label>
       <input id="spare-text" value={text} onChange={(event) => setText(event.target.value)} placeholder="An hour free around here, back at the hotel after" />
     </form>
-    {hasPrefill(prefill) && <div className="suggestion-chip"><span><small>I UNDERSTOOD</small><b>{describePrefill(prefill, chipLabel).join(" · ")}</b></span><button type="button" onClick={acceptPrefill}>Use this</button><button type="button" className="ghost" onClick={() => setText("")} aria-label="Dismiss"><IconClose /></button></div>}
+    {hasPrefill(prefill) && <div className="suggestion-chip"><span><small>What Trail heard</small><b>{describePrefill(prefill, chipLabel).join(" · ")}</b></span><button type="button" onClick={acceptPrefill}>Use this</button><button type="button" className="ghost" onClick={() => setText("")} aria-label="Dismiss"><IconClose /></button></div>}
 
     {banner && <div className="offline-note"><b>{banner.title}</b><span>{banner.body}</span></div>}
 
     <section aria-labelledby="spare-results">
-      <div className="profile-section-label"><b id="spare-results">WHAT FITS THIS WINDOW</b><span>{area || trip.city}</span></div>
+      <div className="profile-section-label"><b id="spare-results">What fits this window</b><span>{area || trip.city}</span></div>
       <p className="quiet-note">{WALK_NOTE}{nearby.point ? ` ${ROUND_TRIP_NOTE}` : ""}</p>
       <ul className="store-grid spare-results" aria-live="polite">
         {feed.loading

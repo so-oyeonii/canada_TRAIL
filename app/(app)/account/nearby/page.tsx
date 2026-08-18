@@ -62,7 +62,7 @@ export default function NearbyAlertsPage() {
     {alerts.enabled && <p className="nearby-note">{alerts.hasPosition ? "Trail is reading your position on this screen. It stops the moment you switch away, and it is not written down anywhere." : "Trail is not reading your position yet. It asks the first time you tap for walking times, and only then."}</p>}
     {alerts.refusal && <p className="nearby-note">{refusalCopy[alerts.refusal]}</p>}
 
-    <div className="profile-section-label"><b>THE LIMITS</b><span>Why it stays quiet</span></div>
+    <div className="profile-section-label"><b>The limits</b><span>Why it stays quiet</span></div>
     <ul className="nearby-limits">
       <li><span>A day</span><b>{DAILY_CAP}, or {SAMPLE_DAILY_CAP} while the shop list is sample data</b></li>
       <li><span>Between alerts</span><b>{COOLDOWN_MS / 60_000} minutes</b></li>
@@ -71,7 +71,7 @@ export default function NearbyAlertsPage() {
       <li><span>Quiet hours</span><b>{clock(QUIET_FROM_HOUR)} to {clock(QUIET_UNTIL_HOUR)} where you are</b></li>
     </ul>
 
-    <div className="profile-section-label"><b>NOTIFICATIONS</b><span>The small half</span></div>
+    <div className="profile-section-label"><b>Notifications</b><span>The small half</span></div>
     {/* Feature-detected rather than assumed: `window.Notification` does not exist in a
         normal iOS Safari tab, only in a web app added to the Home Screen. And the prompt
         is behind this button — never on the way into a screen. */}
@@ -84,11 +84,11 @@ export default function NearbyAlertsPage() {
           : "Trail can also raise a notification when you are looking at another tab. It cannot raise one after you close Trail."}</p>
     {permission === "default" && <button type="button" className="back-to-chat" onClick={() => void ask()}>Allow notifications</button>}
 
-    <div className="profile-section-label"><b>WHAT TRAIL KEEPS</b><span>On this device only</span></div>
+    <div className="profile-section-label"><b>What Trail keeps</b><span>On this device only</span></div>
     <p className="nearby-note">One line per shop you have been told about, so the same shop is not mentioned twice on one trip. It holds shop names and times, and nothing else.</p>
     <button type="button" className="back-to-chat" onClick={() => { alerts.forget(); notify("Trail forgot which shops it has mentioned"); }}>Forget what I&rsquo;ve been alerted about</button>
 
-    <div className="profile-section-label"><b>WHAT TRAIL NEVER KEEPS</b><span>Not a setting — there is no route to send it to</span></div>
+    <div className="profile-section-label"><b>What Trail never keeps</b><span>Not a setting — there is no route to send it to</span></div>
     <ul className="nearby-never">
       <li>Your coordinates. Not on the server, not in this browser&rsquo;s storage, not in a request.</li>
       <li>Anything worked out from them — distances, walking times, where you have been.</li>

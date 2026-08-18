@@ -40,7 +40,7 @@ export default function ChipChat({ email }: { email: string }) {
     <header className="app-header"><Brand /><div className="header-action"><span className={`badge ${draft.complete ? "badge--done" : ""}`}>{draft.complete ? "Ready" : `${TRIP_SCRIPT.filter((s) => s.required && !draft.canAnswer(s.id)).length} to go`}</span></div></header>
     <h1 className="visually-hidden">Set up your first trip</h1>
     {context && <p className="ask-context">{context}</p>}
-    <div className="onboarding-progress" role="progressbar" aria-label="Trip setup" aria-valuemin={0} aria-valuemax={TRIP_SCRIPT.length} aria-valuenow={Math.min(step, TRIP_SCRIPT.length)} aria-valuetext={`Question ${Math.min(step + 1, TRIP_SCRIPT.length)} of ${TRIP_SCRIPT.length}`}><i style={{ width: `${(Math.min(step, TRIP_SCRIPT.length) / TRIP_SCRIPT.length) * 100}%` }} /></div>
+    <div className="onboarding-progress" role="progressbar" aria-label="Trip setup" aria-valuemin={0} aria-valuemax={TRIP_SCRIPT.length} aria-valuenow={Math.min(step, TRIP_SCRIPT.length)} aria-valuetext={`Question ${Math.min(step + 1, TRIP_SCRIPT.length)} of ${TRIP_SCRIPT.length}`}><i style={{ transform: `scaleX(${Math.min(step, TRIP_SCRIPT.length) / TRIP_SCRIPT.length})` }} /></div>
 
     <div className="messages" role="log" aria-live="polite">
       {TRIP_SCRIPT.slice(0, Math.min(step, TRIP_SCRIPT.length) + (done ? 0 : 1)).map((entry, index) => <div key={entry.id}>

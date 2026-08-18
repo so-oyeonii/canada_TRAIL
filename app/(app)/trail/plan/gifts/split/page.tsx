@@ -133,7 +133,7 @@ export default function PeopleLens() {
   };
 
   return <>
-    <div className="result-title"><p>WHO THIS TRIP IS FOR</p><h1>Divide the<br /><em>shopping budget.</em></h1><span>Only the planned bucket can be divided. The delivery reserve is held back for your bags, and the flexible bucket needs your approval before anything touches it.</span></div>
+    <div className="result-title"><p>Who this trip is for</p><h1>Divide the<br /><em>shopping budget.</em></h1><span>Only the planned bucket can be divided. The delivery reserve is held back for your bags, and the flexible bucket needs your approval before anything touches it.</span></div>
 
     {pendingBudgetChange && <div className="budget-warning" role="status"><b>A budget change is waiting for you</b><span>{pendingBudgetChange.reason}</span><button onClick={() => router.push("/trail/plan/approval")}>Review it <span aria-hidden="true">→</span></button></div>}
 
@@ -147,7 +147,7 @@ export default function PeopleLens() {
     <div className="recipient-list">{recipients.map((person) => <article key={person.id}>
       <div className="recipient-head"><i><IconPeople /></i><span><b>{person.name}{person.isSelf ? " (you)" : ""}</b><small>{[person.relationship, person.groupSize > 1 ? `group of ${person.groupSize}` : "", person.equalValueGroup ? `equal value: ${person.equalValueGroup}` : ""].filter(Boolean).join(" · ") || "No details yet"}</small></span><button type="button" onClick={() => void archive(person)} disabled={busy} aria-label={`Remove ${person.name} from this trip`}>Remove</button></div>
       {person.preferenceNote && <p className="recipient-note">{person.preferenceNote}</p>}
-      <fieldset className="priority-set"><legend className="section-label">IF MONEY RUNS SHORT{marking === person.id && <span className="badge badge--pending">SAVING</span>}</legend>
+      <fieldset className="priority-set"><legend className="section-label">If money runs short{marking === person.id && <span className="badge badge--pending">SAVING</span>}</legend>
         <div className="choice-row">{TIERS.map((tier) => <label className="choice choice--seg" key={tier}><input type="radio" name={`prio-${person.id}`} value={tier} checked={tierFor(person) === tier} onChange={() => void setTier(person, tier)} /><span><b>{TIER_LABEL[tier]}</b></span><i className="choice-check"><IconCheck /></i></label>)}</div>
       </fieldset>
       {markFailed[person.id] === "offline" && <div className="notice notice--offline" role="alert"><IconAlert /><b>You are offline.</b><p>That mark was not saved.</p></div>}
@@ -177,7 +177,7 @@ export default function PeopleLens() {
       : <p className="quiet-note">This plan is approved, so the split is fixed. Changing it is a budget change.</p>}
 
     {adding
-      ? <section className="area-planner"><header><span><small>ADD SOMEONE</small><b>Who else are you shopping for?</b></span></header>
+      ? <section className="area-planner"><header><span><small>Add someone</small><b>Who else are you shopping for?</b></span></header>
           <label className="stacked"><small>NAME</small><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Mom" autoFocus /></label>
           <label className="stacked"><small>RELATIONSHIP</small><input value={relationship} onChange={(e) => setRelationship(e.target.value)} placeholder="Mother" /></label>
           <label className="stacked"><small>HOW MANY PEOPLE</small><input type="number" min={1} max={30} value={groupSize} onChange={(e) => setGroupSize(Math.max(1, Math.min(30, Number(e.target.value) || 1)))} /></label>

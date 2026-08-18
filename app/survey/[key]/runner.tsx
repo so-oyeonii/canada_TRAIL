@@ -136,7 +136,7 @@ export default function SurveyRunner({ survey }: { survey: Survey }) {
 
   return <Frame survey={survey}>
     <div className="sv-progress" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label="진행률">
-      <i style={{ width: `${progress}%` }} />
+      <i style={{ transform: `scaleX(${progress / 100})` }} />
     </div>
     <p className="sv-step">{index + 1} / {survey.sections.length}</p>
 
@@ -160,7 +160,7 @@ export default function SurveyRunner({ survey }: { survey: Survey }) {
 }
 
 function Frame({ survey, children }: { survey: Survey; children: React.ReactNode }) {
-  return <div className="sv-shell"><main className="sv-main">
+  return <div className="sv-shell" lang="ko"><main className="sv-main">
     <header className="sv-head"><b>TRAIL</b><span>{survey.title}</span></header>
     {children}
   </main></div>;

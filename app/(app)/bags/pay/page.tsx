@@ -93,7 +93,7 @@ function PayScreen() {
       <button className="back-to-chat" onClick={() => { setStatus("idle"); setFailure(""); setPayMethod(""); router.replace("/bags/pay"); }}>Use another payment method</button>
       <button className="refund-button" onClick={() => { setStatus("idle"); setFailure(""); router.push("/bags/review"); }}>Back to the delivery</button>
     </> : <>
-      <div className="pay-amount"><small>SAME-DAY DELIVERY · {selectedBagCount || bagCount} {(selectedBagCount || bagCount) === 1 ? "BAG" : "BAGS"}</small><b>{priceExact(feeCents, transfer.currency || currency)}</b><h1 className="visually-hidden">Pay for hotel delivery</h1><em>{transfer.dropoffStore?.name ?? "Drop-off counter"} → {trip.hotelName || "your hotel"}</em><em>{etaLabel(transfer.etaStart, transfer.etaEnd)}</em></div>
+      <div className="pay-amount"><small>Hotel delivery · {selectedBagCount || bagCount} {(selectedBagCount || bagCount) === 1 ? "bag" : "bags"}</small><b>{priceExact(feeCents, transfer.currency || currency)}</b><h1 className="visually-hidden">Pay for hotel delivery</h1><em>{transfer.dropoffStore?.name ?? "Drop-off counter"} → {trip.hotelName || "your hotel"}</em><em>{etaLabel(transfer.etaStart, transfer.etaEnd)}</em></div>
       {blockCode && <Blocked code={blockCode} detail={eligibility?.detail} remedies={eligibility?.remedies} onRemedy={remedy}
         labels={blockCode === "reserve_short" ? { approve_flexible: flexibleRemedyLabel(shortCents, wallet.flexibleCents, currency) } : undefined}
         blocked={blockCode === "reserve_short" && !coverable ? ["approve_flexible"] : undefined}

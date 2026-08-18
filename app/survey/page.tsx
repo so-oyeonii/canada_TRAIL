@@ -30,7 +30,7 @@ async function storageReady(): Promise<boolean> {
 
 export default async function SurveyIndex() {
   const ready = await storageReady();
-  return <div className="sv-shell"><main className="sv-main">
+  return <div className="sv-shell" lang="ko"><main className="sv-main">
     <header className="sv-head"><b>TRAIL</b><span>설문</span></header>
 
     {!ready && <p className="sv-blocked" role="alert">

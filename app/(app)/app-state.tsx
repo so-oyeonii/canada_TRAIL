@@ -63,10 +63,15 @@ export type TripEdit = Partial<{ country: string; city: string; areas: string[];
  *  only) and `4242` is gone: it is a Stripe test number, and printing it claims a
  *  card Trail has never seen. What a tap here actually records is `payments.method_brand`. */
 export const payMethods = [{ id: "apple", label: "Apple Pay (simulated)", detail: "No card details are taken", mark: "" }, { id: "visa", label: "Sample card", detail: "Nothing is stored — Trail has never seen a card number", mark: "S" }, { id: "other", label: "Another card", detail: "Add at the partner point", mark: "+" }];
-export const starters = [
+/** `href` instead of `prompt` means the tap opens a screen rather than spending a turn.
+ *  `I've got an hour spare` is answered entirely by the catalogue, the walk and the
+ *  drop-off cut-off, so sending it to the model would buy a round trip and a chance to
+ *  hallucinate in exchange for nothing. */
+export const starters: { icon: string; title: string; prompt: string; href?: string }[] = [
   { icon: "M", title: "A gift for my mom", prompt: "I want a thoughtful local gift for my mom under CAD 80." },
   { icon: "F", title: "Two equal gifts", prompt: "I need two different but equal-value gifts for my friends." },
   { icon: "T", title: "Treats for my team", prompt: "I need something easy to share with my 12-person lab team." },
+  { icon: "H", title: "I've got an hour spare", prompt: "Show me what fits the time I have left.", href: "/trail/spare" },
 ];
 export const initialBrief: Brief = { recipient: "My mom", quantity: 1, category: "Home & design", budget: 80, preference: "Thoughtful and useful", localOnly: true, easyPack: true, hotelDelivery: true };
 /** The opening line, with the city in it. Written by the client, not by a model turn: it costs a

@@ -1,4 +1,4 @@
-import { briefContext, composeTurn, emptyReply, inferPlanPatch, sanitizeBriefPatch, tripCurrency, FALLBACK_REPLY, SYSTEM_PROMPT, TURN_SCHEMA, type ChatErrorCode, type ChatReply, type ChatTurn, type KnownRecipient, type ModelTurn, type Plan, type PlanPatch, type TripContext, type TurnContext } from "../../trail-brief";
+import { briefContext, composeTurn, emptyReply, inferPlanPatch, sanitizeBriefPatch, sanitizeWindow, tripCurrency, FALLBACK_REPLY, SYSTEM_PROMPT, TURN_SCHEMA, type ChatErrorCode, type ChatReply, type ChatTurn, type KnownRecipient, type ModelTurn, type Plan, type PlanPatch, type TripContext, type TurnContext } from "../../trail-brief";
 
 import { getTraveler } from "../../../lib/supabase/server";
 
@@ -14,7 +14,7 @@ const RATE_LIMIT = 12;
 
 /** The client still owns the brief until T3 wires `GET /api/state` into this route. Everything it
  *  sends is treated as untrusted input and re-derived through the sanitizers before it is used. */
-type ChatPayload = { message?: string; plan?: Plan; trip?: TripContext; history?: ChatTurn[]; recipients?: KnownRecipient[]; plannedUnits?: number; unallocatedUnits?: number; planApproved?: boolean; hasPurchases?: boolean; preferenceTags?: unknown; routeTag?: unknown; missingFields?: unknown };
+type ChatPayload = { message?: string; plan?: Plan; trip?: TripContext; history?: ChatTurn[]; recipients?: KnownRecipient[]; plannedUnits?: number; unallocatedUnits?: number; planApproved?: boolean; hasPurchases?: boolean; preferenceTags?: unknown; routeTag?: unknown; missingFields?: unknown; window?: unknown };
 
 /** What still has to be answered before a plan can be built. The client is the only side that knows
  *  about the hotel — the name never leaves the browser, so "hotel" as a *word* is the most the
@@ -74,6 +74,11 @@ function buildContext(payload: ChatPayload): TurnContext {
     planApproved: !!payload.planApproved,
     hasPurchases: !!payload.hasPurchases,
     missingFields: [...new Set([...declared, ...derived])],
+    // The spare-time window arrives from a client, so it goes through the same door every
+    // other client value does. `sanitizeWindow` drops the whole thing on an unknown size and
+    // keeps `area` only when the trip already listed it — that check is why a destination
+    // cannot become a hotel name and an area cannot become a place the model has not heard of.
+    ...(payload.window ? { window: sanitizeWindow(payload.window, trip?.areas ?? []) ?? undefined } : {}),
   };
 }
 

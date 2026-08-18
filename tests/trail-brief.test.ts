@@ -122,6 +122,16 @@ test("an injection dressed as a recipient label stays a label and moves nothing"
   assert.equal(/confirmed|booked/i.test(reply.reply), false);
 });
 
+test("a window rides in the brief block without putting a number in it", () => {
+  // N2. The window is read by the model and written by nothing; `trail-spare-context` owns
+  // the detail. This is the line in the brief contract itself: a clause was added and the
+  // block still carries no minutes, no clock and no hotel.
+  const block = briefContext({ ...ctx, window: { size: "about_an_hour", area: "Kensington Market", endsAt: "hotel", cutoffState: "passed" } });
+  assert.equal(block.includes('"size":"about_an_hour"'), true);
+  assert.equal(/"minutes|:\s*60|18:00/.test(block), false);
+  assert.equal(block.includes("Drake"), false);
+});
+
 test("the dead `time` field is gone from every contract surface", () => {
   assert.equal(PLAN_KEYS.includes("time" as never), false);
   assert.equal(JSON.stringify(TURN_SCHEMA).includes('"time"'), false);

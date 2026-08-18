@@ -45,3 +45,8 @@
 
 @keyframes tile-pulse{0%,100%{opacity:1}50%{opacity:.55}}
 @media(prefers-reduced-motion:reduce){.reco-rail .is-loading .tile-art,.store-grid .is-loading .tile-art{animation:none;opacity:.8}}
+
+/* N2's entry points sit on Home and the Map lens, which do not import `spare.css` — this
+   file is loaded by the root layout, so the link is styled wherever it is dropped. One
+   rule, so both of those screens gained a line of markup and nothing else. */
+.spare-entry{display:inline-flex;align-items:center;margin:0 0 var(--sp-3);padding-inline:0;text-decoration:none}

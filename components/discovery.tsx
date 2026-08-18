@@ -38,13 +38,19 @@ export function SourceBadge({ source, note }: { source: DataSource; note?: strin
  *  planned. Not to the map: this row is a suggestion from the city's catalogue and is not
  *  a stop on anybody's route, and a link that implies otherwise is the card claiming to be
  *  something it is not. `href="#"` is never rendered here for the same reason. */
-export function ProductCard({ product }: { product: Recommendation }) {
+/** `note` is the one slot N2 added, and it is deliberately a finished string rather than a
+ *  set of fields. The spare-time screen puts a band label and a walking figure in it
+ *  (`Time to browse · 8 min walk`); everything that decided those words happened in
+ *  `lib/discovery/window.ts`, where a test can read them. A card that computed its own
+ *  would be a second opinion about how long something takes. */
+export function ProductCard({ product, note }: { product: Recommendation; note?: string }) {
   const amount = priceLabel(product.priceCents, product.currency);
   return <li>
-    <Link href="/trail/plan/gifts" aria-label={`${product.name}${product.store ? ` at ${product.store.name}` : ""}, ${product.priceIsEstimate ? "about " : ""}${amount}. Plan a gift.`}>
+    <Link href="/trail/plan/gifts" aria-label={`${product.name}${product.store ? ` at ${product.store.name}` : ""}, ${product.priceIsEstimate ? "about " : ""}${amount}.${note ? ` ${note}.` : ""} Plan a gift.`}>
       <Tile seed={`${product.id}:${product.name}`} />
       <b>{product.name}</b>
       <em>{product.priceIsEstimate ? `≈ ${amount}` : amount}</em>
+      {note && <small>{note}</small>}
       <SourceBadge source={product.source} note={product.sourceNote} />
     </Link>
   </li>;

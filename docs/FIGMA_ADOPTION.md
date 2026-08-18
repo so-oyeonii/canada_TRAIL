@@ -132,6 +132,8 @@
 | `0027` | `trip_members` + `trip_invites` — 2단계 공동 편집 | G6 |
 | `0028` | 기존 15개 테이블 정책 재작성 — 2단계 | G6 |
 | `0029` | `actor_user_id` + `approve_budget_change` 재정의 — 2단계 | G6 |
+| — | **N3 — 마이그레이션 없음.** `recipients.priority`·`is_optional`은 `0001`에 이미 있고 `recipients`에는 컬럼 GRANT가 없다 | N3 |
+| — | **N2 — 마이그레이션 없음.** 창(window)은 세션 값이라 저장하면 5분 뒤 거짓인 행이 된다. 쿼리 확장 1건(`RECOMMENDATION_SELECT`에 `stores.timezone`, `store_hours` 조인)뿐이고 컬럼은 늘지 않는다 | N2 |
 
 **기각된 것** — `payment_methods`와 사진 노출. 저장된 카드가 없으므로 테이블은 존재하지 않는
 카드를 서술하는 행이 되고, 25프레임 어디에도 가방 사진이 없다. 번호를 배정하지 않는다.

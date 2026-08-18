@@ -65,6 +65,16 @@ test("a recommendation carries its own source, and one live row does not relabel
   assert.ok(sample.sourceNote.includes("not quoted by the store"), "the chip has to be explainable");
 });
 
+test("a shop with no opening hours says nothing, which is not the same as `closed`", () => {
+  // N2 widened the select rather than adding a column. `openNow` is three-valued because
+  // the two negatives are different claims: `isOpenNow` reads "no row for today" as shut,
+  // and this null means Trail has never been told this shop's hours at all.
+  assert.equal(shapeRecommendation(productRow()).store?.openNow, null, "with no reader, nothing is claimed");
+  assert.equal(shapeRecommendation(productRow(), () => null).store?.openNow, null);
+  assert.equal(shapeRecommendation(productRow(), () => true).store?.openNow, true);
+  assert.equal(shapeRecommendation(productRow(), () => false).store?.openNow, false);
+});
+
 test("stores are derived from the feed, deduplicated, and keep their coordinates", () => {
   const stores = storesOf([shapeRecommendation(productRow()), shapeRecommendation(productRow({ id: "p-3" }))]);
   assert.equal(stores.length, 1, "one shop with two products is one card");

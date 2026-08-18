@@ -56,6 +56,10 @@ export default function HomePage() {
               a form, so the label says where the shopping is rather than where the phone is. */}
           <div className="home-place"><i><IconPin /></i><span><small>SHOPPING IN</small><b>{trip.city}{trip.country ? `, ${trip.country}` : ""}</b></span>{trip.hotelName && <em>{trip.hotelName}</em>}</div>
 
+          {/* N2's first entry point, and one line of this file: the traveller who has a
+              gap is standing in the city this card names. */}
+          <Link className="text-action spare-entry" href="/trail/spare">I have some time &rarr;</Link>
+
           <div className="profile-section-label"><b>CURRENT</b><span>{day ? `Day ${day.n} of ${day.of}` : trip.status === "planning" ? "Not started yet" : "Dates not set"}</span></div>
           <Link className="plan-row" href={continueHref(app)}><span><b>{app.shoppingStarted ? `Continue ${trip.city} Trail` : app.stops.length ? "Open" : "Plan shopping"}</b><small>{app.shoppingStarted ? "Today’s route, your budget and your bags" : app.stops.length ? `Your plan for ${trip.city}` : "Tell Trail who you are shopping for"}</small></span><IconArrow /></Link>
           <Link className="plan-row" href="/ask"><span><b>Plan with AI</b><small>Plan · What to buy · Where to buy</small></span><IconSpark /></Link>

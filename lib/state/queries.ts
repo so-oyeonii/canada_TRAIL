@@ -97,7 +97,7 @@ export const TRIP_SPEND_SELECT = "trip_id, purchase_count, spent_cents, bag_coun
 export const RECOMMENDATION_SELECT = `
   id, name, subtitle, category, price_cents, price_is_estimate, currency, handling, weight_grams,
   preference_tags, source, source_note,
-  store:stores!products_store_id_fkey ( id, name, area, address, lat, lng )
+  store:stores!products_store_id_fkey ( id, name, area, address, lat, lng, timezone )
 `;
 
 /** A column or relationship the database does not have yet. Anything else is a

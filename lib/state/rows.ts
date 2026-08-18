@@ -50,5 +50,5 @@ export type TripListRow = { id: string; status: TripStatus; city: string; countr
 export type TripSpendRow = { trip_id: string; purchase_count: number; spent_cents: number; bag_count: number; budget_cents: number | null; plan_status: PlanStatus | null };
 
 /** `GET /api/recommendations`, straight off `products` with its store embedded. */
-export type ProductStoreRow = { id: string; name: string; area: string; address: string; lat: number | null; lng: number | null };
+export type ProductStoreRow = { id: string; name: string; area: string; address: string; lat: number | null; lng: number | null; timezone?: string | null };
 export type ProductRow = { id: string; name: string; subtitle: string | null; category: string; price_cents: number; price_is_estimate: boolean | null; currency: string; handling: Handling; weight_grams: number | null; preference_tags: string[] | null; source: DataSource; source_note: string | null; store: ProductStoreRow | null };

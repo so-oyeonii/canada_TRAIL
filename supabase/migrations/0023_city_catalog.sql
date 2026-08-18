@@ -100,23 +100,23 @@ select s.id, 'Toronto', v.name, v.subtitle, v.category, v.price_cents, 'CAD', v.
        'Public storefront listing, Aug 2026. Price estimated by Trail; not quoted by the store.',
        'sample'::public.data_source
 from (values
-  ('Toronto prints, boxed flat',        'Kid Icarus',          'Art & stationery', 3800,  'Fragile',  600,  10, '{local,handmade,not_touristy,easy_to_pack,keepsake}'),
-  ('Letterpress card set',              'Kid Icarus',          'Art & stationery', 2200,  'Standard', 200,  20, '{local,handmade,easy_to_pack,budget_friendly}'),
-  ('Hand-printed tote',                 'Kid Icarus',          'Art & stationery', 3200,  'Standard', 300,  30, '{local,handmade,useful,easy_to_pack}'),
-  ('Ontario-made ceramic mug',          'Bergo Designs',       'Home & design',    5800,  'Fragile',  700,  40, '{local,handmade,useful,keepsake}'),
-  ('Small stoneware serving dish',      'Bergo Designs',       'Home & design',    7400,  'Fragile',  900,  50, '{local,handmade,keepsake}'),
-  ('Enamel kitchen utensil',            'Bergo Designs',       'Home & design',    2600,  'Standard', 250,  60, '{useful,easy_to_pack,budget_friendly}'),
-  ('Folding travel candle',             'Bergo Designs',       'Home & design',    4200,  'Standard', 400,  70, '{easy_to_pack,keepsake}'),
-  ('Toronto-designed pin set',          'Spacing Store',       'Art & stationery', 1800,  'Standard', 90,   80, '{local,not_touristy,easy_to_pack,budget_friendly}'),
-  ('Transit map notebook',              'Spacing Store',       'Art & stationery', 2400,  'Standard', 320,  90, '{local,useful,easy_to_pack,budget_friendly}'),
-  ('City neighbourhood print',          'Spacing Store',       'Art & stationery', 4400,  'Fragile',  500,  100, '{local,not_touristy,keepsake}'),
-  ('Ontario maple syrup, small tin',    'Blue Banana Market',  'Food & treats',    2100,  'Standard', 550,  110, '{local,edible,easy_to_pack,budget_friendly}'),
-  ('Local roaster coffee beans',        'Blue Banana Market',  'Food & treats',    2300,  'Standard', 340,  120, '{local,edible,not_touristy,easy_to_pack}'),
-  ('Ontario honey, jar',                'Blue Banana Market',  'Food & treats',    1600,  'Fragile',  500,  130, '{local,edible,budget_friendly}'),
-  ('Woven market basket',               'Blue Banana Market',  'Home & design',    4900,  'Standard', 800,  140, '{local,handmade,useful,not_touristy}'),
-  ('Canadian-made wool scarf',          'Drake General Store', 'Home & design',    6800,  'Standard', 350,  150, '{local,useful,easy_to_pack,keepsake}'),
-  ('Souvenir sweatshirt, city name',    'Drake General Store', 'Home & design',    9200,  'Standard', 700,  160, '{easy_to_pack,useful}')
-) as v(name, store_name, category, price_cents, handling, weight_grams, sort_order, preference_tags)
+  ('Toronto prints, boxed flat',        'Flat box, cabin-safe',      'Kid Icarus',          'Art & stationery', 3800,  'Fragile',  600,  10, '{local,handmade,not_touristy,easy_to_pack,keepsake}'),
+  ('Letterpress card set',              'Small paper gift',          'Kid Icarus',          'Art & stationery', 2200,  'Standard', 200,  20, '{local,handmade,easy_to_pack,budget_friendly}'),
+  ('Hand-printed tote',                 'Folds into a bag',          'Kid Icarus',          'Art & stationery', 3200,  'Standard', 300,  30, '{local,handmade,useful,easy_to_pack}'),
+  ('Ontario-made ceramic mug',          'Needs wrapping',            'Bergo Designs',       'Home & design',    5800,  'Fragile',  700,  40, '{local,handmade,useful,keepsake}'),
+  ('Small stoneware serving dish',      'Heavy for its size',        'Bergo Designs',       'Home & design',    7400,  'Fragile',  900,  50, '{local,handmade,keepsake}'),
+  ('Enamel kitchen utensil',            'Everyday kitchen gift',     'Bergo Designs',       'Home & design',    2600,  'Standard', 250,  60, '{useful,easy_to_pack,budget_friendly}'),
+  ('Folding travel candle',             'Travel-sized',              'Bergo Designs',       'Home & design',    4200,  'Standard', 400,  70, '{easy_to_pack,keepsake}'),
+  ('Toronto-designed pin set',          'Pocket-sized keepsake',     'Spacing Store',       'Art & stationery', 1800,  'Standard', 90,   80, '{local,not_touristy,easy_to_pack,budget_friendly}'),
+  ('Transit map notebook',              'Useful on the trip too',    'Spacing Store',       'Art & stationery', 2400,  'Standard', 320,  90, '{local,useful,easy_to_pack,budget_friendly}'),
+  ('City neighbourhood print',          'Frame it at home',          'Spacing Store',       'Art & stationery', 4400,  'Fragile',  500,  100, '{local,not_touristy,keepsake}'),
+  ('Ontario maple syrup, small tin',    'Sealed tin, checked bag',   'Blue Banana Market',  'Food & treats',    2100,  'Standard', 550,  110, '{local,edible,easy_to_pack,budget_friendly}'),
+  ('Local roaster coffee beans',        'Whole bean or ground',      'Blue Banana Market',  'Food & treats',    2300,  'Standard', 340,  120, '{local,edible,not_touristy,easy_to_pack}'),
+  ('Ontario honey, jar',                'Glass jar, wrap it',        'Blue Banana Market',  'Food & treats',    1600,  'Fragile',  500,  130, '{local,edible,budget_friendly}'),
+  ('Woven market basket',               'Bulky, packs empty',        'Blue Banana Market',  'Home & design',    4900,  'Standard', 800,  140, '{local,handmade,useful,not_touristy}'),
+  ('Canadian-made wool scarf',          'Light, packs small',        'Drake General Store', 'Home & design',    6800,  'Standard', 350,  150, '{local,useful,easy_to_pack,keepsake}'),
+  ('Souvenir sweatshirt, city name',    'Sizes vary by shop',        'Drake General Store', 'Home & design',    9200,  'Standard', 700,  160, '{easy_to_pack,useful}')
+) as v(name, subtitle, store_name, category, price_cents, handling, weight_grams, sort_order, preference_tags)
 join public.stores s on s.city = 'Toronto' and s.name = v.store_name
 on conflict (city, name) do nothing;
 

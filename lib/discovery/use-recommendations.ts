@@ -17,27 +17,37 @@
 import { useEffect, useState } from "react";
 import type { Recommendation } from "../state/types";
 
-type Answer = { city: string; products: Recommendation[]; error: "offline" | "unavailable" | null };
+type Answer = { key: string; products: Recommendation[]; error: "offline" | "unavailable" | null };
 export type Feed = { products: Recommendation[]; loading: boolean; error: "offline" | "unavailable" | null };
+/** Narrowing, not locating. `area` is a neighbourhood the traveller tapped from a closed
+ *  list and `open` is a filter on the shops' own hours — neither is a coordinate, and the
+ *  route still refuses to take one (N2). */
+export type FeedFilter = { area?: string | null; open?: boolean };
 
-export function useRecommendations(city: string | null, limit = 12): Feed {
+export function useRecommendations(city: string | null, limit = 12, filter: FeedFilter = {}): Feed {
   const [answer, setAnswer] = useState<Answer | null>(null);
+  const area = filter.area ?? "";
+  const open = filter.open ? "1" : "";
+  // One string identifies the answer, so a city change and an area change cannot race each
+  // other into a feed that belongs to neither.
+  const key = `${city ?? ""}|${area}|${open}|${limit}`;
 
   useEffect(() => {
     if (!city) return;
     let live = true;
-    fetch(`/api/recommendations?city=${encodeURIComponent(city)}&limit=${limit}`, { credentials: "same-origin", headers: { accept: "application/json" } })
+    const query = `city=${encodeURIComponent(city)}&limit=${limit}${area ? `&area=${encodeURIComponent(area)}` : ""}${open ? "&open=1" : ""}`;
+    fetch(`/api/recommendations?${query}`, { credentials: "same-origin", headers: { accept: "application/json" } })
       .then(async (res) => {
         if (!live) return;
-        if (!res.ok) { setAnswer({ city, products: [], error: "unavailable" }); return; }
+        if (!res.ok) { setAnswer({ key, products: [], error: "unavailable" }); return; }
         const body = (await res.json()) as { products?: Recommendation[] };
-        if (live) setAnswer({ city, products: body.products ?? [], error: null });
+        if (live) setAnswer({ key, products: body.products ?? [], error: null });
       })
-      .catch(() => { if (live) setAnswer({ city, products: [], error: "offline" }); });
+      .catch(() => { if (live) setAnswer({ key, products: [], error: "offline" }); });
     return () => { live = false; };
-  }, [city, limit]);
+  }, [city, limit, area, open, key]);
 
-  const current = answer && answer.city === city ? answer : null;
+  const current = answer && answer.key === key ? answer : null;
   return { products: current?.products ?? [], loading: Boolean(city) && !current, error: current?.error ?? null };
 }
 

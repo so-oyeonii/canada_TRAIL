@@ -156,8 +156,8 @@ export function shapeTripSummary(row: TripListRow, spend?: TripSpendRow | null):
 
 /** The row's own `source` travels through untouched. The label is built at the card, per
  *  card, so one row turning `live` cannot leave a section header claiming otherwise. */
-export function shapeRecommendation(row: ProductRow): Recommendation {
-  return { id: row.id, name: row.name, subtitle: row.subtitle ?? "", category: row.category, priceCents: row.price_cents, priceIsEstimate: row.price_is_estimate ?? true, currency: row.currency, handling: row.handling, weightGrams: row.weight_grams, preferenceTags: row.preference_tags ?? [], source: row.source, sourceNote: row.source_note ?? "", store: row.store ? { id: row.store.id, name: row.store.name, area: row.store.area, address: row.store.address, lat: row.store.lat, lng: row.store.lng } : null };
+export function shapeRecommendation(row: ProductRow, openNow?: (storeId: string) => boolean | null): Recommendation {
+  return { id: row.id, name: row.name, subtitle: row.subtitle ?? "", category: row.category, priceCents: row.price_cents, priceIsEstimate: row.price_is_estimate ?? true, currency: row.currency, handling: row.handling, weightGrams: row.weight_grams, preferenceTags: row.preference_tags ?? [], source: row.source, sourceNote: row.source_note ?? "", store: row.store ? { id: row.store.id, name: row.store.name, area: row.store.area, address: row.store.address, lat: row.store.lat, lng: row.store.lng, openNow: openNow ? openNow(row.store.id) : null } : null };
 }
 
 /** Constitution 5: the delivery reserve is displayed, never added to what can be

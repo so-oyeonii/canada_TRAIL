@@ -2,6 +2,7 @@ import { createClient, getTraveler } from "@/lib/supabase/server";
 import { json } from "@/lib/api/http";
 import { RECOMMENDATION_SELECT } from "@/lib/state/queries";
 import { shapeRecommendation } from "@/lib/state/shape";
+import { isOpenNow } from "@/lib/transfers/clock";
 import { resolveTripId } from "@/lib/transfers/context";
 import type { ProductRow } from "@/lib/state/rows";
 
@@ -25,6 +26,8 @@ export const dynamic = "force-dynamic";
 
 const MAX_LIMIT = 24;
 
+type HoursRow = { store_id: string; weekday: number; opens: string; closes: string };
+
 export async function GET(request: Request) {
   const traveler = await getTraveler();
   if (!traveler) return json({ error: "unauthenticated" }, 401);
@@ -33,6 +36,11 @@ export async function GET(request: Request) {
   const asked = (params.get("city") ?? "").slice(0, 80).trim();
   const limitRaw = Number(params.get("limit") ?? "12");
   const limit = Number.isFinite(limitRaw) ? Math.min(MAX_LIMIT, Math.max(1, Math.floor(limitRaw))) : 12;
+  // A neighbourhood and an open/closed filter, and still not one coordinate. `?area=` is
+  // matched against the shops' own `area` column, so it narrows a public catalogue rather
+  // than saying anything about where the traveller is standing.
+  const area = (params.get("area") ?? "").slice(0, 80).trim();
+  const openOnly = params.get("open") === "1";
 
   const db = await createClient();
   let city = asked;
@@ -50,6 +58,23 @@ export async function GET(request: Request) {
     return json({ error: "catalogue_unavailable", detail: rows.error.message }, 500);
   }
 
-  const products = ((rows.data ?? []) as unknown as ProductRow[]).map(shapeRecommendation);
-  return Response.json({ city, products }, { status: 200, headers: { "Cache-Control": "private, max-age=300" } });
+  const all = (rows.data ?? []) as unknown as ProductRow[];
+  const scoped = area ? all.filter((row) => (row.store?.area ?? "").toLowerCase() === area.toLowerCase()) : all;
+
+  // Opening hours are read the same way `/api/dropoff-points` reads them: the wall clock in
+  // `store_hours` is resolved in the shop's own zone, by `lib/transfers/clock.ts`, once. A
+  // shop with no hours row at all keeps `openNow: null` — "Trail does not know" is not the
+  // same claim as "closed", and only one of the two is true here.
+  const storeIds = [...new Set(scoped.map((row) => row.store?.id).filter((id): id is string => !!id))];
+  const hours = storeIds.length ? (((await db.from("store_hours").select("store_id, weekday, opens, closes").in("store_id", storeIds)).data ?? []) as HoursRow[]) : [];
+  const now = new Date();
+  const known = new Set(hours.map((row) => row.store_id));
+  const openNow = (storeId: string): boolean | null => {
+    if (!known.has(storeId)) return null;
+    const store = scoped.find((row) => row.store?.id === storeId)?.store;
+    return isOpenNow(now, store?.timezone ?? "America/Toronto", hours.filter((row) => row.store_id === storeId));
+  };
+
+  const products = scoped.map((row) => shapeRecommendation(row, openNow)).filter((product) => !openOnly || product.store?.openNow !== false);
+  return Response.json({ city, products, area: area || null }, { status: 200, headers: { "Cache-Control": "private, max-age=300" } });
 }

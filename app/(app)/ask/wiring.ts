@@ -19,7 +19,7 @@
  *  The ref map is also *sent back* to `POST /api/recipients/apply`, so the server resolves refs
  *  from an explicit `{ r1: uuid }` map rather than re-deriving creation order a third time. */
 
-import { splitBuckets, type BriefField, type ChatReply, type Confirm, type PlanKey, type PlanPatch, type PreferenceTag, type RouteTag, type AskedField, type KnownRecipient, type RecipientOp, type TripContext, PLAN_KEYS } from "../../trail-brief.ts";
+import { splitBuckets, type BriefField, type ChatReply, type Confirm, type PlanKey, type PlanPatch, type PreferenceTag, type RouteTag, type AskedField, type KnownRecipient, type RecipientOp, type SpareWindow, type TripContext, PLAN_KEYS } from "../../trail-brief.ts";
 import { fromMinor } from "../../../lib/money/format.ts";
 import type { Recipient, Trip, Wallet } from "../../../lib/state/types.ts";
 import { missingFields, type SummaryInput } from "./ready.ts";
@@ -60,6 +60,10 @@ export type ChatPayload = {
   planApproved: boolean;
   hasPurchases: boolean;
   missingFields: string[];
+  /** Present only when the traveller came from `/trail/spare` and tapped through. It is read
+   *  by the model and written by nothing: no minute count, no clock time, four closed values
+   *  and a neighbourhood the trip already listed. The server re-checks all of that. */
+  window?: SpareWindow;
 };
 
 export const summaryInput = (app: AskApp): SummaryInput => ({ trip: app.trip, wallet: app.wallet, recipients: app.recipients, preferenceTags: app.preferenceTags, routeTag: app.routeTag, currency: app.trip.currency });
@@ -76,7 +80,7 @@ export const dayCount = (start: string | null, end: string | null) => {
  *  What is deliberately absent: the hotel name, the hotel address, the traveller's email, every
  *  bucket amount except `unallocated`, and any recipient id. `TripContext` has no `hotel` field at
  *  all, so the only way to send one would be to add it back to the type first. */
-export function chatPayload(app: AskApp, message: string, history: { role: "ai" | "user"; text: string }[] = []): ChatPayload {
+export function chatPayload(app: AskApp, message: string, history: { role: "ai" | "user"; text: string }[] = [], window?: SpareWindow | null): ChatPayload {
   const currency = app.trip.currency;
   const recipients: KnownRecipient[] = orderRecipients(app.recipients).slice(0, MAX_SENT_RECIPIENTS).map((person) => ({
     // No ref: the server mints it from this position. Sending one would create a second source.
@@ -107,7 +111,38 @@ export function chatPayload(app: AskApp, message: string, history: { role: "ai" 
     planApproved: app.serverPlan?.status === "approved",
     hasPurchases: app.bought.length > 0 || (app.state?.unplannedPurchases.length ?? 0) > 0,
     missingFields: missingFields(summaryInput(app)),
+    ...(window ? { window } : {}),
   };
+}
+
+/* ── the spare-time handoff ──────────────────────────────────────────────── */
+
+/** `/trail/spare` hands one window to `/ask` and then forgets it.
+ *
+ *  sessionStorage rather than a row, because a window is true for as long as the traveller
+ *  is standing there and false shortly after — a `spare_windows` table would fill up with
+ *  rows that were wrong by the time anyone read them, and would put the traveller's
+ *  whereabouts in a database that migration 0007 then has to delete.
+ *
+ *  `takeWindow` removes what it reads. A window that rode along on tomorrow's conversation
+ *  would be the model reasoning about an afternoon that is over. */
+export const SPARE_HANDOFF_KEY = "trail:v2:spare-window";
+const store = () => (typeof globalThis === "undefined" ? null : (globalThis as { sessionStorage?: Storage }).sessionStorage ?? null);
+
+export function carryWindow(spare: SpareWindow) {
+  try { store()?.setItem(SPARE_HANDOFF_KEY, JSON.stringify(spare)); } catch { /* private mode: the conversation still works, it just starts without the window */ }
+}
+
+export function takeWindow(): SpareWindow | null {
+  try {
+    const raw = store()?.getItem(SPARE_HANDOFF_KEY);
+    store()?.removeItem(SPARE_HANDOFF_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<SpareWindow>;
+    // The server sanitises this again; this check is only so a corrupted item cannot
+    // become a payload field with the wrong shape.
+    return parsed && typeof parsed.size === "string" ? { size: parsed.size, area: parsed.area ?? null, endsAt: parsed.endsAt ?? null, cutoffState: parsed.cutoffState ?? "unknown" } as SpareWindow : null;
+  } catch { return null; }
 }
 
 /* ── applying the answer ─────────────────────────────────────────────────── */

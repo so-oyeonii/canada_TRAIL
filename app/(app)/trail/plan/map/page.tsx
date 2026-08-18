@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { IconArrow } from "@/components/icons";
 import { useTrip } from "../../../app-state";
@@ -11,6 +12,7 @@ export default function MapLens() {
   const { trip, stops, estimates, labels } = useTrip();
 
   return <>
+    <Link className="text-action spare-entry" href="/trail/spare">I have some time &rarr;</Link>
     <div className="result-title"><p>TODAY&rsquo;S ROUTE</p><h1>Today&rsquo;s route</h1><span>{stops.length ? "Stop order comes from the plan Trail built. Reordering and skipping arrive with the live map." : "There is no route to walk yet."}</span></div>
     {stops.length > 0 && <>
       <div className="result-route"><div><i>YOU</i>{stops.map((stop) => <Fragment key={stop.id}><span /><i>{stop.sequence}</i></Fragment>)}<span /><i>H</i></div><b>{estimates.minutes} min shopping across {stops.length} stop{stops.length === 1 ? "" : "s"}</b><small>Hotel bag transfer is checked per bag, after you buy</small></div>

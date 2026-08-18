@@ -59,7 +59,11 @@ export type Trip = { id: string; status: TripStatus; country: string; city: stri
 /** A shop in the catalogue, as `GET /api/recommendations` returns it. The coordinates are
  *  in the *response* and never in `TrailState`: the browser measures the distance itself
  *  and nothing about where the traveller is standing is stored or sent. */
-export type RecommendedStore = { id: string; name: string; area: string; address: string; lat: number | null; lng: number | null };
+/** `openNow` is three-valued on purpose. `false` is "the hours say closed"; `null` is
+ *  "Trail has no hours for this shop", and the screen says nothing at all rather than
+ *  guessing — which is a different answer from `isOpenNow`'s "no row for today means
+ *  closed", and the reason that verdict is not reused here without a row to back it. */
+export type RecommendedStore = { id: string; name: string; area: string; address: string; lat: number | null; lng: number | null; openNow: boolean | null };
 /** `priceIsEstimate` is a column, not copy, so the `~` in front of the amount cannot drift
  *  away from the number it qualifies. `sourceNote` is what makes the Sample chip
  *  explainable rather than decorative — it becomes the chip's accessible description. */

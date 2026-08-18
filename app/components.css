@@ -6,9 +6,17 @@
  *  the controls that must not submit use the real `disabled` attribute. */
 
 /* ---- text roles ---------------------------------------------------------- */
-.section-label{display:block;margin:0 0 var(--sp-2);font-family:var(--font-mono);font-size:var(--fs-label-s);line-height:var(--lh-label);font-weight:var(--fw-med);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--text-muted)}
+/* Three roles. `.section-title` names a section. `.section-label` opens a group of controls —
+   every remaining use is a clause (`How long you have`, `If money runs short`), and a clause is
+   never a key, whatever element wraps it; caps at 12px is what a noun key gets (`.field>label`,
+   NAME / ARRIVE), not a sentence. The caps survive in the one place they are a stamp rather than
+   a heading: the drop-off pass, which is read by a scanner and copied by hand at a counter. */
+.section-label{display:block;margin:0 0 var(--sp-2);font-size:var(--fs-body-s);line-height:var(--lh-body-s);font-weight:var(--fw-bold);color:var(--text-muted)}
+.qr-card .section-label{font-family:var(--font-mono);font-size:var(--fs-label);line-height:var(--lh-label);font-weight:var(--fw-med);letter-spacing:var(--ls-label);text-transform:uppercase}
 .section-label.is-teal{color:var(--teal)}.section-label.is-accent{color:var(--accent)}
-.section-head{display:flex;justify-content:space-between;align-items:baseline;gap:var(--sp-2);margin-bottom:var(--sp-2)}.section-head .section-label{margin:0}
+.section-title{display:block;margin:0 0 var(--sp-2);font-size:var(--fs-lead);line-height:var(--lh-lead);font-weight:var(--fw-bold);color:var(--text)}
+.section-title>small{display:block;font-size:var(--fs-body-s);line-height:var(--lh-body-s);font-weight:var(--fw-reg);color:var(--text-muted)}
+.section-head{display:flex;justify-content:space-between;align-items:baseline;gap:var(--sp-2);margin-bottom:var(--sp-2)}.section-head :is(.section-label,.section-title){margin:0}
 .num{font-family:var(--font-mono);font-feature-settings:"tnum" 1,"kern" 1;font-variant-numeric:tabular-nums}
 .hero-num{font-family:var(--font-mono);font-size:var(--fs-hero);line-height:var(--lh-hero);letter-spacing:var(--ls-title);font-feature-settings:"tnum" 1}
 .lede{font-size:var(--fs-lead);line-height:var(--lh-lead);color:var(--text-muted);margin:0 0 var(--sp-3)}
@@ -36,7 +44,7 @@
 /* ---- field --------------------------------------------------------------- */
 .field{display:flex;flex-direction:column;gap:var(--sp-1);margin-bottom:var(--sp-3)}
 .field>span:not(.field-error):not(.field-hint),.field>label{display:flex;align-items:baseline;gap:var(--sp-2);font-family:var(--font-mono);font-size:var(--fs-label);line-height:var(--lh-label);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--text-muted)}
-.field :is(input,select,textarea){width:100%;min-height:var(--tap);border:1px solid var(--border-strong);border-radius:var(--r-s);background:var(--surface-raised);color:var(--text);padding:var(--sp-2) var(--sp-3);font-family:inherit;font-size:var(--fs-body)}
+.field :is(input,select,textarea){width:100%;min-height:var(--tap);border:1px solid var(--border-strong);border-radius:var(--r-s);background:var(--surface-raised);color:var(--text);padding:var(--sp-2) var(--sp-3);font-family:inherit;font-size:var(--fs-control)}
 .field :is(input,select,textarea)::placeholder{color:var(--text-muted)}
 .field :is(input,select,textarea):read-only{background:var(--surface);color:var(--text-muted)}
 .field :is(input,select,textarea)[aria-invalid="true"]{border-color:var(--danger)}
@@ -116,12 +124,15 @@ label.choice--seg .choice-check>svg{width:14px;height:14px}
 .stat-tiles em{font-style:normal;font-size:var(--fs-body-s);color:var(--text-muted)}
 
 /* ---- tile art (stands in for photography; see G1 plan §5) ----------------- */
-.tile-art{position:relative;display:grid;place-items:center;border-radius:var(--r-m);background:linear-gradient(var(--art-angle,140deg),var(--art-a,#162840),var(--art-b,#0a1826));color:var(--art-ink,var(--text));overflow:hidden}
-.tile-art[data-tone="1"]{--art-a:#3b2c14;--art-b:#171008;--art-ink:#f0b043}
-.tile-art[data-tone="2"]{--art-a:#123a3c;--art-b:#08191c;--art-ink:#3ec9c1}
-.tile-art[data-tone="3"]{--art-a:#3a201c;--art-b:#180d0c;--art-ink:#ff8a75}
-.tile-art[data-tone="4"]{--art-a:#26203f;--art-b:#100d1c;--art-ink:#a89bf0}
-.tile-art[data-tone="5"]{--art-a:#16304a;--art-b:#0a1826;--art-ink:#8fc3ee}
+/* `--art-a/-b/-ink/-angle` are this component's API and stay on the element; the ramp they read is G1's.
+   The literals that used to sit here had no light values, so a light `.tile-art` put --text #142227 on a
+   near-black gradient at 1.10:1 — the tokens carry both themes. */
+.tile-art{position:relative;display:grid;place-items:center;border-radius:var(--r-m);background:linear-gradient(var(--art-angle,140deg),var(--art-a,var(--art-0-from)),var(--art-b,var(--art-0-to)));color:var(--art-ink,var(--text));overflow:hidden}
+.tile-art[data-tone="1"]{--art-a:var(--art-1-from);--art-b:var(--art-1-to);--art-ink:var(--art-1-ink)}
+.tile-art[data-tone="2"]{--art-a:var(--art-2-from);--art-b:var(--art-2-to);--art-ink:var(--art-2-ink)}
+.tile-art[data-tone="3"]{--art-a:var(--art-3-from);--art-b:var(--art-3-to);--art-ink:var(--art-3-ink)}
+.tile-art[data-tone="4"]{--art-a:var(--art-4-from);--art-b:var(--art-4-to);--art-ink:var(--art-4-ink)}
+.tile-art[data-tone="5"]{--art-a:var(--art-5-from);--art-b:var(--art-5-to);--art-ink:var(--art-5-ink)}
 .tile-art[data-angle="0"]{--art-angle:140deg}.tile-art[data-angle="1"]{--art-angle:200deg}.tile-art[data-angle="2"]{--art-angle:60deg}.tile-art[data-angle="3"]{--art-angle:320deg}
 .tile-art>svg{width:38%;height:38%;opacity:.9}
 /* Only --text may sit on a tile: --text-muted drops to 3.88:1 on the lighter tones. */

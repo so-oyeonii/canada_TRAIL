@@ -16,7 +16,7 @@ export default function BagSelectPage() {
   return <div className="screen drop-screen"><Header title="Hotel bag transfer" back={() => router.push("/bags")} action={<span className="draft-badge">{selectedBagCount} {selectedBagCount === 1 ? "BAG" : "BAGS"}</span>} />
     <div className="bag-visual"><i>TRAIL</i><i>LOCAL</i><span><IconCheck /></span></div>
     <div className="drop-copy"><p>YOUR PURCHASES · YOUR HOTEL</p><h1>Choose the bags.<br /><em>Keep exploring.</em></h1><span>You paid the stores directly. Trail only carries the sealed, purchased bags you select.</span></div>
-    <section className="bag-selector"><header><span><small>PURCHASED BAGS</small><b>Select for hotel transfer</b></span><em>{selectedBagCount} selected</em></header>
+    <section className="bag-selector"><header><span><small>Purchased bags</small><b>Select for hotel transfer</b></span><em>{selectedBagCount} selected</em></header>
       {items.length === 0 && <p className="empty-row">No purchases recorded yet. Save one in store and it appears here.</p>}
       {items.map((item) => { const stored = isStoredKey(item.key); return <label key={item.key}><input type="checkbox" checked={item.selected && stored} disabled={!stored} onChange={() => toggleItem(item.key)} /><span><b>{item.label}</b><small>{stored ? `${item.bags} bag${item.bags === 1 ? "" : "s"} · ${item.handling}` : `${item.bags} bag${item.bags === 1 ? "" : "s"} · waiting to save`}</small></span><i>{item.handling === "Chilled" ? <IconChilled /> : item.handling === "Fragile" ? <IconFragile /> : <IconBag />}</i></label>; })}
     </section>

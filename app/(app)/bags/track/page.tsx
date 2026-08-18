@@ -60,7 +60,7 @@ export default function TrackPage() {
     {failedHandoff && <HandoffFailed code={failedHandoff} onReport={() => { void reportIssue(transfer.id, "wrong_hotel", "The hotel did not accept the delivery."); notify("Reported. Trail keeps the bags sealed."); }} onAddress={() => router.push("/trips")} />}
     {transfer.ineligibleCode && !transfer.confirmedAt && <Blocked code={transfer.ineligibleCode} detail={transfer.ineligibleReason ?? undefined} onRemedy={() => router.push("/bags/review")} />}
 
-    <h2 className="section-label">CUSTODY</h2>
+    <h2 className="section-title">Custody</h2>
     <ol className="timeline">{rows.map((row) => <li key={row.key} className={`is-${row.state}`} aria-current={row.state === "current" ? "step" : undefined}>
       <span className="timeline-dot">{row.state === "done" ? <IconCheck /> : row.state === "warning" || row.state === "failed" ? <IconAlert /> : null}</span>
       <b>{row.label}<span className="visually-hidden"> — {STATE_WORD[row.state]}</span></b>

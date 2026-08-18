@@ -12,7 +12,7 @@
 .spare-set .chip--button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
 
 .spare-say{display:flex;flex-direction:column;gap:var(--sp-2);margin:0 0 var(--sp-3)}
-.spare-say input{min-height:var(--tap);border:1px solid var(--border);border-radius:var(--r-m);background:var(--surface-raised);padding:0 var(--sp-3);font-size:var(--fs-body);color:var(--text)}
+.spare-say input{min-height:var(--tap);border:1px solid var(--border-strong);border-radius:var(--r-m);background:var(--surface-raised);padding:0 var(--sp-3);font-size:var(--fs-control);color:var(--text)}
 .spare-say input::placeholder{color:var(--text-muted)}
 
 /* The band label sits under the price and above the source chip. It is the only line on
@@ -25,4 +25,4 @@
    question answered the other way round, not a second question. */
 .spare-until{display:flex;align-items:center;gap:var(--sp-2);min-height:var(--tap);margin-top:var(--sp-2)}
 .spare-until span{font-family:var(--font-mono);font-size:var(--fs-label);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--text-muted)}
-.spare-until input{min-height:var(--tap);border:1px solid var(--border);border-radius:var(--r-m);background:var(--surface-raised);padding:0 var(--sp-3);font-family:var(--font-mono);font-size:var(--fs-body);color:var(--text)}
+.spare-until input{min-height:var(--tap);border:1px solid var(--border-strong);border-radius:var(--r-m);background:var(--surface-raised);padding:0 var(--sp-3);font-family:var(--font-mono);font-size:var(--fs-control);color:var(--text)}

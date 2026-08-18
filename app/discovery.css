@@ -31,14 +31,16 @@
 /* ---- N3 trip sections ---------------------------------------------------- */
 .trip-sections{margin:0 0 var(--sp-6)}
 .trip-sections>ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:var(--sp-2)}
-.trip-row{display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:var(--sp-3);width:100%;min-height:76px;padding:var(--sp-3);border:1px solid var(--border);border-radius:var(--r-m);background:var(--surface);color:var(--text);text-align:left;text-decoration:none;cursor:pointer}
+.trip-row{display:grid;grid-template-columns:40px 1fr auto;align-items:center;gap:var(--sp-3);width:100%;min-height:76px;padding:var(--sp-3);border:1px solid var(--border-strong);border-radius:var(--r-m);background:var(--surface);color:var(--text);text-align:left;text-decoration:none;cursor:pointer}
 .trip-row>.tile-art,.trip-row>i{width:40px;height:40px;flex:0 0 auto;border-radius:var(--r-s);display:grid;place-items:center;font-style:normal}
 .trip-row>span{display:flex;flex-direction:column;gap:2px;min-width:0}
 .trip-row b{font-size:var(--fs-body);font-weight:var(--fw-med);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .trip-row small{font-family:var(--font-mono);font-size:var(--fs-label);line-height:var(--lh-label);color:var(--text-muted)}
 .trip-row>em{font-style:normal;font-family:var(--font-mono);font-size:var(--fs-label);color:var(--text-muted);text-align:right}
 /* PAST leans muted but never below 4.66:1 — it is still readable history, not decoration. */
-.trip-sections--past .trip-row{background:transparent;border-color:var(--hairline)}
+/* A past trip is still a link, so it keeps the 3:1 border. `past` is carried by the dropped
+   fill and the regular-weight muted title instead — two cues, neither of them the outline. */
+.trip-sections--past .trip-row{background:transparent}
 .trip-sections--past .trip-row b{color:var(--text-muted);font-weight:var(--fw-reg)}
 .trip-empty{margin:0;padding:var(--sp-3);border:1px dashed var(--border-strong);border-radius:var(--r-m);font-size:var(--fs-body-s);line-height:var(--lh-body-s);color:var(--text-muted)}
 @media(min-width:960px){.trip-sections--upcoming>ul,.trip-sections--past>ul{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)}}

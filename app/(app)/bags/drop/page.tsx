@@ -115,7 +115,7 @@ export default function DropPage() {
         <section className="notice notice--danger" role="alert"><IconAlert /><b>No pass on this phone</b><p>{PASS_ERROR[passError] ?? PASS_ERROR.pass_unavailable}</p><div className="notice-actions"><button className="btn btn--ghost" disabled={busy === "pass"} onClick={() => void retry()}>{busy === "pass" ? "Trying…" : "Try again"}<IconRetry /></button></div></section>
       </>}
 
-    <section className="howto"><h2 className="section-label">HOW IT WORKS</h2><ol>{HOW_IT_WORKS.map((step) => <li key={step}>{step}</li>)}</ol></section>
+    <section className="howto"><h2 className="section-title">How it works</h2><ol>{HOW_IT_WORKS.map((step) => <li key={step}>{step}</li>)}</ol></section>
 
     <div className="ownership-note">Trail carries bags you already paid the store for. Handing them over is a claim you make here; the counter&rsquo;s scan is what actually moves custody.</div>
     <button className="btn btn--primary btn--block" disabled={Boolean(busy) || closed || collected} onClick={() => void handOver()}>{busy === "claim" ? "Recording…" : "I handed the bags over"}<IconArrow /></button>

@@ -75,7 +75,7 @@ test("the client reads recipients and the pending change from the server state",
 
 test("every recipient carries the three-tier segment, grouped as one question", () => {
   assert.match(people, /<fieldset className="priority-set">/);
-  assert.match(people, /<legend className="section-label">IF MONEY RUNS SHORT/);
+  assert.match(people, /<legend className="section-label">If money runs short/);
   assert.match(people, /TIERS\.map\(\(tier\) =>/, "the three tiers come from lib/budget/priority, not from three hand-written labels");
   assert.match(people, /type="radio" name={`prio-\$\{person\.id\}`}/);
   // Selection is never border colour alone.

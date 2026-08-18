@@ -18,7 +18,7 @@
 .nearby-head{display:flex;align-items:center;gap:var(--sp-2)}
 .nearby-head i{display:flex;color:var(--accent)}
 .nearby-head i svg{width:16px;height:16px}
-.nearby-head small{flex:1;font-family:var(--font-mono);font-size:var(--fs-label-s);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--accent)}
+.nearby-head small{flex:1;font-size:var(--fs-body);line-height:var(--lh-body);font-weight:var(--fw-bold);color:var(--accent)}
 .nearby-head button{display:flex;align-items:center;justify-content:center;min-width:var(--tap);min-height:var(--tap);margin:calc(var(--sp-3) * -1) calc(var(--sp-2) * -1) calc(var(--sp-3) * -1) 0;border:0;background:0;color:var(--text-muted);cursor:pointer}
 .nearby-banner b{font-size:var(--fs-lead);line-height:var(--lh-lead);font-weight:var(--fw-bold);color:var(--text)}
 /* The sample caveat is the last sentence of this paragraph rather than a chip, because a

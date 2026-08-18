@@ -56,7 +56,7 @@ export default function ApprovalLens() {
   if (!pendingBudgetChange) return <>
     <div className="result-title"><p>APPROVALS</p><h1>Nothing is waiting<br />on you.</h1><span>Trail never moves money between your buckets on its own. When it wants to, it asks here first.</span></div>
     {decided.length
-      ? <section className="handling-list"><header><span><small>WHAT YOU DECIDED</small><b>Every budget change, kept</b></span><em>{decided.length}</em></header><div>{decided.map((change) => <span key={change.id}><i>{change.status === "approved" ? <IconCheck /> : <IconClose />}</i><b>{change.reason}</b><small>{change.status === "approved" ? "You approved this" : "You declined this"} · {new Date(change.decidedAt ?? change.createdAt).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}</small></span>)}</div></section>
+      ? <section className="handling-list"><header><span><small>What you decided</small><b>Every budget change, kept</b></span><em>{decided.length}</em></header><div>{decided.map((change) => <span key={change.id}><i>{change.status === "approved" ? <IconCheck /> : <IconClose />}</i><b>{change.reason}</b><small>{change.status === "approved" ? "You approved this" : "You declined this"} · {new Date(change.decidedAt ?? change.createdAt).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}</small></span>)}</div></section>
       : <div className="offline-note"><b>No budget change has ever been proposed on this trip.</b><span>Your buckets are exactly what you set when you created it.</span></div>}
     <button className="back-to-chat" onClick={() => router.push("/trail/plan/budget")}>Back to the budget</button>
   </>;
@@ -79,7 +79,8 @@ export default function ApprovalLens() {
 
     <div className="ownership-note">None of this has happened. Your budget is still {price(before.plannedCents, currency)} spendable until you tap approve, and declining changes nothing at all.</div>
 
-    <label className="stacked"><small>WHY (OPTIONAL — KEPT WITH YOUR DECISION)</small><input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Rather keep the flexible budget" /></label>
+    <label className="stacked"><small>Why</small><input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Rather keep the flexible budget" aria-describedby="approval-note-hint" /></label>
+    <p className="field-hint" id="approval-note-hint">Optional. Kept with your decision.</p>
 
     {problem && <p className="form-error" role="alert"><IconAlert /> {problem}</p>}
 

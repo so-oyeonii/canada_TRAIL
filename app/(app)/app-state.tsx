@@ -18,6 +18,7 @@
 import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Brand } from "@/components/chrome";
+import { IconRetry } from "@/components/icons";
 import { PREFERENCE_TAGS, type BriefField, type Plan as Brief, type PlanKey, type PlanPatch, type PreferenceTag, type RouteTag } from "@/app/trail-brief";
 import { TAGS_HANDOFF_KEY } from "@/app/onboarding/trip-draft";
 import { forgetAlerts } from "@/lib/discovery/alert-memory";
@@ -523,7 +524,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   if (value.status === "idle" || value.status === "loading") return <Boot title="Opening your trips…" body="Reading what this device saved, then checking with Trail." />;
   if (value.status === "signed-out") return <Boot title="Signed out" body="Your session ended. Sign in to get back to your trips." />;
   if (!value.trip && !value.trips.length) return value.status === "error"
-    ? <Boot title="Trail could not load your account" body="You are offline or the server is unreachable. Nothing you recorded has been lost." action={<button className="main-button" onClick={() => value.refresh()}><span>Try again<small>Re-read this account from Trail</small></span><i>↻</i></button>} />
+    ? <Boot title="Trail could not load your account" body="You are offline or the server is unreachable. Nothing you recorded has been lost." action={<button className="main-button" onClick={() => value.refresh()}><span>Try again<small>Re-read this account from Trail</small></span><i><IconRetry /></i></button>} />
     : <Boot title="No trip yet" body="Taking you to set one up." />;
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
@@ -541,6 +542,6 @@ export function TripGate({ children }: { children: React.ReactNode }) {
   useEffect(() => { if (noTrip) router.replace(value.trips.length ? "/trips" : "/onboarding"); }, [noTrip, router, value.trips.length]);
 
   if (value.trip) return <>{children}</>;
-  if (value.status === "error") return <Boot title="Trail could not load this trip" body="You are offline or the server is unreachable. Nothing you recorded has been lost." action={<button className="main-button" onClick={() => value.refresh()}><span>Try again<small>Re-read this trip from Trail</small></span><i>↻</i></button>} />;
+  if (value.status === "error") return <Boot title="Trail could not load this trip" body="You are offline or the server is unreachable. Nothing you recorded has been lost." action={<button className="main-button" onClick={() => value.refresh()}><span>Try again<small>Re-read this trip from Trail</small></span><i><IconRetry /></i></button>} />;
   return <Boot title="Opening your trip…" body={value.trips.length ? "Choose a trip if this does not open." : "Taking you to set one up."} />;
 }

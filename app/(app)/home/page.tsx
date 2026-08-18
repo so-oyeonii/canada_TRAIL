@@ -68,7 +68,7 @@ export default function HomePage() {
               gap is standing in the city this card names. */}
           <Link className="text-action spare-entry" href="/trail/spare">I have some time &rarr;</Link>
 
-          <div className="profile-section-label"><b>CURRENT</b><span>{day ? `Day ${day.n} of ${day.of}` : trip.status === "planning" ? "Not started yet" : "Dates not set"}</span></div>
+          <div className="profile-section-label"><b>Current</b><span>{day ? `Day ${day.n} of ${day.of}` : trip.status === "planning" ? "Not started yet" : "Dates not set"}</span></div>
           <Link className="plan-row" href={continueHref(app)}><span><b>{app.shoppingStarted ? `Continue ${trip.city} Trail` : app.stops.length ? "Open" : "Plan shopping"}</b><small>{app.shoppingStarted ? "Today’s route, your budget and your bags" : app.stops.length ? `Your plan for ${trip.city}` : "Tell Trail who you are shopping for"}</small></span><IconArrow /></Link>
           <Link className="plan-row" href="/ask"><span><b>Plan with AI</b><small>Plan · What to buy · Where to buy</small></span><IconSpark /></Link>
         </>
@@ -76,7 +76,7 @@ export default function HomePage() {
 
     {city && <>
       <section className="reco-rail" aria-labelledby="home-reco">
-        <div className="profile-section-label"><b id="home-reco">{city.toUpperCase()} RECOMMENDATIONS</b><span>Popular souvenirs in {city}</span></div>
+        <div className="profile-section-label"><b id="home-reco">Recommendations in {city}</b><span>Popular souvenirs in {city}</span></div>
         {feed.loading
           ? <ul><TileSkeleton count={4} /></ul>
           : feed.products.length

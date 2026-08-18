@@ -8,7 +8,7 @@
 .login-form{display:flex;flex-direction:column;gap:var(--sp-3)}
 .login-form label{min-height:56px;display:flex;flex-direction:column;justify-content:center;gap:var(--sp-1);background:var(--surface-raised);border:1px solid var(--border-strong);border-radius:var(--r-s);padding:var(--sp-2) var(--sp-3)}
 .login-form small{font-family:var(--font-mono);font-size:var(--fs-label-s);line-height:var(--lh-label);font-weight:var(--fw-med);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--text-muted)}
-.login-form input{border:0;background:transparent;color:var(--text);min-height:24px;font-size:var(--fs-body);width:100%}
+.login-form input{border:0;background:transparent;color:var(--text);min-height:1.5em;font-size:var(--fs-control);width:100%}
 .login-sent{display:flex;flex-direction:column;align-items:flex-start;gap:var(--sp-2);background:var(--teal-soft);border:1px solid var(--teal-line);border-radius:var(--r-m);padding:var(--sp-4)}
 .login-sent>i{width:36px;height:36px;border-radius:var(--r-s);background:var(--teal-fill);color:var(--on-accent);display:grid;place-items:center;font-style:normal;font-size:var(--fs-lead)}
 .login-sent>b{font-size:var(--fs-lead)}

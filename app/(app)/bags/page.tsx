@@ -33,7 +33,7 @@ const timeLeft = (minutes: number | null | undefined) => {
 export default function BagsEntryPage() {
   const router = useRouter();
   const app = useTrip();
-  const { trip, items, transfer, bought, bagCount, quote, points, partnerCount, wallet, currency, loadDropoffPoints } = app;
+  const { trip, items, transfer, bought, unplannedPurchases, bagCount, quote, points, partnerCount, wallet, currency, loadDropoffPoints } = app;
   useEffect(() => { void loadDropoffPoints(Math.max(1, bagCount)); }, [loadDropoffPoints, bagCount]);
 
   const counter = transfer?.dropoffStore ? points.find((point) => point.id === transfer.dropoffStore!.id) ?? null : points[0] ?? null;
@@ -41,7 +41,10 @@ export default function BagsEntryPage() {
   const grams = items.reduce((sum, item) => sum + (item.weightGrams ?? 0), 0);
   const feeCents = quote?.feeCents ?? null;
 
-  if (!bought.length && !transfer) return <div className="screen"><Header title="Hotel Delivery" back={() => router.push("/trail")} />
+  // A bag bought outside the plan is still a bag to send. `items` and `bagCount` have
+  // always counted them (`draftItems()`), so counting only `bought` here was the one
+  // place that told a traveller holding one that there was nothing to send.
+  if (!bought.length && !unplannedPurchases.length && !transfer) return <div className="screen"><Header title="Hotel Delivery" back={() => router.push("/trail")} />
     <section className="bags-empty"><i><IconBag /></i><p>HANDS-FREE WHEN YOU NEED IT</p><h1>Nothing to send yet.</h1><span>Save what you buy at a stop and Trail can carry the sealed bags to {trip.hotelName || "your hotel"}.</span><button onClick={() => router.push("/trail/shop")}>Go to my shopping route</button></section>
   </div>;
 
@@ -51,7 +54,7 @@ export default function BagsEntryPage() {
 
     <div className="stat-tiles">
       <div><small>BAGS</small><b className="num">{bagCount}</b><em>{bought.length} stop{bought.length === 1 ? "" : "s"} recorded</em></div>
-      <div><small>EST. WEIGHT</small><b className="num">{grams ? weightLabel(grams) : "—"}</b><em>{grams ? "From your manifest" : "Weighed at the counter"}</em></div>
+      <div><small>Estimated weight</small><b className="num">{grams ? weightLabel(grams) : "—"}</b><em>{grams ? "From your manifest" : "Weighed at the counter"}</em></div>
       <div><small>TIME LEFT</small><b className="num">{cutoff.value}</b><em>{cutoff.note}</em></div>
     </div>
 

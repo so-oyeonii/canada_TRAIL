@@ -651,3 +651,38 @@ NOT NULL 위반으로 캐스케이드 전체가 죽는다 — 0007이 정확히 
 - [ ] `stops` 2000행 트립에서 `GET /api/state` 응답 시간 회귀 측정 (정책 함수 비용)
 - [ ] `get_advisors` 전체 — 26+3 테이블 `enable`+`force`, `for all` 정책에 `with check` 짝
 - [ ] `lib/supabase/admin.ts`·`lib/transfers/server.ts` 주석이 새 의미로 고쳐졌는지
+
+---
+
+## 8. 실행 기록 — 1단계 구현 완료 (마이그레이션 원격 미적용)
+
+### 8.1 §1.1 번호 — **A안 확정**
+
+`FIGMA_ADOPTION.md` §4 원장과 일치한다: **`0026` = `trip_shares`(1단계)**,
+`0027`/`0028`/`0029` = 2단계. 배포 순서와 번호 순서가 같으므로 §1.1 B안의 순서 경고는 없다.
+`supabase/migrations/0026_trip_shares.sql`은 **작성만** 했고 원격에는 적용하지 않았다 —
+적용 후 `get_advisors`까지가 한 세트이고, 그 실행은 별도 승인 사항이다.
+
+### 8.2 2단계는 착수하지 않았다
+
+`0027`~`0029`, `trip_members`, `trip_invites`, `actor_user_id`, 15개 테이블 정책 재작성,
+`ownerIdFor(tripId)` 전수 치환 — **코드는 한 줄도 쓰지 않았다.** §5는 설계 문서로만 남는다.
+`+ Invite` 라벨도 그때 돌아온다.
+
+### 8.3 계획과 달라진 여섯 가지
+
+| # | 계획 | 실제 | 이유 |
+| --- | --- | --- | --- |
+| 1 | `PATCH …/share/{id}` = 스코프 변경(재발급) | **라우트를 만들지 않았다.** 스코프 변경 = `DELETE`(철회) 후 `POST`(신규) | "재발급"을 라우트 하나로 표현한 것과 같다. 제자리 수정은 이미 남의 대화방에 있는 URL의 노출 범위를 조용히 넓힌다 |
+| 2 | 토글 라벨 `Gift list` | **`Who each gift is for`** | §3.5는 stops를 무조건 포함으로, §7 체크리스트는 "전부 OFF일 때도 상품·상점 이름이 나간다"고 못박았다. 목록을 끄지 않는 스위치를 `Gift list`라 부르는 것은 `+ Invite`와 같은 종류의 과약속이다(§4-2) |
+| 3 | (없음) | **공개 화면에 만료 시각을 표시하지 않는다** | 만료는 `min(iat+72h, end_date+…)`라, 날짜를 찍으면 `Trip dates` OFF를 우회해 종료일이 역산된다. 만료는 소유자 시트에만 있다 |
+| 4 | `lib/state/types.ts`에 `TripShare`·`ShareScope` 추가 | **`lib/share/scope.ts`에 둔다** | 공유 링크는 `TrailState`의 일부가 아니고, §4 계약상 그 파일은 충돌 지점이다 |
+| 5 | `app/(app)/trips/page.tsx`에 `Share` 부착 | **트립 컨텍스트 바의 `status` 슬롯**(`/trail`) | G2가 만든 빈 슬롯이 이미 있었고, 공유는 트립 하나에 대한 행위다. `useShareSheet()`는 `useTripSwitcher()`와 같은 모양이라 다른 화면에도 한 줄로 붙는다 |
+| 6 | (없음) | **`record_share_view(uuid)` RPC 추가** | 조회수를 라우트에서 읽고 쓰면 단톡방 동시 열람에서 카운트가 유실된다. 과소집계는 이 컬럼이 존재하는 이유(유출 신호)를 정확히 망가뜨린다 |
+
+### 8.4 배포 전 남은 것
+
+`docs/plans/G6-share.md` §7의 "배포 전 (1단계)" 체크리스트 중 **자동화된 것은
+`tests/share-projection.test.ts` 23건뿐**이다. 시크릿 창 열람, 카톡 언펄링 카드, 4번째
+발급 409, 철회 즉시 반영, `get_advisors`는 **`0026` 적용 후 손으로** 확인해야 한다.
+`TRAIL_SHARE_SIGNING_KEY`는 `.env.example`에 있고, Vercel Production/Preview에는 아직 없다.

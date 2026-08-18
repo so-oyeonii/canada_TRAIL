@@ -1,0 +1,41 @@
+/* G6 · the owner's share sheet. It sits on `.sheet-scrim` / `.trip-sheet` from
+ * `trips.css` (G3) so it opens exactly like the trip switcher; only the parts that had no
+ * skeleton are here. Tokens only — the `:root` block is G1's. */
+
+/* It sits in `.trip-context-slot`, which is an uppercase mono label — the chip has to opt
+ * back out of both, or the button reads `SHARE` and §2 says `Share`. */
+.chip-share{display:inline-flex;align-items:center;gap:var(--sp-2);min-height:var(--tap);padding:0 var(--sp-3);border:1px solid var(--border-strong);border-radius:var(--r-pill);background:transparent;color:var(--text);font-family:var(--font-sans);font-size:var(--fs-body);font-weight:var(--fw-med);letter-spacing:normal;text-transform:none;cursor:pointer}
+.chip-share>svg{width:16px;height:16px;color:var(--text-muted)}
+
+.share-sheet-lead{margin:0 0 var(--sp-4);font-size:var(--fs-body);line-height:var(--lh-body);color:var(--text-muted)}
+.share-sheet-scope{margin:0 0 var(--sp-4);padding:0;border:0}
+.share-sheet-scope>legend{padding:0 0 var(--sp-2);font-family:var(--font-mono);font-size:var(--fs-label);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--text-muted)}
+.share-sheet-scope>div{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);padding:var(--sp-3) 0;border-top:1px solid var(--hairline)}
+.share-sheet-scope>div>span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.share-sheet-scope b{font-size:var(--fs-body);font-weight:var(--fw-med)}
+.share-sheet-scope small{font-size:var(--fs-label);line-height:var(--lh-label);color:var(--text-muted)}
+
+.share-sheet-name{display:flex;flex-direction:column;gap:var(--sp-2);margin:0 0 var(--sp-4)}
+.share-sheet-name>span{font-family:var(--font-mono);font-size:var(--fs-label);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--text-muted)}
+.share-sheet-name>input{min-height:var(--tap);padding:0 var(--sp-3);border:1px solid var(--border);border-radius:var(--r-s);background:var(--surface-raised);color:var(--text);font-size:var(--fs-body)}
+
+/* Amber, not red. This is the one thing a traveller most often forgets and least often
+ * regrets being told — a warning, not an error. */
+.share-sheet-warn{margin:0 0 var(--sp-4);padding:var(--sp-3);border:1px solid var(--warn-line);border-radius:var(--r-s);background:var(--warn-soft);color:var(--warn);font-size:var(--fs-body-s);line-height:var(--lh-body-s)}
+.share-sheet-make{width:100%;min-height:var(--tap);border:0;border-radius:var(--r-pill);background:var(--accent-fill);color:var(--on-accent);font-size:var(--fs-body);font-weight:var(--fw-bold);cursor:pointer}
+.share-sheet-make:disabled{opacity:.6;cursor:progress}
+
+.share-sheet-fresh{display:grid;grid-template-columns:1fr auto;gap:var(--sp-2);margin:var(--sp-4) 0 0;padding:var(--sp-3);border:1px solid var(--teal-line);border-radius:var(--r-m);background:var(--teal-soft)}
+.share-sheet-fresh>input{min-height:var(--tap);min-width:0;padding:0 var(--sp-3);border:1px solid var(--border);border-radius:var(--r-s);background:var(--surface);color:var(--text);font-family:var(--font-mono);font-size:var(--fs-label)}
+.share-sheet-fresh>button{min-height:var(--tap);padding:0 var(--sp-4);border:1px solid var(--teal-line);border-radius:var(--r-s);background:var(--surface);color:var(--teal);font-size:var(--fs-body);font-weight:var(--fw-bold);cursor:pointer}
+.share-sheet-fresh>small{grid-column:1/-1;font-size:var(--fs-label);line-height:var(--lh-label);color:var(--text-muted)}
+
+.share-sheet-live{margin:var(--sp-5) 0 0;padding-top:var(--sp-4);border-top:1px solid var(--hairline)}
+.share-sheet-live>p{margin:0 0 var(--sp-2);font-family:var(--font-mono);font-size:var(--fs-label);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--text-muted)}
+.share-sheet-live>small{font-size:var(--fs-body-s);color:var(--text-muted)}
+.share-sheet-live ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:var(--sp-2)}
+.share-sheet-live li{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);padding:var(--sp-3);border:1px solid var(--border);border-radius:var(--r-s);background:var(--surface-raised)}
+.share-sheet-live li>span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.share-sheet-live li b{font-size:var(--fs-body);font-weight:var(--fw-med)}
+.share-sheet-live li small{font-family:var(--font-mono);font-size:var(--fs-label);color:var(--text-muted)}
+.share-sheet-live li>button{min-height:var(--tap);padding:0 var(--sp-3);border:1px solid var(--danger-line);border-radius:var(--r-pill);background:var(--danger-soft);color:var(--danger);font-size:var(--fs-body-s);font-weight:var(--fw-bold);cursor:pointer}

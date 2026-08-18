@@ -1,0 +1,47 @@
+/* G6 · the page a share link opens. Public, outside `(app)`, so it borrows the shell's
+ * tokens and none of its chrome — a guest has no tab bar, no trip and no account.
+ *
+ * Tokens only; the `:root` block is G1's. Isolated in its own file per FIGMA_ADOPTION §4. */
+
+.share-screen{max-width:var(--app-max);margin:0 auto;padding:var(--sp-6) max(var(--gutter),env(safe-area-inset-left)) calc(var(--sp-8) + env(safe-area-inset-bottom)) max(var(--gutter),env(safe-area-inset-right))}
+.share-brand{display:flex;align-items:center;gap:var(--sp-2);margin:0 0 var(--sp-5)}
+.share-brand>img{width:28px;height:28px;object-fit:contain}
+.share-brand>b{font-family:var(--font-serif);font-weight:var(--fw-bold);font-size:var(--fs-lead);letter-spacing:.04em;color:var(--accent)}
+.share-badge{margin-left:auto;padding:var(--sp-1) var(--sp-3);border:1px solid var(--border-strong);border-radius:var(--r-pill);font-family:var(--font-mono);font-size:var(--fs-label-s);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--text-muted)}
+.share-screen h1{margin:0;font-family:var(--font-serif);font-size:var(--fs-display);line-height:var(--lh-display);letter-spacing:var(--ls-display)}
+.share-sub{margin:var(--sp-2) 0 0;font-family:var(--font-mono);font-size:var(--fs-label);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--text-muted)}
+.share-taste{margin:var(--sp-2) 0 0;font-size:var(--fs-body);color:var(--text-muted)}
+
+.share-band{display:flex;flex-wrap:wrap;gap:var(--sp-3);margin:var(--sp-5) 0 0;padding:var(--sp-4);border:1px solid var(--border);border-radius:var(--r-m);background:var(--surface)}
+.share-band>span{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 40%}
+.share-band b{font-size:var(--fs-h);font-weight:var(--fw-bold)}
+.share-band small{font-family:var(--font-mono);font-size:var(--fs-label);color:var(--text-muted)}
+
+.share-label{margin:var(--sp-6) 0 var(--sp-3);font-family:var(--font-mono);font-size:var(--fs-label);letter-spacing:var(--ls-label);text-transform:uppercase;font-weight:var(--fw-med);color:var(--text-muted)}
+.share-gifts,.share-people{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:var(--sp-2)}
+.share-gifts>li{display:grid;grid-template-columns:1fr auto;align-items:start;gap:var(--sp-3);padding:var(--sp-4);border:1px solid var(--border);border-radius:var(--r-m);background:var(--surface)}
+.share-gifts>li>span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.share-gifts b{font-size:var(--fs-body);font-weight:var(--fw-med)}
+.share-gifts small{font-family:var(--font-mono);font-size:var(--fs-label);color:var(--text-muted)}
+.share-for{color:var(--teal)}
+.share-gifts>li>em{display:flex;flex-direction:column;align-items:flex-end;gap:var(--sp-1);font-style:normal;text-align:right}
+.share-gifts strong{font-size:var(--fs-body);font-weight:var(--fw-bold)}
+.share-gifts i{font-style:normal;font-family:var(--font-mono);font-size:var(--fs-label);color:var(--text-muted)}
+.share-gifts i[data-status="Bought"]{color:var(--teal)}
+.share-gifts i[data-status="Not available"]{color:var(--warn)}
+.share-chip{padding:2px var(--sp-2);border:1px solid var(--accent-line);border-radius:var(--r-pill);background:var(--accent-soft);color:var(--accent);font-family:var(--font-mono);font-size:var(--fs-label-s);font-weight:var(--fw-bold);letter-spacing:var(--ls-label)}
+
+.share-people>li{display:flex;align-items:baseline;gap:var(--sp-2);padding:var(--sp-3) var(--sp-4);border:1px solid var(--hairline);border-radius:var(--r-s);background:var(--surface)}
+.share-people b{font-size:var(--fs-body);font-weight:var(--fw-med)}
+.share-people small{font-family:var(--font-mono);font-size:var(--fs-label);color:var(--text-muted)}
+.share-empty{margin:0;padding:var(--sp-5);border:1px dashed var(--border);border-radius:var(--r-m);color:var(--text-muted);font-size:var(--fs-body)}
+
+.share-foot{margin:var(--sp-8) 0 0;padding-top:var(--sp-5);border-top:1px solid var(--hairline)}
+.share-foot p{margin:0 0 var(--sp-2);font-size:var(--fs-body-s);line-height:var(--lh-body-s);color:var(--text-muted)}
+.share-foot a{display:inline-flex;align-items:center;min-height:var(--tap);color:var(--accent);font-size:var(--fs-body);font-weight:var(--fw-med)}
+
+/* Expired, revoked, forged and deleted all land here. Nothing on it says which. */
+.share-gone{min-height:70dvh;display:flex;flex-direction:column;justify-content:center}
+.share-gone h1{font-size:var(--fs-title);line-height:var(--lh-title)}
+.share-gone p{margin:var(--sp-3) 0 0;font-size:var(--fs-body);line-height:var(--lh-body);color:var(--text-muted)}
+.share-gone-hint{font-family:var(--font-mono);font-size:var(--fs-label)}

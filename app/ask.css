@@ -1,0 +1,29 @@
+/* Trail AI — the conversation screen. Isolated from `globals.css` (FIGMA_ADOPTION §4): the rules
+   the dark rebuild retires are G1's to delete, and this file only adds what G4 introduced. */
+
+/* One context line where two strips used to be. `Trail AI · prototype` said nothing a traveller
+   needed and the memory strip said it twice; the wireframe has neither, and this row is what it
+   has instead — city, dates, currency, hotel, joined only where a value actually exists. */
+.ask-context{margin:0 0 var(--sp-2);font-family:var(--font-mono);font-size:var(--fs-label-s);line-height:var(--lh-label);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--text-muted)}
+/* Shown only while memory is OFF. Standing copy about a setting that is on eats two lines the
+   wireframe does not have; the on-state lives on the Home dashboard as `TRAIL REMEMBERS`. */
+.ask-memory{margin:0 0 var(--sp-3);font-size:var(--fs-body-s);line-height:var(--lh-body-s);color:var(--text-muted)}
+.ask-memory .text-action{font-size:inherit}
+.ask-todo{margin:var(--sp-2) 0 0;font-size:var(--fs-body-s);line-height:var(--lh-body-s);color:var(--text-muted)}
+
+/* A tapped chip types its sentence into the box: same path as the keyboard, one validation. */
+.chip-row{display:flex;flex-wrap:wrap;gap:var(--sp-2);padding:var(--sp-2) 0}
+.chip-row .chip--button[aria-disabled="true"]{opacity:.5}
+
+/* `HERE'S WHAT I'VE GOT`. Every row is client state; nothing on this card comes from a model turn,
+   which is why the delivery row can carry an amount at all (FIGMA_ADOPTION §1-4). */
+.ask-summary{margin:var(--sp-4) 0 var(--sp-2);border:1px solid var(--border-strong);border-radius:var(--r-m);background:var(--surface-raised);padding:var(--sp-4)}
+.ask-summary>header{display:flex;align-items:center;gap:var(--sp-2);margin-bottom:var(--sp-3)}
+.ask-summary>header .section-label{margin:0;flex:1 1 auto}
+.ask-summary-rows{margin:0;display:grid;gap:0}
+.ask-summary-rows>div{display:grid;grid-template-columns:minmax(0,7.5rem) 1fr;gap:var(--sp-3);align-items:baseline;padding:var(--sp-3) 0;border-top:1px solid var(--hairline)}
+.ask-summary-rows>div:first-child{border-top:0}
+.ask-summary-rows dt{margin:0;font-size:var(--fs-body-s);line-height:var(--lh-body-s);color:var(--text-muted)}
+.ask-summary-rows dd{margin:0;font-size:var(--fs-body);line-height:var(--lh-body);color:var(--text);overflow-wrap:anywhere}
+.ask-summary-actions{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin-top:var(--sp-4)}
+.ask-summary-actions .btn{flex:1 1 10rem}

@@ -10,7 +10,21 @@
  *  Migrations are applied out of band from a deploy, so `load.ts` asks with the
  *  flag on, retries once with it off if the database has not caught up, and
  *  remembers the answer. Without that, shipping the code first would turn every
- *  screen into an error instead of a slightly older one. */
+ *  screen into an error instead of a slightly older one.
+ *
+ *  The `t6` flag does the same job for 0021's `trips.timezone` and `trips.provisional_until`.
+ *  Same shape, same retry, same reason.
+ *
+ *  `stops.planned_date` (0024) is deliberately absent from the stop select: the column is
+ *  not on the deployed database yet and naming it 400s the whole state read. `Stop.plannedDate`
+ *  already exists in the shape and reads null until it is added here, in the same change that
+ *  applies the migration — `Day n of m` and the today branch simply stay off until then.
+ *
+ *  The `stopStore` flag carries N1's one query change and **no migration at all**:
+ *  `stops.store_id` and `stores.lat/lng` are both 0001 columns. It is a flag anyway, for the
+ *  reason the paragraph above gives — a stop embed that PostgREST cannot resolve does not
+ *  degrade a nearby alert, it 400s the whole hydration for every screen. Off, the coordinates
+ *  read null, `Stop.storePoint` is null, and the proximity feature simply does not fire. */
 
 export const USER_SELECT = "*";
 
@@ -18,8 +32,8 @@ const purchaseFields = (t5: boolean) => `
       id, stop_id, actual_price_cents, quantity, bags, handling, currency, note, unplanned_label,
       ${t5 ? "client_key," : ""} recorded_at, voided_at, void_reason, updated_at`;
 
-export const tripSelect = (t5: boolean) => `
-  id, status, country, city, areas, start_date, end_date,
+export const tripSelect = (t5: boolean, t6 = true, stopStore = true) => `
+  id, status, country, city, areas, start_date, end_date, ${t6 ? "timezone, provisional_until," : ""}
   hotel_name, hotel_address, hotel_verified_at, ${t5 ? "hotel_id," : ""} companions, free_time, currency, updated_at,
   plans!plans_trip_id_user_id_fkey (
     id, status, version, total_cents, planned_cents, delivery_reserve_cents, flexible_cents,
@@ -35,6 +49,7 @@ export const tripSelect = (t5: boolean) => `
   stops!stops_trip_id_user_id_fkey (
     id, plan_id, sequence, planned_day, status, recipient_id, product_name, store_name, store_address,
     area, snapshot_price_cents, handling, walk_minutes, rationale, saved, replaced_stop_id, source, updated_at,
+    ${stopStore ? "store_id, store:stores!stops_store_id_fkey ( lat, lng )," : ""}
     purchases!purchases_stop_id_user_id_fkey (${purchaseFields(t5)}
     ),
     store_inquiries!store_inquiries_stop_id_user_id_fkey (
@@ -50,7 +65,7 @@ export const tripSelect = (t5: boolean) => `
     ${t5 ? "ineligible_code, handoff_failure_code, pass_issued_at, pass_expires_at, pass_version," : ""}
     ${t5 ? "transfer_issues!transfer_issues_transfer_id_user_id_fkey ( id, kind, status, description, reported_at, resolved_at )," : ""}
     dropoff_store:stores!bag_transfers_dropoff_store_id_fkey (
-      id, name, address, area, dropoff_cutoff, lat, lng${t5 ? ", accepted_handling, max_weight_grams, timezone, dropoff_opens, partner_note" : ""}
+      id, name, address, area, dropoff_cutoff, lat, lng, source${t5 ? ", accepted_handling, max_weight_grams, timezone, dropoff_opens, partner_note" : ""}
     ),
     bag_transfer_items!bag_transfer_items_transfer_id_user_id_fkey (
       id, purchase_id, label, bags, handling, weight_grams, seal_id, sealed_at, scanned_at
@@ -60,7 +75,7 @@ export const tripSelect = (t5: boolean) => `
     ),
     payments!payments_transfer_id_user_id_fkey (
       id, status, amount_cents, currency, method_brand, method_last4, failure_code,
-      authorized_at, captured_at, refunded_at, created_at
+      provider_charge_id, authorized_at, captured_at, refunded_at, created_at
     ),
     receipts!receipts_transfer_id_user_id_fkey (
       id, received_by, received_at, bag_count, seal_ids, purchases_cents, transfer_fee_cents
@@ -69,13 +84,27 @@ export const tripSelect = (t5: boolean) => `
 `;
 
 /** Kept as the pre-0009 shape for anything that does not want the flag. */
-export const TRIP_SELECT = tripSelect(false);
+export const TRIP_SELECT = tripSelect(false, false, false);
 
-export const TRIP_LIST_SELECT = `
-  id, status, city, country, start_date, end_date, currency, updated_at,
-  plans!plans_trip_id_user_id_fkey ( status ),
-  purchases!purchases_trip_id_user_id_fkey ( id ),
+/** `purchases(id)` is deliberately gone — `TRIP_SPEND_SELECT` answers the count and the
+ *  sum with one row per trip instead of one row per purchase on the whole account. */
+export const tripListSelect = (t6 = true) => `
+  id, status, city, country, start_date, end_date, currency, updated_at, ${t6 ? "hotel_name, timezone, provisional_until," : ""}
+  plans!plans_trip_id_user_id_fkey ( status, total_cents ),
   bag_transfers!bag_transfers_trip_id_user_id_fkey ( id, status )
+`;
+export const TRIP_LIST_SELECT = tripListSelect(false);
+
+/** The 0022 view. Read as its own query rather than embedded: PostgREST would have to
+ *  infer a relationship to it, and this schema already names every FK constraint by hand
+ *  to stay clear of PGRST201 — a view gives nothing to hint at. */
+export const TRIP_SPEND_SELECT = "trip_id, purchase_count, spent_cents, bag_count, budget_cents, plan_status";
+
+/** 0023's catalogue. The FK constraint is named for the same PGRST201 reason. */
+export const RECOMMENDATION_SELECT = `
+  id, name, subtitle, category, price_cents, price_is_estimate, currency, handling, weight_grams,
+  preference_tags, source, source_note,
+  store:stores!products_store_id_fkey ( id, name, area, address, lat, lng, timezone )
 `;
 
 /** A column or relationship the database does not have yet. Anything else is a

@@ -91,6 +91,8 @@ test("the prompt no longer asks for a place and forbid one in the same breath", 
 });
 
 test("the prompt points at the tabs that exist", () => {
-  for (const tab of ["Trips", "Trail", "Ask AI", "Bags", "Gifts", "Map", "Budget", "Delivery"]) assert.equal(SYSTEM_PROMPT.includes(tab), true, tab);
-  assert.equal(/brief screen|picks screen|Shop tab/i.test(SYSTEM_PROMPT), false);
+  // Renamed with the tab bar (FIGMA_ADOPTION §2). `Trail` is still named because the plan
+  // lives there — it is a place inside Trips, not a tab of its own any more.
+  for (const tab of ["Home", "Trips", "AI tab", "Bags", "Trail", "Gifts", "Map", "Budget", "Delivery"]) assert.equal(SYSTEM_PROMPT.includes(tab), true, tab);
+  assert.equal(/brief screen|picks screen|Shop tab|Ask AI|People tab/i.test(SYSTEM_PROMPT), false);
 });

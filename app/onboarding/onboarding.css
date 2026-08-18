@@ -1,28 +1,44 @@
 .onboarding-screen{display:flex;flex-direction:column;gap:var(--sp-4)}
 .onboarding-progress{display:flex;gap:var(--sp-2)}
 .onboarding-progress span{flex:1;display:flex;flex-direction:column;gap:var(--sp-1)}
-.onboarding-progress i{height:4px;border-radius:2px;background:var(--line-strong);display:block}
-.onboarding-progress span.on i{background:var(--navy)}
-.onboarding-progress small{font-size:var(--fs-label-s);line-height:var(--lh-label);font-weight:700;letter-spacing:var(--ls-label);color:var(--muted-strong)}
-.onboarding-progress span.on small{color:var(--ink)}
+.onboarding-progress i{height:4px;border-radius:2px;background:var(--border-strong);display:block}
+.onboarding-progress span.on i{background:var(--accent-fill)}
+.onboarding-progress small{font-family:var(--font-mono);font-size:var(--fs-label-s);line-height:var(--lh-label);font-weight:var(--fw-med);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--text-muted)}
+.onboarding-progress span.on small{color:var(--accent)}
 .onboarding-form{display:flex;flex-direction:column;gap:var(--sp-3);flex:1}
-.onboarding-intro p{margin:0 0 var(--sp-1);font-size:var(--fs-label-s);line-height:var(--lh-label);font-weight:700;letter-spacing:var(--ls-label);color:var(--accent)}
-.onboarding-intro h1{margin:0 0 var(--sp-2);font-size:var(--fs-title);line-height:var(--lh-title);letter-spacing:var(--ls-title)}
-.onboarding-intro small{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--muted-strong)}
-.onboarding-form label.stacked{min-height:56px;display:flex;flex-direction:column;justify-content:center;gap:var(--sp-1);background:var(--white);border:1px solid var(--line-strong);border-radius:14px;padding:var(--sp-2) var(--sp-3)}
-.onboarding-form label.stacked small{font-size:var(--fs-label-s);line-height:var(--lh-label);font-weight:700;letter-spacing:var(--ls-label);color:var(--muted-strong)}
-.onboarding-form label.stacked input,.onboarding-form label.stacked select{border:0;outline:0;background:transparent;min-height:24px;font-size:var(--fs-body);width:100%}
+.onboarding-intro p{margin:0 0 var(--sp-1);font-family:var(--font-mono);font-size:var(--fs-label-s);line-height:var(--lh-label);font-weight:var(--fw-med);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--teal)}
+.onboarding-intro h1{margin:0 0 var(--sp-2);font-family:var(--font-serif);font-weight:var(--fw-reg);font-size:var(--fs-title);line-height:var(--lh-title);letter-spacing:var(--ls-title)}
+.onboarding-intro small{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--text-muted)}
+.onboarding-form label.stacked{min-height:56px;display:flex;flex-direction:column;justify-content:center;gap:var(--sp-1);background:var(--surface-raised);border:1px solid var(--border-strong);border-radius:var(--r-s);padding:var(--sp-2) var(--sp-3)}
+.onboarding-form label.stacked small{font-family:var(--font-mono);font-size:var(--fs-label-s);line-height:var(--lh-label);font-weight:var(--fw-med);letter-spacing:var(--ls-label);text-transform:uppercase;color:var(--text-muted)}
+.onboarding-form label.stacked input,.onboarding-form label.stacked select{border:0;background:transparent;color:var(--text);min-height:24px;font-size:var(--fs-body);width:100%}
 .area-add{display:flex;gap:var(--sp-2);margin-top:var(--sp-2)}
-.area-add input{flex:1;min-width:0;min-height:var(--tap);border:1px solid var(--line-strong);border-radius:11px;padding:0 var(--sp-3);font-size:var(--fs-body);outline:0}
-.area-add button{min-height:var(--tap);border:0;border-radius:11px;background:var(--navy);color:var(--lime);font-size:var(--fs-body-s);font-weight:700;padding:0 var(--sp-4);cursor:pointer}
-.area-add button:disabled{opacity:.4;cursor:default}
+.area-add input{flex:1;min-width:0;min-height:var(--tap);border:1px solid var(--border-strong);border-radius:var(--r-s);background:var(--surface-raised);color:var(--text);padding:0 var(--sp-3);font-size:var(--fs-body)}
+.area-add button{min-height:var(--tap);border:0;border-radius:var(--r-s);background:var(--accent-fill);color:var(--on-accent);font-size:var(--fs-body-s);font-weight:var(--fw-bold);padding:0 var(--sp-4);cursor:pointer}
+.area-add button:disabled{background:var(--surface-raised);border:1px solid var(--border-strong);color:var(--text-muted);cursor:default}
 .bucket-preview{display:flex;flex-direction:column;gap:var(--sp-2)}
-.bucket-preview span{min-height:var(--tap);display:flex;align-items:center;gap:var(--sp-3);background:var(--white);border:1px solid var(--line);border-radius:12px;padding:var(--sp-2) var(--sp-3)}
+.bucket-preview span{min-height:var(--tap);display:flex;align-items:center;gap:var(--sp-3);background:var(--surface);border:1px solid var(--border);border-radius:var(--r-s);padding:var(--sp-2) var(--sp-3)}
 .bucket-preview i{width:12px;height:12px;border-radius:4px;flex:0 0 auto}
-.bucket-preview i.planned{background:var(--navy)}
-.bucket-preview i.reserve{background:var(--peach)}
-.bucket-preview i.flex{background:var(--blue)}
-.bucket-preview small{flex:1;font-size:var(--fs-body-s);color:var(--muted-strong)}
-.bucket-preview b{font-size:var(--fs-body)}
+.bucket-preview i.planned{background:var(--accent-fill)}
+.bucket-preview i.reserve{background:var(--teal-fill)}
+.bucket-preview i.flex{background:var(--border-strong)}
+.bucket-preview small{flex:1;font-size:var(--fs-body-s);color:var(--text-muted)}
+.bucket-preview b{font-family:var(--font-mono);font-size:var(--fs-body)}
 .onboarding-actions{display:flex;flex-direction:column;gap:var(--sp-2);margin-top:auto;padding-top:var(--sp-2)}
-.bucket-preview span{flex-wrap:wrap}.bucket-preview em{order:9;width:100%;font-style:normal;font-size:var(--fs-label-s);line-height:var(--lh-label);color:var(--muted-strong)}
+.bucket-preview span{flex-wrap:wrap}.bucket-preview em{order:9;width:100%;font-style:normal;font-family:var(--font-mono);font-size:var(--fs-label-s);line-height:var(--lh-label);color:var(--text-muted)}
+.onboarding-form label.stacked :is(input,select):not(:focus-visible),.area-add input:not(:focus-visible){outline:0}
+
+/* ---- the chip conversation ------------------------------------------------
+   A reskin of the same four-step form, not a model: four of the six answers are
+   `trips` columns and one of them is the hotel, which may never reach a prompt. */
+.chip-chat .messages{gap:var(--sp-3);margin:var(--sp-3) 0}
+.chip-chat .messages>div{display:flex;flex-direction:column;gap:var(--sp-2)}
+/* An answer already given is a button: tapping it is how you go back, so there is no separate
+   Back control to disagree with the progress indicator. */
+.bubble-button{border:0;background:transparent;color:inherit;font:inherit;text-align:left;padding:0;min-height:var(--tap);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
+.chip-answer{display:flex;flex-direction:column;gap:var(--sp-3);margin-top:var(--sp-2)}
+.chip-answer .chip-row{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
+/* `progressbar`, not four dots: the dots could not say which of six answers you were on. */
+.chip-chat .onboarding-progress{display:block;height:4px;border-radius:var(--r-pill);background:var(--hairline);overflow:hidden}
+.chip-chat .onboarding-progress i{display:block;height:100%;background:var(--accent-fill);transition:width .18s ease}
+@media (prefers-reduced-motion:reduce){.chip-chat .onboarding-progress i{transition:none}}

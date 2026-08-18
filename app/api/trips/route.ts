@@ -20,7 +20,20 @@ import { MINOR_UNITS } from "@/app/trail-brief";
  *    would refuse anything else, and a refused insert is a trip with no wallet.
  *
  *  A plan that fails to write takes its trip with it. Half a trip is worse than
- *  none: every screen downstream reads "a trip exists" as "a budget exists". */
+ *  none: every screen downstream reads "a trip exists" as "a budget exists".
+ *
+ *  Migration 0020 revokes DELETE on `trips` from `authenticated` -- the trip row is the
+ *  root of the purchase, transfer and receipt cascade, and a browser must not be able to
+ *  take that tree with it. So the compensating delete goes through 0021's
+ *  `discard_provisional_trip(uuid)`, a definer function that can only reach a row that is
+ *  still marked `provisional_until` and still has no plan -- which is precisely the row
+ *  this branch just created and failed to finish.
+ *
+ *  When even that fails (0021 not applied yet, say) the answer carries
+ *  `{ cleanup: "orphaned", tripId }` and the trip stays visible in `My Trips` as
+ *  `Incomplete - no budget`. It is never hidden: a trip with no wallet renders
+ *  `CAD $0 budget`, and a zero that looks like an answer is the failure mode worth
+ *  shouting about. */
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
@@ -53,8 +66,10 @@ export async function POST(request: Request) {
   }).select("id").maybeSingle();
 
   if (plan.error || !plan.data) {
-    await db.from("trips").delete().eq("id", tripId);
-    return json({ error: "plan_write_failed", detail: plan.error?.message ?? "no row" }, 500);
+    const undone = await db.rpc("discard_provisional_trip", { p_trip_id: tripId });
+    const withdrawn = !undone.error && undone.data === true;
+    if (!withdrawn) console.error("[trips] plan write failed and the trip could not be withdrawn", { tripId, plan: plan.error?.message, cleanup: undone.error?.message ?? "row not provisional" });
+    return json({ error: "plan_write_failed", detail: plan.error?.message ?? "no row", tripId, cleanup: withdrawn ? "withdrawn" : "orphaned" }, 500);
   }
 
   return json({ tripId, planId: plan.data.id as string, buckets, reserveSource: quote.currency }, 201);

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { briefContext, composeTurn, inferPlanPatch, sanitizeBriefPatch, sanitizePatch, BUDGET_MAX, BUDGET_MIN, PLAN_KEYS, TURN_SCHEMA, type TurnContext } from "../app/trail-brief.ts";
+import { briefContext, composeTurn, inferPlanPatch, sanitizeBriefPatch, sanitizePatch, scrubReply, SYSTEM_PROMPT, BUDGET_MAX, BUDGET_MIN, PLAN_KEYS, TURN_SCHEMA, type TurnContext } from "../app/trail-brief.ts";
 
 // Keyword inference only ever produces a *suggestion* the traveler taps to accept.
 // These cases pin the failures that used to write straight into the brief.
@@ -90,7 +90,7 @@ test("nulls and junk are dropped rather than stored", () => {
 
 // ── the structured contract itself ────────────────────────────────────────
 
-const ctx: TurnContext = { trip: { city: "Toronto", country: "Canada", areas: ["Kensington Market"], hotel: "The Drake Hotel", currency: "CAD" }, recipients: [{ ref: "r1", label: "Sooyun Kim", relationship: "Mom" }], plannedUnits: 250, unallocatedUnits: 34 };
+const ctx: TurnContext = { trip: { city: "Toronto", country: "Canada", areas: ["Kensington Market"], currency: "CAD" }, recipients: [{ ref: "r1", label: "Sooyun Kim", relationship: "Mom" }], plannedUnits: 250, unallocatedUnits: 34 };
 
 test("the brief block carries no hotel, no address and no bucket amounts", () => {
   const block = briefContext(ctx);
@@ -122,6 +122,16 @@ test("an injection dressed as a recipient label stays a label and moves nothing"
   assert.equal(/confirmed|booked/i.test(reply.reply), false);
 });
 
+test("a window rides in the brief block without putting a number in it", () => {
+  // N2. The window is read by the model and written by nothing; `trail-spare-context` owns
+  // the detail. This is the line in the brief contract itself: a clause was added and the
+  // block still carries no minutes, no clock and no hotel.
+  const block = briefContext({ ...ctx, window: { size: "about_an_hour", area: "Kensington Market", endsAt: "hotel", cutoffState: "passed" } });
+  assert.equal(block.includes('"size":"about_an_hour"'), true);
+  assert.equal(/"minutes|:\s*60|18:00/.test(block), false);
+  assert.equal(block.includes("Drake"), false);
+});
+
 test("the dead `time` field is gone from every contract surface", () => {
   assert.equal(PLAN_KEYS.includes("time" as never), false);
   assert.equal(JSON.stringify(TURN_SCHEMA).includes('"time"'), false);
@@ -137,8 +147,15 @@ test("`clear` is part of the reply type rather than bolted on by the route", () 
 
 test("snake_case from the model becomes camelCase in the brief, and unknown enums are refused", () => {
   const { patch, rejected } = sanitizeBriefPatch({ category: "Jewellery", preference: "Thoughtful and useful", local_only: true, easy_pack: null, hotel_delivery: false });
-  assert.deepEqual(patch, { preference: "Thoughtful and useful", localOnly: true, hotelDelivery: false });
+  // The two booleans are gone from the brief (0025). A turn still holding them is read as the tags
+  // they always meant, and the booleans themselves are dropped so the brief never carries two
+  // spellings of one preference at once.
+  assert.deepEqual(patch, { preference: "Thoughtful and useful", preferenceTags: ["local"], hotelDelivery: false });
   assert.equal(rejected[0]?.reason, "unknown_value");
+  const both = sanitizeBriefPatch({ local_only: true, easy_pack: true }).patch;
+  assert.deepEqual(both, { preferenceTags: ["local", "easy_to_pack"] });
+  assert.equal("localOnly" in both, false);
+  assert.equal("easyPack" in both, false);
 });
 
 test("the structured output schema stays valid for strict mode", () => {
@@ -152,4 +169,28 @@ test("the structured output schema stays valid for strict mode", () => {
     if (node.type === "array") walk(node.items as Record<string, unknown>);
   };
   walk(TURN_SCHEMA as unknown as Record<string, unknown>);
+});
+
+/* ── N3: the model may record a ranking, never invent one ──────────────── */
+
+test("the prompt forbids inferring a rank from who somebody is", () => {
+  assert.match(SYSTEM_PROMPT, /A relationship is not a priority/);
+  assert.match(SYSTEM_PROMPT, /never infer that a parent outranks a\s+coworker/);
+  assert.match(SYSTEM_PROMPT, /If they did not say it, leave both null/);
+});
+
+test("the priority field's description no longer invites the model to fill it", () => {
+  const fields = (TURN_SCHEMA as { properties: { recipients: { items: { properties: Record<string, { description?: string }> } } } }).properties.recipients.items.properties;
+  const description = fields.priority.description ?? "";
+  assert.match(description, /Never inferred from who the person is/);
+  assert.equal(/buy this first/.test(description), false, "the old description read as an instruction to rank people");
+});
+
+test("claiming to have marked someone is confirming language", () => {
+  assert.match(SYSTEM_PROMPT, /marked, prioritised/);
+  for (const claim of ["I've marked Mom as must-buy.", "I have prioritised your sister.", "I've prioritized the team."]) {
+    assert.equal(scrubReply(claim, []).errorCode, "confirming_language", claim);
+  }
+  // A stop the traveller marked not found is the app's own word and stays sayable.
+  assert.equal(scrubReply("That stop is marked not found in your route.", []).errorCode, undefined);
 });

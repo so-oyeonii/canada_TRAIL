@@ -59,9 +59,79 @@ export function selectedBagCount(items: DraftItem[]): number { return items.redu
  *  was client state that a button incremented, and that is exactly why it could
  *  claim a handoff that never happened. */
 const STEP_OF: Partial<Record<TransferEvent["eventType"], number>> = { dropped_off: 0, collected: 1, in_transit: 2, arrived: 2, handed_off: 3 };
-export const DELIVERY_STEPS = ["Sealed", "Collected", "On route", "At hotel"] as const;
+export const DELIVERY_STEPS = ["Dropped off", "Collected by Trail", "On the way to hotel", "Delivered"] as const;
 export function deliveryStep(events: TransferEvent[]): number {
   return events.reduce((step, e) => Math.max(step, STEP_OF[e.eventType] ?? -1), -1);
+}
+
+/** The tracking screen's vertical timeline, projected from the ledger.
+ *
+ *  Ordering is `seq` (the server's own sequence) and the time shown is
+ *  `occurredAt` (what happened, as claimed) — never `created_at`, which is when
+ *  the phone got signal again. A drop-off recorded underground at 18:42 and
+ *  flushed at 19:10 reads 18:42.
+ *
+ *  The wireframe draws four successful steps. The schema has four ways this goes
+ *  wrong, and constitution 4 says they stay reachable, so a failure gets its own
+ *  row rather than a colour on somebody else's:
+ *
+ *  - `delayed` / `seal_issue` / a partner's `declined` are **interruptions**: the
+ *    run continues, so the row is inserted at the point it happened and the
+ *    remaining steps stay ahead.
+ *  - `cancelled` and a hotel's `declined` are **terminal**: the rows after them are
+ *    dropped entirely. Leaving a greyed-out `Delivered` under a refused handoff
+ *    says it is still coming, and it is not.
+ *
+ *  Nothing here decides a status. `transfer.status` is the trigger's answer; this
+ *  only decides what is drawn beside it. */
+export type TimelineState = "done" | "current" | "future" | "warning" | "failed";
+export type TimelineRow = { key: string; label: string; state: TimelineState; at: string | null };
+export const TIMELINE_STEPS = ["Dropped off", "Collected by Trail", "On the way to hotel", "Delivered"] as const;
+const TIMELINE_STEP_OF: Partial<Record<TransferEvent["eventType"], number>> = { dropped_off: 0, sealed: 0, collected: 1, in_transit: 2, arrived: 2, handed_off: 3 };
+const INTERRUPTIONS = ["delayed", "seal_issue", "declined", "cancelled"] as const;
+const FAILURE_LABEL: Record<(typeof INTERRUPTIONS)[number], string> = { delayed: "Running late", seal_issue: "Seal problem reported", declined: "The hotel did not take the bags", cancelled: "Delivery cancelled" };
+
+export function timelineRows(events: TransferEvent[], handoffFailureCode: string | null = null): TimelineRow[] {
+  const ordered = events.slice().sort((a, b) => a.seq - b.seq);
+  const firstAt = new Map<number, string>();
+  let reached = -1;
+  for (const event of ordered) {
+    const step = TIMELINE_STEP_OF[event.eventType];
+    if (step === undefined) continue;
+    if (!firstAt.has(step)) firstAt.set(step, event.occurredAt);
+    reached = Math.max(reached, step);
+  }
+
+  const last = ordered.filter((e) => (INTERRUPTIONS as readonly string[]).includes(e.eventType)).pop() ?? null;
+  // A partner declining leaves the delivery recoverable; only the hotel's refusal ends it (`statusAfter`).
+  const terminal = last ? last.eventType === "cancelled" || (last.eventType === "declined" && last.actor === "hotel") : Boolean(handoffFailureCode);
+  const failure = last
+    ? { key: last.id, label: FAILURE_LABEL[last.eventType as (typeof INTERRUPTIONS)[number]], state: (terminal ? "failed" : "warning") as TimelineState, at: last.occurredAt }
+    : handoffFailureCode
+      ? { key: "handoff-failure", label: FAILURE_LABEL.declined, state: "failed" as TimelineState, at: null }
+      : null;
+  // Where the interruption sits: the furthest step the ledger had reached by then.
+  const at = failure && last ? ordered.filter((e) => e.seq <= last.seq).reduce((step, e) => Math.max(step, TIMELINE_STEP_OF[e.eventType] ?? -1), -1) : reached;
+
+  // Cancelled before anything moved: there is no step to hang it off, and drawing
+  // "Dropped off" underneath would offer a stage this delivery will never have.
+  if (failure && terminal && at < 0) return [failure];
+
+  const rows: TimelineRow[] = [];
+  const upTo = failure && terminal ? at : TIMELINE_STEPS.length - 1;
+  TIMELINE_STEPS.forEach((label, index) => {
+    if (index > upTo) return;
+    // Nothing has happened yet: the first step is what the traveller is being asked
+    // to do, so it is current rather than four greyed-out rows with no "you are here".
+    const state: TimelineState = reached < 0 ? (index === 0 && !terminal ? "current" : "future")
+      : index < reached ? "done"
+      : index === reached ? (index === TIMELINE_STEPS.length - 1 || terminal ? "done" : "current")
+      : "future";
+    rows.push({ key: `step-${index}`, label, state, at: firstAt.get(index) ?? null });
+    if (failure && index === at) rows.push(failure);
+  });
+  if (failure && at < 0) rows.unshift(failure);
+  return rows;
 }
 
 /** Optimistic view while writes are still queued. The server's number is the one

@@ -8,14 +8,22 @@ import { readFileSync } from "node:fs";
 // tap in exactly one place.
 
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
-const people = read("app/(app)/trail/plan/people/page.tsx");
+// The split screen moved to `Gifts ▸ Split` when the lenses went from five to four
+// (FIGMA_ADOPTION §2). Body unchanged — these assertions are the reason it was moved
+// rather than rewritten, and `/trail/plan/people` is now a 308 to here.
+const people = read("app/(app)/trail/plan/gifts/split/page.tsx");
+const peopleStub = read("app/(app)/trail/plan/people/page.tsx");
 const approval = read("app/(app)/trail/plan/approval/page.tsx");
 const layout = read("app/(app)/trail/plan/layout.tsx");
 const state = read("app/(app)/app-state.tsx");
 
 test("the split screen never snaps an amount to ten", () => {
   assert.ok(!/\/\s*10\s*\)\s*\*\s*10|Math\.round\([^)]*\/\s*10\)/.test(people), "the slider's ten-dollar snap is back in the allocation screen");
-  assert.match(people, /Math\.round\(Number\(amount\) \* 100\)/);
+  // The typed number goes to minor units through the currency table and nothing else.
+  // It used to read `Math.round(Number(amount) * 100)`, which was the same promise made
+  // to CAD only — a yen amount came out a hundredfold.
+  assert.match(people, /toMinor\(Number\(value\), currency\)/);
+  assert.ok(!/\*\s*100/.test(people), "a hard 100 is back in the allocation screen");
 });
 
 test("a group's amount says what it means before it is sent", () => {
@@ -47,6 +55,10 @@ test("the proposal is shown as a proposal", () => {
   assert.ok(/status === "503"|status === 503/.test(approval), "a missing service key must not read as an approval");
 });
 
+test("the old People route still resolves to the screen that replaced it", () => {
+  assert.match(peopleStub, /permanentRedirect\("\/trail\/plan\/gifts\/split"\)/);
+});
+
 test("a waiting approval interrupts every plan lens", () => {
   assert.match(layout, /pendingBudgetChange/);
   assert.match(layout, /trail\/plan\/approval/);
@@ -57,4 +69,38 @@ test("the client reads recipients and the pending change from the server state",
   // None of the money paths are queued: a proposal the traveller never saw
   // because it sat in the outbox is the approval gate failing quietly.
   assert.ok(!/commit\("(PUT|POST)", `\/api\/(plans|budget-changes|recipients)/.test(state), "a budget decision must not go through the outbox");
+});
+
+/* ── N3: the ranking is on this screen and nowhere else ─────────────────── */
+
+test("every recipient carries the three-tier segment, grouped as one question", () => {
+  assert.match(people, /<fieldset className="priority-set">/);
+  assert.match(people, /<legend className="section-label">IF MONEY RUNS SHORT/);
+  assert.match(people, /TIERS\.map\(\(tier\) =>/, "the three tiers come from lib/budget/priority, not from three hand-written labels");
+  assert.match(people, /type="radio" name={`prio-\$\{person\.id\}`}/);
+  // Selection is never border colour alone.
+  assert.match(people, /choice-check/);
+});
+
+test("a mark is one write of both columns, and it is not gated on approval", () => {
+  assert.match(people, /updateRecipient\(person\.id, tierWrite\(tier\)\)/);
+  assert.equal(/checked=\{tierFor\(person\) === tier\}[^>]*disabled/.test(people), false, "priority moves no money, so an approved plan does not lock it");
+  // Failure is reverted and said out loud: `updateRecipient` does not go through the outbox.
+  assert.match(people, /That mark was not saved/);
+  assert.match(people, /Trail could not save that mark/);
+});
+
+test("the trim suggestion fills the inputs and saves nothing", () => {
+  assert.match(people, /Suggest a split that keeps the must-buys/);
+  assert.match(people, /trimToFit\(/);
+  assert.match(people, /Nothing is saved yet/);
+  // The remedy sets rows; only the existing button sends, through the existing 409.
+  assert.equal(/applyTrim[\s\S]{0,400}saveAllocations/.test(people), false, "the trim button must not send the split");
+  assert.match(people, /Raise it for approval/, "the flexible path is unchanged");
+  assert.match(people, /Even the must-buy gifts come to/, "a no_fit says so instead of drawing a button");
+});
+
+test("no new approval path was opened for a ranking", () => {
+  assert.equal(/proposeBudgetChange\([^)]*priority/.test(people), false);
+  assert.equal(people.includes("reserve_short"), false, "the delivery reserve is a different bucket");
 });

@@ -1,0 +1,6 @@
+# Share links are private URLs with a token in the path. They are also served with
+# `X-Robots-Tag: noindex, nofollow, noarchive` (next.config.ts) and carry `robots` page
+# metadata — this file is the layer a crawler reads before it requests anything.
+User-agent: *
+Disallow: /s/
+Disallow: /api/

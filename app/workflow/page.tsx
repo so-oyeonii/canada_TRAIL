@@ -1,4 +1,7 @@
 /* eslint-disable @next/next/no-html-link-for-pages -- standalone anchor keeps the Figma HTML capture independent of Next navigation runtime */
+import Image from "next/image";
+import { notFound } from "next/navigation";
+import { isDeployed } from "@/lib/env/deployment";
 import "./workflow.css";
 
 type Frame = { id: string; phase: string; title: string; state: string; entry: string; exit: string; blocks: Array<{ kind?: "hero" | "row" | "button" | "note" | "choice"; text: string }> };
@@ -18,9 +21,15 @@ const frames: Frame[] = [
   { id: "12", phase: "COMPLETE", title: "Hotel receipt", state: "Received", entry: "Hotel handoff", exit: "Today + trip memory", blocks: [{ kind: "hero", text: "Received by The Annex Hotel\nFront desk · 6:42 PM" }, { kind: "row", text: "Bag count · seal status · handling" }, { kind: "row", text: "Purchases · actual spend · transfer fee" }, { kind: "choice", text: "Save receipt · Report issue" }, { kind: "button", text: "Done — continue my trip" }] },
 ];
 
+/** Internal wireframe board, not a product surface (APP_SPEC, routes section). It does not
+ *  exist in a deployed build: it is publicly reachable, indexable, and names screens the app
+ *  has since renamed — a public page telling the wrong story about the product. */
+export const metadata = { robots: { index: false, follow: false } };
+
 export default function WorkflowPage() {
+  if (isDeployed()) notFound();
   return <main className="wf-board">
-    <header className="wf-header"><div><span className="wf-brand">T</span><p>TRAIL · PRODUCT WORKFLOW WIREFRAME</p><h1>Shop locally.<br />Travel hands-free.</h1></div><div className="wf-actions">{/* Standalone capture page intentionally avoids Next runtime navigation. */}<a href="/">Open prototype</a><span>390 × 844 mobile frames · Figma capture ready</span></div></header>
+    <header className="wf-header"><div><Image className="wf-brand" src="/logo-mark.png" alt="" width={46} height={46} /><p>TRAIL · PRODUCT WORKFLOW WIREFRAME</p><h1>Shop locally.<br />Travel hands-free.</h1></div><div className="wf-actions">{/* Standalone capture page intentionally avoids Next runtime navigation. */}<a href="/">Open prototype</a><span>390 × 844 mobile frames · Figma capture ready</span></div></header>
     <section className="wf-principles"><div><b>Product boundary</b><span>User buys in store. TRAIL recommends the route and transfers purchased bags.</span></div><div><b>Primary loop</b><span>Ask → Brief → Route → Shop → Purchase → Bags → Hotel</span></div><div><b>Truth rule</b><span>External inventory, maps and transfer events stay labeled Sample or Simulated.</span></div></section>
     <section className="wf-legend"><span><i className="navy" />Primary user action</span><span><i className="lime" />AI generated or refreshed</span><span><i className="orange" />Conditional approval</span><span><i className="red" />Error and recovery</span></section>
     <section className="wf-flowline"><b>ACTIVE TRIP</b><span>ASK</span><span>PLAN ROUTE</span><span>BUY IN STORE</span><span>SELECT BAGS</span><span>HOTEL RECEIPT</span></section>

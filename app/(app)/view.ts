@@ -9,12 +9,37 @@
  *  server sends codes (`lib/transfers/eligibility.ts` is explicit that remedies
  *  are codes, not sentences); this is the one place they become English. */
 
-import type { DataSource, Handling, HandoffFailureCode, IneligibleCode } from "@/lib/state/types";
-import type { Remedy } from "@/lib/transfers/eligibility";
+import type { DataSource, Handling, HandoffFailureCode, IneligibleCode } from "../../lib/state/types.ts";
+import type { Remedy } from "../../lib/transfers/eligibility.ts";
+import { TIER_BADGE, tierOf, type TierFields } from "../../lib/budget/priority.ts";
 
-/** Minor units in, a number a traveler recognises out. Never rounds a cent away. */
-export const money = (cents: number) => (Math.abs(cents) % 100 === 0 ? String(Math.round(cents / 100)) : (cents / 100).toFixed(2));
-export const price = (cents: number, currency = "CAD") => `${currency} $${money(cents)}`;
+/** Money is `lib/money/format.ts` and nothing else. Both take the currency as a required
+ *  argument on purpose: a default of "CAD" is how every screen came to divide by a hard
+ *  100 and print a `$` in front of a yen amount. */
+export { amount as money, priceLabel as price } from "../../lib/money/format.ts";
+import { minorUnits, priceLabel } from "../../lib/money/format.ts";
+
+/** `CAD $9.00`. The payment screen is the one place a trailing `.00` is not noise:
+ *  the amount on the button has to read like the amount on a card statement, and a
+ *  `CAD $9` next to a `$9.00` receipt is the kind of difference that gets disputed.
+ *  Ledger rows keep `price()`. Currencies with no minor unit keep none — `JPY ¥1,200.00`
+ *  would be inventing two digits that do not exist. */
+export const priceExact = (cents: number, currency: string) => { const label = priceLabel(cents, currency); return minorUnits(currency) === 1 || label.includes(".") ? label : `${label}.00`; };
+
+/** Weight is only ever shown when a bag actually carries one. `purchases` has no
+ *  weight column and `draftItems()` hard-codes null, so every bag is unweighed
+ *  today — and an invented 800 g per bag would not stay on screen: `saveManifest`
+ *  sends it, and `handling_unsupported` is judged against `max_weight_grams`. A
+ *  guess would refuse a real delivery or wave a real overload through. */
+export const weightLabel = (grams: number | null) => (grams && grams > 0 ? `~${(grams / 1000).toFixed(1)} kg` : "Weighed at the counter");
+
+/** Constitution 5: flexible money cannot move without a tap, and a tap on
+ *  "Use my flexible budget" is not an approval of an amount nobody was shown.
+ *  Says what leaves, which bucket it leaves, and what is left after. */
+export const flexibleRemedyLabel = (shortfallCents: number, flexibleCents: number, currency: string) =>
+  (flexibleCents >= shortfallCents
+    ? `Take ${priceLabel(shortfallCents, currency)} from flexible (${priceLabel(flexibleCents - shortfallCents, currency)} left)`
+    : `Flexible has ${priceLabel(flexibleCents, currency)}. Not enough for ${priceLabel(shortfallCents, currency)}.`);
 
 const TONES = ["peach", "blue", "yellow"] as const;
 export const stopTone = (index: number) => TONES[index % TONES.length];
@@ -22,6 +47,10 @@ export const stopMark = (name: string) => (name.trim()[0] ?? "T").toUpperCase();
 export const walkLabel = (minutes: number | null) => (minutes === null ? "On your route" : `+${minutes} min`);
 /** Constitution 3: anything that is not live data says so, from the row's own column. */
 export const sourceChip = (source: DataSource | null) => (source === "live" ? "" : source === "simulated" ? "SIMULATED" : "SAMPLE");
+/** The traveller's own mark, never Trail's promise. `MUST BUY` is what they ticked; there is no
+ *  `PROTECTED` or `RESERVED` chip because Trail holds nothing back for anyone (§1 of
+ *  FIGMA_ADOPTION, and the same words the prompt bans). `Planned` draws nothing at all. */
+export const tierBadge = (person: TierFields | null | undefined) => { const tier = tierOf(person); const label = TIER_BADGE[tier]; return label ? { label, className: tier === "must" ? "badge badge--accent" : "badge" } : null; };
 export const handlingLabel: Record<Handling, string> = { Standard: "Standard transfer", Heavy: "Heavy transfer", Fragile: "Fragile transfer", Chilled: "Chilled transfer" };
 
 export const dateRange = (start: string | null, end: string | null) => {

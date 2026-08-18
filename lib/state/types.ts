@@ -8,6 +8,8 @@
  *     hang off their stop, and a replacement is a new stop pointing at the old
  *     one. There is no index left for a re-order to invalidate. */
 
+import type { PreferenceTag, RouteTag } from "../../app/trail-brief.ts";
+
 export type TripStatus = "planning" | "active" | "past" | "archived";
 export type PlanStatus = "draft" | "approved" | "superseded";
 export type StopStatus = "planned" | "bought" | "unavailable" | "skipped";
@@ -41,13 +43,41 @@ export type ItemKey = string;
 
 export type TravelerProfile = { id: string; email: string; displayName: string | null; homeCurrency: string; locale: string; memoryEnabled: boolean; firstRunDoneAt: string | null };
 
-export type TripSummary = { id: string; status: TripStatus; city: string; country: string; startDate: string | null; endDate: string | null; currency: string; planStatus: PlanStatus | null; purchaseCount: number; openTransferId: string | null };
+/** One card in `My Trips`. Every count below is `number | null` and null is not zero:
+ *  the summary view (0022) may not exist on the database this build is talking to, and
+ *  `CAD $0 spent` on a trip that cost 400 is worse than saying nothing was counted.
+ *  `provisionalUntil` non-null means the trip has no wallet behind it — the card says so
+ *  instead of drawing a zero budget. */
+export type TripSummary = { id: string; status: TripStatus; city: string; country: string; startDate: string | null; endDate: string | null; currency: string; timezone: string; hotelName: string; planStatus: PlanStatus | null; budgetCents: number | null; spentCents: number | null; bagCount: number | null; purchaseCount: number | null; provisionalUntil: string | null; openTransferId: string | null };
 
-export type Trip = { id: string; status: TripStatus; country: string; city: string; areas: string[]; startDate: string | null; endDate: string | null; hotelId: string | null; hotelName: string; hotelAddress: string; hotelVerifiedAt: string | null; companions: string; freeTime: string; currency: string };
+/** Which of the three sections of `My Trips` a trip belongs in. Derived from `status`,
+ *  which since 0021 is itself derived from the dates and the trip's own zone. */
+export type TripSection = "current" | "upcoming" | "past";
+
+export type Trip = { id: string; status: TripStatus; country: string; city: string; areas: string[]; startDate: string | null; endDate: string | null; timezone: string; hotelId: string | null; hotelName: string; hotelAddress: string; hotelVerifiedAt: string | null; companions: string; freeTime: string; currency: string; provisionalUntil: string | null };
+
+/** A shop in the catalogue, as `GET /api/recommendations` returns it. The coordinates are
+ *  in the *response* and never in `TrailState`: the browser measures the distance itself
+ *  and nothing about where the traveller is standing is stored or sent. */
+/** `openNow` is three-valued on purpose. `false` is "the hours say closed"; `null` is
+ *  "Trail has no hours for this shop", and the screen says nothing at all rather than
+ *  guessing — which is a different answer from `isOpenNow`'s "no row for today means
+ *  closed", and the reason that verdict is not reused here without a row to back it. */
+export type RecommendedStore = { id: string; name: string; area: string; address: string; lat: number | null; lng: number | null; openNow: boolean | null };
+/** `priceIsEstimate` is a column, not copy, so the `~` in front of the amount cannot drift
+ *  away from the number it qualifies. `sourceNote` is what makes the Sample chip
+ *  explainable rather than decorative — it becomes the chip's accessible description. */
+export type Recommendation = { id: string; name: string; subtitle: string; category: string; priceCents: number; priceIsEstimate: boolean; currency: string; handling: Handling; weightGrams: number | null; preferenceTags: string[]; source: DataSource; sourceNote: string; store: RecommendedStore | null };
+/** A thing the traveller told Trail to remember across trips. Consent is a row, and its
+ *  timestamp is the server's — a browser does not get to say when it was given. */
+export type MemoryConstraint = { id: string; kind: "avoid" | "prefer"; value: string; sourceTripId: string | null; consentedAt: string };
 
 export type Allocation = { recipientId: string; amountCents: number; bucket: BudgetBucket };
 
-export type Plan = { id: string; status: PlanStatus; version: number; totalCents: number; plannedCents: number; deliveryReserveCents: number; flexibleCents: number; category: string; preference: string; localOnly: boolean; easyPack: boolean; hotelDelivery: boolean; approvedAt: string | null; allocations: Allocation[] };
+/** `preferenceTags`/`routeTag` are the closed-enum replacement for `localOnly`/`easyPack`
+ *  (migration 0025). The two booleans stay until `app/page.tsx` retires with them in 0026;
+ *  while both exist the tags are the source of truth and the booleans are the projection. */
+export type Plan = { id: string; status: PlanStatus; version: number; totalCents: number; plannedCents: number; deliveryReserveCents: number; flexibleCents: number; category: string; preference: string; localOnly: boolean; easyPack: boolean; preferenceTags: PreferenceTag[]; routeTag: RouteTag | null; hotelDelivery: boolean; approvedAt: string | null; allocations: Allocation[] };
 
 /** Computed by the server. A client that adds up spend itself drifts the moment
  *  one write is still sitting in the outbox. `reserveCents` is displayed, never
@@ -70,9 +100,17 @@ export type Purchase = { id: PurchaseId; stopId: StopId | null; actualPriceCents
 
 export type Inquiry = { id: string; status: InquiryStatus; question: string; answerNote: string | null; askedAt: string; answeredAt: string | null; expiresAt: string };
 
-export type Stop = { id: StopId; planId: string; sequence: number; plannedDay: number; status: StopStatus; recipientId: string | null; productName: string; storeName: string; storeAddress: string; area: string; snapshotPriceCents: number; handling: Handling; walkMinutes: number | null; rationale: string; saved: boolean; replacedStopId: StopId | null; source: DataSource; purchase: Purchase | null; inquiry: Inquiry | null };
+/** `storeId` is `stops.store_id` (0001) and `storePoint` is that shop's own `lat`/`lng`,
+ *  both read straight off the catalogue row. Neither says anything about the traveller:
+ *  the subtraction between this point and a device fix happens in `lib/discovery/*` and
+ *  the result is never written back — least of all to `walkMinutes`, which is a catalogue
+ *  figure and would become a record of where somebody stood if it were not. */
+export type Stop = { id: StopId; planId: string; sequence: number; plannedDay: number; plannedDate: string | null; storeId: string | null; storePoint: { lat: number; lng: number } | null; status: StopStatus; recipientId: string | null; productName: string; storeName: string; storeAddress: string; area: string; snapshotPriceCents: number; handling: Handling; walkMinutes: number | null; rationale: string; saved: boolean; replacedStopId: StopId | null; source: DataSource; purchase: Purchase | null; inquiry: Inquiry | null };
 
-export type DropoffStore = { id: string; name: string; address: string; area: string; dropoffCutoff: string | null; lat: number | null; lng: number | null; acceptedHandling: Handling[]; maxWeightGrams: number | null; timezone: string; partnerNote: string };
+/** `source` is the counter's own column, not the transfer's. A live partner point
+ *  embedded in a simulated transfer is still live, and the chip beside its name has
+ *  to say so from this field (constitution 3). */
+export type DropoffStore = { id: string; name: string; address: string; area: string; dropoffCutoff: string | null; lat: number | null; lng: number | null; acceptedHandling: Handling[]; maxWeightGrams: number | null; timezone: string; partnerNote: string; source: DataSource };
 
 /** One row in the bag picker. Replaces `selectedBags: Record<number, boolean>`:
  *  the key is a purchase id or a `local:` uuid, never a position. */
@@ -82,7 +120,11 @@ export type TransferItem = { id: string; purchaseId: PurchaseId | null; label: s
 
 export type TransferEvent = { id: string; seq: number; eventType: TransferEventType; actor: TransferActor; itemId: string | null; occurredAt: string; createdAt: string; location: string | null; note: string | null; payload: Record<string, unknown>; source: DataSource };
 
-export type Payment = { id: string; status: PaymentStatus; amountCents: number; currency: string; methodBrand: string | null; methodLast4: string | null; failureCode: string | null; authorizedAt: string | null; capturedAt: string | null; refundedAt: string | null };
+/** `reference` is `payments.provider_charge_id` — the `TRL-PAY-…` the charge route
+ *  minted. It used to live only in a `useState` on the pay screen, so a reload lost the
+ *  one string a traveller could quote back to us. `methodLast4` is null and stays null:
+ *  no PAN has ever reached this app. */
+export type Payment = { id: string; status: PaymentStatus; amountCents: number; currency: string; methodBrand: string | null; methodLast4: string | null; reference: string | null; failureCode: string | null; authorizedAt: string | null; capturedAt: string | null; refundedAt: string | null };
 
 export type Receipt = { id: string; receivedBy: string; receivedAt: string; bagCount: number; sealIds: string[]; purchasesCents: number; transferFeeCents: number };
 
@@ -91,7 +133,7 @@ export type TransferIssue = { id: string; kind: IssueKind; status: IssueStatus; 
 /** `ineligibleCode`, `handoffFailureCode`, `passExpiresAt` and `issues` are filled
  *  once migrations 0011/0012 are applied; until then they come back null/empty and
  *  the shape does not change again. */
-export type Transfer = { id: string; status: TransferStatus; referenceCode: string; hotelName: string; hotelAddress: string; bagCount: number; weightGrams: number | null; feeCents: number; currency: string; etaStart: string | null; etaEnd: string | null; dropoffCutoffAt: string | null; confirmedAt: string | null; deliveredAt: string | null; ineligibleCode: IneligibleCode | null; ineligibleReason: string | null; handoffFailureCode: HandoffFailureCode | null; passExpiresAt: string | null; source: DataSource; createdAt: string; dropoffStore: DropoffStore | null; items: TransferItem[]; events: TransferEvent[]; payment: Payment | null; receipt: Receipt | null; issues: TransferIssue[] };
+export type Transfer = { id: string; status: TransferStatus; referenceCode: string; hotelName: string; hotelAddress: string; bagCount: number; weightGrams: number | null; feeCents: number; currency: string; etaStart: string | null; etaEnd: string | null; dropoffCutoffAt: string | null; confirmedAt: string | null; deliveredAt: string | null; ineligibleCode: IneligibleCode | null; ineligibleReason: string | null; handoffFailureCode: HandoffFailureCode | null; passIssuedAt: string | null; passExpiresAt: string | null; source: DataSource; createdAt: string; dropoffStore: DropoffStore | null; items: TransferItem[]; events: TransferEvent[]; payment: Payment | null; receipt: Receipt | null; issues: TransferIssue[] };
 
 /** A partner counter as the drop-off picker needs it: the cutoff already resolved
  *  to an instant in the store's own zone, so no screen ever parses `18:00` itself.
@@ -125,6 +167,11 @@ export type TrailState = {
    *  spend that has no stop still takes a traveler over budget. */
   unplannedPurchases: Purchase[];
   transfer: Transfer | null;
+  /** The newest delivered run, in full, whether or not it is still the live one.
+   *  `transfer` goes null the moment a delivery is delivered — nothing is moving —
+   *  but `/bags/done` needs the receipt, the seal tags and the payment reference to
+   *  survive a reload, and a `TransferSummary` carries none of them. */
+  lastDelivered: Transfer | null;
   pastTransfers: TransferSummary[];
   labels: SourceLabels;
 };
@@ -132,5 +179,5 @@ export type TrailState = {
 export const EMPTY_WALLET: Wallet = { totalCents: 0, plannedCents: 0, reserveCents: 0, flexibleCents: 0, spentCents: 0, spendableCents: 0, unallocatedCents: 0, allocatedCents: 0, overPlan: false };
 
 export function emptyState(user: TravelerProfile, serverTime = new Date().toISOString()): TrailState {
-  return { serverTime, stateVersion: serverTime, user, activeTripId: null, trips: [], trip: null, plan: null, wallet: EMPTY_WALLET, recipients: [], budgetChanges: [], pendingBudgetChange: null, stops: [], unplannedPurchases: [], transfer: null, pastTransfers: [], labels: { stops: null, transfer: null, payment: null } };
+  return { serverTime, stateVersion: serverTime, user, activeTripId: null, trips: [], trip: null, plan: null, wallet: EMPTY_WALLET, recipients: [], budgetChanges: [], pendingBudgetChange: null, stops: [], unplannedPurchases: [], transfer: null, lastDelivered: null, pastTransfers: [], labels: { stops: null, transfer: null, payment: null } };
 }

@@ -2,6 +2,7 @@ import { createClient, getTraveler } from "@/lib/supabase/server";
 import { json, readBody, UUID } from "@/lib/api/http";
 import { decidePurchaseWrite, parsePurchaseInput } from "@/lib/purchases/record";
 import { loadTrailState } from "@/lib/state/load";
+import { loadTrip } from "@/lib/transfers/context";
 
 /** Recording what was actually paid at the till, and taking it back.
  *
@@ -52,7 +53,11 @@ export async function PUT(request: Request, ctx: Ctx) {
   if (decision.verdict === "stale") return json({ error: "stale_planned_overwrite", server: { purchaseId: existing!.id, actualPriceCents: existing!.actual_price_cents, recordedAt: existing!.recorded_at } }, 409);
 
   if (input.status === "bought") {
-    const row = { actual_price_cents: input.actualPriceCents, quantity: input.quantity, bags: input.bags, handling: input.handling, currency: input.currency, note: input.note, recorded_at: input.occurredAt, voided_at: null, void_reason: null, client_op_id: input.clientOpId };
+  // The currency is the trip's, never the body's. A client that sends cents and the
+  // name of the unit they are in can disagree with itself, and the row would keep the
+  // disagreement. Same principle as never trusting a `user_id` off the wire.
+    const tripRow = await loadTrip(db, stop.trip_id);
+    const row = { actual_price_cents: input.actualPriceCents, quantity: input.quantity, bags: input.bags, handling: input.handling, currency: tripRow?.currency ?? "CAD", note: input.note, recorded_at: input.occurredAt, voided_at: null, void_reason: null, client_op_id: input.clientOpId };
     const written = existing
       ? await db.from("purchases").update(row).eq("id", existing.id).select("id").maybeSingle()
       : await db.from("purchases").insert({ ...row, stop_id: stopId, trip_id: stop.trip_id, user_id: uid, recipient_id: stop.recipient_id }).select("id").maybeSingle();

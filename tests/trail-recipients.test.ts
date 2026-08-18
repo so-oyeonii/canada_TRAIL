@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { allocationOverrun, composeTurn, sanitizeRecipientOps, type KnownRecipient, type TurnContext } from "../app/trail-brief.ts";
+import { allocationOverrun, composeTurn, rejectionMessage, sanitizeRecipientOps, type KnownRecipient, type TurnContext } from "../app/trail-brief.ts";
 
 // One trip, five recipients, three of them constrained against each other. Every case below is a
 // way the model can quietly rewrite someone it was not asked about.
@@ -140,4 +140,60 @@ test("junk ops are dropped without taking the good ones with them", () => {
   assert.equal(apply[0].fields.priority, undefined);
   assert.equal(apply[1].fields.category, undefined);
   assert.equal(rejected.length, 2);
+});
+
+/* ── N3: a ranking between people is a judgement, so it gets a tap ──────── */
+
+test("a priority the model inferred leaves through confirm, never through the draft", () => {
+  const { apply, confirm } = ops([{ op: "update", ref: "r4", priority: 1 }]);
+  assert.equal(apply[0]?.fields.priority, undefined, "a rank between people must not reach `plan` on its own");
+  assert.equal(confirm.length, 1);
+  assert.equal(confirm[0].ref, "r4");
+  assert.equal(confirm[0].fields.priority, 1);
+});
+
+test("the rest of the op still applies: only the ranking is held back", () => {
+  const { apply, confirm } = ops([{ op: "update", ref: "r1", label: "Mum", note: "likes linen", priority: 5, is_optional: true }]);
+  assert.equal(apply.length, 1);
+  assert.equal(apply[0].fields.label, "Mum");
+  assert.equal(apply[0].fields.note, "likes linen");
+  assert.equal(apply[0].fields.priority, undefined);
+  assert.equal(apply[0].fields.isOptional, undefined);
+  assert.deepEqual(confirm[0].fields, { priority: 5, isOptional: true });
+  assert.equal(confirm[0].op, "update", "the twin points at the same person; it never adds one");
+});
+
+test("clearing a priority is the same judgement in reverse", () => {
+  const { apply, confirm } = ops([{ op: "update", ref: "r2", clear_fields: ["priority", "note"] }]);
+  assert.deepEqual(apply[0].clearFields, ["note"]);
+  assert.deepEqual(confirm[0].clearFields, ["priority"]);
+});
+
+test("a brand-new person keeps the column default rather than a rank nobody can tap", () => {
+  // An `add` has no ref, so a twin op would mint a second person on the tap. The mark is
+  // dropped and said out loud instead.
+  const { apply, confirm, rejected } = ops([{ op: "add", ref: null, label: "My brother", priority: 1 }]);
+  assert.equal(apply[0].fields.label, "My brother");
+  assert.equal(apply[0].fields.priority, undefined);
+  assert.deepEqual(confirm, []);
+  assert.equal(rejected[0]?.reason, "needs_confirmation");
+  assert.equal(rejectionMessage(rejected).length > 0, true);
+});
+
+test("is_optional alone is a ranking too", () => {
+  const { apply, confirm } = ops([{ op: "update", ref: "r1", is_optional: true }]);
+  assert.equal(apply[0].fields.isOptional, undefined);
+  assert.equal(confirm[0].fields.isOptional, true);
+});
+
+test("an allocation is a fact the traveller said, so it is not held back with the ranking", () => {
+  const { apply, confirm } = ops([{ op: "update", ref: "r4", allocation_amount: 39, allocation_basis: "group_total", priority: 2 }]);
+  assert.equal(apply[0].fields.allocationAmount, 39);
+  assert.equal(confirm[0].fields.priority, 2);
+});
+
+test("a turn that only ranks people changes nothing on its own", () => {
+  const reply = composeTurn({ reply: "Noted.", recipients: [{ op: "update", ref: "r1", priority: 1 }, { op: "update", ref: "r5", is_optional: true }] }, ctx());
+  assert.equal(reply.recipientOps.every((op) => op.fields.priority === undefined && op.fields.isOptional === undefined), true);
+  assert.equal(reply.confirm.recipientOps.length, 2);
 });

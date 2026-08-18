@@ -38,32 +38,49 @@
 피그마에 3가지 탭 구성이 섞여 있었다.
 `Home·Trips·AI·Bags`(Home.png, -15, 손그림) / `Trips·Trail·Ask AI·Bags`(기본 프레임, -12, -14) / `Trips·Trail·Bags`(-2, 잘림).
 
-**확정: `Trips · Trail · Ask AI · Bags`**
+**확정: `Home · Trips · AI · Bags`** (G2 구현 완료)
 
-`Home`을 별도 탭으로 두지 않는 이유: 피그마 -15의 Home("Good morning", Plan with AI, 근처 추천)과 -2의 Trail 대시보드("Good morning", Toronto Trail 카드, 지갑)는 **같은 화면의 두 버전**이다. 여행이 하나라도 활성이면 Home은 곧 그 여행의 대시보드다. 별도 탭으로 두면 "여행 없음"일 때 Home과 Trips가 같은 내용을 보여주는 중복이 생긴다.
+> **1차 결론 — `docs/FIGMA_ADOPTION.md` §0에서 뒤집힘.** 아래 단락은 삭제하지 않고 근거로 남긴다.
+>
+> ~~확정: `Trips · Trail · Ask AI · Bags`.~~ `Home`을 별도 탭으로 두지 않는 이유: 피그마 -15의 Home("Good morning", Plan with AI, 근처 추천)과 -2의 Trail 대시보드("Good morning", Toronto Trail 카드, 지갑)는 **같은 화면의 두 버전**이다. 여행이 하나라도 활성이면 Home은 곧 그 여행의 대시보드다. 별도 탭으로 두면 "여행 없음"일 때 Home과 Trips가 같은 내용을 보여주는 중복이 생긴다.
+>
+> **감수하는 비용은 한 화면으로 한정한다** — 여행이 앱 사용 중 사라진 경우의 `/home` 빈 상태(`docs/plans/G2-navigation.md` §5)뿐이고, 여행 0건은 `(app)/layout.tsx`가 `/onboarding`으로 보내므로 Home과 Trips가 같은 내용을 그리는 일은 없다.
 
-| 탭 | 아이콘 | 한 줄 정의 | 담는 것 |
+**탭 키 ≠ URL 세그먼트.** 라우트는 하나도 바꾸지 않았다. `/trail/*`은 그대로 살아 있고 `Trips` 탭에 속한다 (`app/(app)/landing.ts`의 `tabOf`). 기존 딥링크·북마크가 깨지지 않는다.
+
+| 탭 | 라우트 | 한 줄 정의 | 담는 것 |
 | --- | --- | --- | --- |
-| **Trips** | ✈ | 내 여행 전부 | 여행 목록(현재/예정/과거), 여행 생성, 여행 상세·설정, 과거 여행 기록·인사이트, 계정 진입 |
-| **Trail** | ◎ | 활성 여행 작업대 | 대시보드(지갑·진행률·다음 액션), 계획 4탭(Gifts·Map·Budget·Delivery), 매장 내 쇼핑 모드, 구매 기록, 예산 초과 승인 |
-| **Ask AI** | ◈ | Trail AI 대화 | 대화, brief 요약 카드, brief 편집, 계획 생성 트리거 |
-| **Bags** | ▣ | 구매 이후 전부 | 가방 선택(플랜 외 가방 포함), 적격성, 이송 검토, 결제, 드롭오프, 추적, 영수증, 이상 신고 |
+| **Home** | `/home` · `/account/*` | 아침에 여는 화면 | 인사말, 활성 여행 진입점, 지갑 요약, 근처 추천(전 카드 `Sample`), 승인 배너 |
+| **Trips** | `/trips/*` · `/trail/*` | 내 여행 전부 + 활성 여행 작업대 | 여행 목록(CURRENT/UPCOMING/PAST), 대시보드, 계획 4렌즈(Gifts·Map·Budget·Delivery), Gifts ▸ Split, 매장 내 쇼핑 모드, 구매 기록, 예산 초과 승인 |
+| **AI** | `/ask/*` | Trail AI 대화 | 대화, brief 요약 카드, brief 편집(`Edit details`), 계획 생성 트리거 |
+| **Bags** | `/bags/*` | 구매 이후 전부 | 가방 선택(플랜 외 가방 포함), 적격성, 이송 검토, 결제, 드롭오프, 추적, 영수증, 이상 신고 |
 
-**계정·설정은 탭이 아니다.** 피그마 전 프레임의 우상단 원형 아바타가 진입점이다 (`Trips` 헤더 + `Trail` 헤더).
+`Trail`은 탭이 아니라 **Trips 안의 장소**다. `Shop`도 탭이 아니라 Trips 안의 모드다.
+
+**계정·설정은 탭이 아니다.** 전 프레임의 우상단 원형 아바타가 진입점이며(`components/chrome.tsx`의 `Avatar` → `/account/memory`), `/account/*`는 `Home` 탭에 속하되 **탭 기억에서 제외**한다. 설정이 Home의 착지점이 되면 안 된다.
 
 ## 1.2 탭 선택 규칙 (활성 상태)
 
-| 조건 | 앱 부팅 시 착지 |
+`/`는 언제나 `/home`으로 보낸다. 아래는 **탭을 눌렀을 때** 각 탭이 착지하는 곳(`tabRoot`)과, 여행이 다음에 기다리는 것(`continueHref`)이다.
+
+| 조건 | 착지 |
 | --- | --- |
 | 미로그인 | `/login` |
-| 로그인 · 여행 0건 | `Trips` (빈 상태 → 첫 여행 등록) |
-| 로그인 · 활성 여행 있음 · 계획 없음 | `Trail` 대시보드 (빈 상태 → Ask AI 유도) |
-| 로그인 · 계획 승인됨 · 쇼핑 전 | `Trail` ▸ Plan ▸ Gifts |
-| 쇼핑 중 | `Trail` ▸ Shopping |
-| 이송 진행 중(`bag_transfers.status ∈ paid..in_transit`) | `Bags` ▸ Tracking |
-| 이송 완료 후 24h 이내 | `Bags` ▸ Delivered/Receipt |
+| 로그인 · 여행 0건 | `/onboarding` (`(app)/layout.tsx`가 셸 렌더 전에 보낸다. `Trips` 빈 상태가 아니다) |
+| `Home` 탭 | `/home` |
+| `Trips` 탭 | `/trips` (여행 목록). 개별 여행 작업대 `/trail`은 `Continue {city} Trail →`로 들어간다 |
+| `AI` 탭 | `/ask` |
+| `Bags` 탭 | `bagsHref()` — 이송 중이면 `/bags/track`, 보낼 가방(플랜 외 포함)이 있으면 `/bags/select`, 그 외 `/bags/track`의 빈 상태 |
+| 계획 없음 · `continueHref` | `/ask` |
+| 계획 있음 · 쇼핑 전 | `/trail/plan/gifts` |
+| 쇼핑 중 | `/trail/shop` (오늘 살 것이 0이면 `/bags/select` — `stops.planned_date`가 채워진 뒤에만) |
+| 이송 진행 중(`bag_transfers.status ∈ paid..in_transit`) | `/bags/track` |
 
-탭 아이콘 배지: `Bags`에 이송 진행 중이면 점 배지, 이상 신고 대기면 경고 배지.
+**탭 기억**: 각 탭은 마지막 위치를 `sessionStorage`(`trail:v2:tab:*`)에 저장하고 복귀 시 되살린다. 단 `isStale()`이 참인 경로는 저장도 복원도 하지 않는다 — 결제 폼, 승인이 끝난 승인 화면, 보낼 가방이 없는 선택 화면, `/account/*`, 사라진 `/trail/plan/people`, 존재하지 않을 수 있는 `/trail/shop/*/record`.
+
+**탭바를 숨기는 화면**: `/trail/plan/approval` · `/bags/review` · `/bags/pay` · `/bags/drop` · `/trail/shop/*/record` · `/trips/new`. 조건은 하나 — **되돌릴 수 없는 쓰기 직전**이다. 숨기는 화면은 반드시 back 어포던스를 갖는다.
+
+탭 아이콘 배지: `Bags`에 이송 진행 중이면 점 배지, 인계 실패면 경고 배지. 스크린리더에는 시각 배지가 아니라 `aria-label`로 전달한다 (`Bags, delivery in progress` / `Bags, needs attention`).
 
 ## 1.3 계획 화면의 인페이지 탭 — 선형 3화면을 대체하는 방식
 
@@ -77,6 +94,7 @@ Trail 탭
 ├─ Dashboard            (단계와 무관한 진입점 · 지갑 · 다음 액션)
 ├─ Plan                 (인페이지 탭 4개 — 언제나 자유 이동)
 │   ├─ Gifts     ← 기존 picks의 "무엇을 살 것인가"
+│   │   └─ Split ← 인원별 배분 (`/trail/plan/gifts/split`, 옛 People 렌즈)
 │   ├─ Map       ← 기존 picks의 "어디로 갈 것인가" (경로·순서·도보시간)
 │   ├─ Budget    ← 신규. Trip Wallet (기존 review의 예산 슬라이더가 여기로)
 │   └─ Delivery  ← 기존 drop의 "요약 카드"만. 실제 실행은 Bags 탭
@@ -116,15 +134,18 @@ Trail 탭
 현재는 `app/page.tsx` 하나에 9화면 `useState` 상태머신이다. 4탭 IA에서는 **URL이 있어야 한다** (탭 전환·뒤로가기·PWA 딥링크·공유).
 
 ```
-/                         → 활성 탭으로 리다이렉트 (1.2 규칙)
+/                         → /home
 /login                    · /auth/callback
-/onboarding               (첫 여행 등록 4단계 — 이미 구현)
-/trips                    · /trips/new · /trips/[tripId] · /trips/[tripId]/past
-/trail                    (활성 여행 대시보드)
+/onboarding               (첫 여행 등록 4단계 — 이미 구현. 셸 밖이라 탭바 없음)
+/home                     (Home 탭)
+/trips                    · /trips/new · /trips/past · /trips/[tripId]
+/trail                    (활성 여행 대시보드 — Trips 탭)
 /trail/plan               → /trail/plan/gifts | /map | /budget | /delivery
+/trail/plan/gifts/split   (인원별 배분. /trail/plan/people 은 여기로 308)
+/trail/plan/approval      (예산 변경 승인 — 렌즈 아님, 탭바 숨김)
 /trail/shop               · /trail/shop/[stopId]/record
-/ask                      (Ask AI) · /ask/brief
-/bags                     → /bags/select | /review | /pay | /dropoff | /track | /receipt/[transferId]
+/ask                      (Trail AI) · /ask/brief
+/bags                     → /bags/select | /review | /pay | /drop | /track | /done | /receipt/[transferId]
 /account                  → /account/memory | /notifications | /payment | /data
 ```
 

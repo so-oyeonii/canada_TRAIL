@@ -85,7 +85,8 @@
 ### 유지
 `app/` 전체(페이지·CSS·폰트), `public/`, `postcss.config.mjs`, Tailwind 4, `next.config.ts`. **앱 코드는 vinext를 직접 참조하지 않는다** — 전수 grep 확인. 이식은 인프라 레이어에 국한된다.
 
-검증: `npx next build` 통과 → Vercel 프리뷰 배포 → `/`, `/workflow`, `/api/chat` 3개 경로 확인.
+검증: `npx next build` 통과 → Vercel 프리뷰 배포 → `/`, `/login`, `/api/chat` 3개 경로 확인.
+(`/workflow`는 내부 와이어프레임 보드라 배포본에서 404다 — `lib/env/deployment.ts`.)
 
 ---
 
@@ -216,3 +217,85 @@ P0는 P1과 독립이라 병행 가능. **P0-2는 반드시 P2 이전에** — �
 2. 메모리 기본값 — 현재 opt-out(`useState(true)`). opt-in으로 바꿀지
 3. 통화 — CAD 하드코딩 유지 vs `trip.country`에서 유도
 4. `app/layout.tsx`의 Figma capture 스크립트를 프로덕션에 남길지
+
+---
+
+# P6 — 피그마 전면 반영 (G0~G6)
+
+기준 문서는 `docs/FIGMA_ADOPTION.md`이고, 각 그룹의 실행 계획은 `docs/plans/G{n}-*.md`에 있다.
+P0~P5가 "동작하게 만드는 것"이었다면 P6은 **와이어프레임 25장을 실제 화면으로 반영하는 것**이다.
+
+| 그룹 | 범위 | 마이그레이션 |
+| --- | --- | --- |
+| **G0** 기반 수리 | 다통화 100배 오차 · 포커스 아웃라인 · `dev-signin` 가드 · `trips` 컬럼 권한 | `0020` |
+| **G1** 디자인 시스템 | 다크 전면 · 앰버/틸 토큰 · 서체 3벌 · 컴포넌트 리스킨 | — |
+| **G2** 내비게이션·네이밍 | 탭 `Home·Trips·AI·Bags` · 렌즈 4개 · Gifts ▸ Split · 트립 컨텍스트 바 · §2 카피 | `0024` |
+| **G3** 트립·발견 | 다중 트립 · My Trips 3구획 · Home 대시보드 · 추천/매장 피드 | `0021`–`0023` |
+| **G4** Trail AI | `/ask` 배선 · 칩 온보딩 · 요약 카드 인라인 · 선호 태그 | `0025` |
+| **G5** 짐·배송 | QR 드롭오프 · 수직 타임라인 · 결제 수단 · Delivery Complete | — |
+| **G6** 공유 | `Share`(1단 읽기 전용) → `+ Invite`(2단 공동 편집) | `0026`–`0029` |
+
+`0014`–`0019`는 **다른 세션의 설문 기능이 점유**하고 있어 우리 블록은 `0020`부터다.
+
+## 순서 — 0024가 G3 다음인 이유
+
+```
+G0 (0020) → G1 → ┬ G3 (0021 · 0022 · 0023) ─┐
+                 │                            ├→ G2 (0024 stops.planned_date) → G6 (0026~0029)
+                 ├ G2 (탭·렌즈·카피 — DB 무관) ┘
+                 ├ G4 (0025)
+                 └ G5
+```
+
+`0024`의 backfill은 `planned_date = trips.start_date + (planned_day − 1)`이라 **`trips`의 날짜 컬럼을 읽는다.**
+G3의 다중 트립 리팩터가 활성 여행 판정이나 날짜를 손대면 잘못된 여행 기준으로 채워지므로, `0021`–`0023` 다음이어야 한다.
+**G2의 화면 작업(탭·렌즈·카피)은 DB와 무관해 `0020` 이전에 시작해도 된다** — 실제로 그렇게 했고, `0024`가 적용될 때까지
+`Day n of m`과 "오늘 살 것" 분기는 비활성이다(모르는 값은 그리지 않는다).
+
+`0024`는 **파일만 작성됐고 원격에 적용되지 않았다.** 그래서 `lib/state/queries.ts`의 stop select에는
+`planned_date`가 **일부러 빠져 있다** — 없는 컬럼을 이름 부르면 상태 조회 전체가 400이 된다.
+마이그레이션을 적용하는 같은 변경에서 select에 한 줄을 더한다.
+
+---
+
+# P7 — 백로그 (N3 · N2 · N1)
+
+기준 문서는 `docs/BACKLOG_NEXT.md`이고, 각 항목의 실행 계획은 `docs/plans/N{n}-*.md`에 있다.
+
+| 항목 | 범위 | 마이그레이션 |
+| --- | --- | --- |
+| **N3** 수령인 우선순위 | 3단계 마크(`Gifts ▸ Split`) · 경로/목록 정렬 · 부족 경고 · 초과 시 must-buy 유지 제안 · AI 방벽 | **없음** |
+| **N2** 자투리 시간 쇼핑 | `/trail/spare` 신규 · 창 입력 3줄(전부 칩) · 왕복 차감과 밴드 라벨 · 컷오프 배너 · `TIMING_PROMISE` 가드 | **없음** |
+| **N1** 위치 알림 | 새 개인정보 범주 | 미정 |
+
+## N3에 마이그레이션이 없는 이유
+
+`recipients.priority`(`check between 1 and 5`)와 `recipients.is_optional`은 **`0001`부터 있었고**,
+행 타입 · select · 매퍼 · 뷰 타입 · 입력 파서 · PATCH/POST 라우트 · AI 스키마까지 전부 배선돼 있었다.
+없던 것은 화면뿐이다. 그리고 `recipients`에는 **컬럼 단위 GRANT가 없다** — `0002_rls.sql`이 15개 테이블에
+테이블 단위 DML을 `authenticated`에 주므로, `0020`의 `trips` 컬럼 화이트리스트와는 무관하다.
+따라서 N3는 **SQL 0줄 · API 0줄 · 새 승인 경로 0건**이다.
+
+인덱스(`recipients (trip_id, priority)`)도 배정하지 않는다. 여행당 수령인은 24행 이하다.
+
+## N2에 마이그레이션이 없는 이유
+
+창(window)은 **세션 값**이다. `trips.free_time`이 이미 같은 실수를 하고 있다 — 시각이 아니라 문자열이고,
+게다가 여행 전체 속성이라 "지금부터 한 시간"을 담지 못한다. 이걸 행으로 저장하면 5분 뒤 거짓인 행이 생기고,
+좌표는 기기를 떠나지 않는다는 G3의 결정과 정면으로 부딪친다. `trips.free_time`은 **첫 칩의 기본값으로만 읽는다.**
+
+스키마성 변경은 **쿼리 확장 1건**뿐이고 컬럼은 늘지 않는다:
+`RECOMMENDATION_SELECT`의 store 조인에 `timezone`(이미 `0011`에 있다)을 더하고, 라우트가 `store_hours`를
+한 번 더 읽어 `openNow`를 붙인다. `?area=`·`?open=1` 파라미터가 생기지만 **좌표는 여전히 들어가지 않으므로**
+`Cache-Control: private, max-age=300`은 그대로다.
+
+`Recommendation.store.openNow`는 **3값**이다. `null`은 "Trail이 이 가게 영업시간을 모른다"이고,
+`isOpenNow`의 "오늘 행이 없으면 닫힘"과는 다른 주장이다. 화면은 `null`일 때 아무 말도 하지 않는다.
+
+## N3가 지킨 두 가지 이전 결정
+
+1. **G6의 영구 제외.** `recipients.priority`·`is_optional`은 공유 프로젝션에 절대 나오지 않는다.
+   UI가 생긴 지금이 회귀 위험이 가장 큰 시점이라 `tests/share-projection.test.ts`가 티어 어휘까지
+   페이로드에서 검사한다.
+2. **`reserve_short`와 `/bags/pay`는 손대지 않았다.** 우선순위는 선물에 대한 것이고
+   `delivery_reserve`는 가방 배송비다. 제품 규칙 5에 의해 둘은 같은 버킷이 아니다.

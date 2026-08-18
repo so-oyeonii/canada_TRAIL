@@ -46,6 +46,8 @@ export function parsePurchaseInput(body: Raw, now = new Date().toISOString()): P
   const handling = body.handling === undefined ? "Standard" : body.handling;
   if (typeof handling !== "string" || !(HANDLING as string[]).includes(handling)) return { ok: false, field: "handling" };
 
+  // Still parsed so an old client's body is not a 400, but the routes overwrite it with
+  // the trip's currency: cents mean nothing without a unit the server chose.
   const currency = body.currency === undefined ? null : body.currency;
   if (currency !== null && (typeof currency !== "string" || currency.length !== 3)) return { ok: false, field: "currency" };
 

@@ -2,6 +2,7 @@ import { createClient, getTraveler } from "@/lib/supabase/server";
 import { asString, json, readBody, UUID } from "@/lib/api/http";
 import { equalValueConflicts, type ResolvedAllocation } from "@/lib/budget/allocations";
 import { planRecipientOps, refResolver } from "@/lib/recipients/input";
+import { loadTrip } from "@/lib/transfers/context";
 import { asPeople, buckets, echoBudget, liveRecipients, livePlan, resolveTripId } from "@/lib/recipients/server";
 
 /** What a chat turn is allowed to do to the recipient list.
@@ -15,7 +16,8 @@ import { asPeople, buckets, echoBudget, liveRecipients, livePlan, resolveTripId 
  *
  *  Allocations from the model are handled twice as carefully as the rest:
  *  - amounts arrive as **whole units** (the schema tells the model dollars, not
- *    cents) and are multiplied by 100 here, with no rounding of any kind;
+ *    cents) and are multiplied by the trip's minor units here — read off the trip row,
+ *    not the request — with no rounding of any kind;
  *  - a split that exceeds `planned_cents` is **not written**. It comes back as a
  *    ready-made `POST /api/budget-changes` body, because a recipient trimmed to
  *    make the numbers fit is a number the traveller never said.
@@ -42,7 +44,10 @@ export async function POST(request: Request) {
   // `refs` is a map the client may send (`{ r1: "<uuid>" }`); anything else falls
   // back to creation order, which is how the chat route mints refs in the first place.
   const resolve = refResolver(people, (body.body.refs ?? null) as Record<string, unknown> | null);
-  const planned = planRecipientOps(body.body.ops, resolve, people.map((p) => ({ id: p.id, isSelf: p.is_self })));
+  // The currency comes off the trip row for the same reason the identity does: a body
+  // that names both the amount and the currency can disagree with itself.
+  const tripRow = await loadTrip(db, tripId);
+  const planned = planRecipientOps(body.body.ops, resolve, people.map((p) => ({ id: p.id, isSelf: p.is_self })), tripRow?.currency ?? "CAD");
   if (!planned.ops.length) return json({ error: "no_applicable_ops", rejected: planned.rejected }, 400);
   // An approved plan is not a draft. Everything is handed back for a tap instead.
   if (plan?.status === "approved") return json({ error: "plan_approved", confirm: body.body.ops, rejected: planned.rejected, hint: "post_budget_change" }, 409);

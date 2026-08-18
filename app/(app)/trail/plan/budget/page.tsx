@@ -1,24 +1,36 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useApp } from "../../../app-state";
-import { money, stopMark } from "../../../view";
+import Link from "next/link";
+import { IconArrow } from "@/components/icons";
+import { useTrip } from "../../../app-state";
+import { price, stopMark } from "../../../view";
 
 /** Read-only, and every number is the server's. The delivery reserve is shown
  *  and never added to what is spendable (constitution 5): shopping money is
- *  `planned − spent`, and the flexible bucket needs an approval to be touched. */
+ *  `planned − spent`, and the flexible bucket needs an approval to be touched.
+ *
+ *  The five rows are frame -19's table. `Total budget` is the trip total, which is
+ *  why the sentence under it says "trip budget" and not "shopping budget" — the
+ *  shoppable amount is the row above it minus what has been spent. */
 export default function BudgetLens() {
-  const router = useRouter();
-  const { trip, wallet, bought, stops, currency } = useApp();
+  const { trip, wallet, bought, stops, recipients, currency } = useTrip();
   const over = wallet.spendableCents < 0;
+  const allocated = recipients.filter((person) => person.allocationCents !== null).length;
 
   return <>
-    <div className="result-title"><p>GIFT BUDGET</p><h1>What is left to spend.</h1><span>Spending is what you recorded in store. The delivery reserve is held back for your bags and is not part of this number.</span></div>
-    <section className="budget-editor"><div><span><small>{over ? "OVER THE GIFT BUDGET" : "STILL AVAILABLE"}</small><b>{currency} ${money(Math.abs(wallet.spendableCents))}</b></span><em>of {currency} ${money(wallet.plannedCents)} planned</em></div><div className="range-values"><span>${money(wallet.spentCents)} spent</span><span>{bought.length}/{stops.length} stops bought</span></div></section>
-    {over && <div className="budget-warning" role="status"><b>{currency} ${money(Math.abs(wallet.spendableCents))} over the gift budget</b><span>Edit a purchase, or keep the overage and let the flexible bucket cover it. Trail changes nothing without you.</span></div>}
-    <section className="wallet-buckets"><span><i className="planned" /><small>Planned for gifts</small><b>{currency} ${money(wallet.plannedCents)}</b></span><span><i className="reserve" /><small>Protected for delivery</small><b>{currency} ${money(wallet.reserveCents)}</b></span><span><i className="flex" /><small>Flexible</small><b>{currency} ${money(wallet.flexibleCents)}</b></span></section>
-    <section className="handling-list"><header><span><small>WHERE IT WENT</small><b>Recorded in-store purchases</b></span><em>${money(wallet.spentCents)}</em></header><div>{bought.length ? bought.map((stop) => <span key={stop.id}><i>{stopMark(stop.storeName)}</i><b>{stop.storeName}</b><small>{currency} ${money(stop.purchase?.actualPriceCents ?? 0)} · {stop.purchase?.handling}</small></span>) : <span><i>·</i><b>Nothing recorded yet</b><small>Purchases you save in store appear here</small></span>}</div></section>
-    <p className="quiet-note">The trip total of {currency} ${money(wallet.totalCents)} was set when you created {trip.city}. Editing it is not wired up yet.</p>
-    <button className="back-to-chat" onClick={() => router.push("/ask/brief")}>Talk to Trail about the budget</button>
+    <div className="result-title"><p>{trip.city.toUpperCase()} TRIP WALLET</p><h1>Trip Wallet</h1><span>Spending is what you recorded in store. The delivery reserve is held back for your bags and is not part of what you can shop with.</span></div>
+    <section className="data-table">
+      <div className="total"><small>Total budget</small><b>{price(wallet.totalCents, currency)}</b></div>
+      <div><small>Spent</small><b>{price(wallet.spentCents, currency)}</b></div>
+      <div><small>Planned shopping</small><b>{price(wallet.plannedCents, currency)}</b></div>
+      <div><small>Reserved for delivery</small><b>{price(wallet.reserveCents, currency)}</b></div>
+      <div><small>Flexible</small><b>{price(wallet.flexibleCents, currency)}</b></div>
+      <div className={over ? "over" : undefined}><small>{over ? "Over planned shopping" : "Still available"}</small><b>{price(Math.abs(wallet.spendableCents), currency)}</b></div>
+    </section>
+    {over && <div className="budget-warning" role="status"><b>{price(Math.abs(wallet.spendableCents), currency)} over planned shopping</b><span>Edit a purchase, or keep the overage and let the flexible bucket cover it. Trail changes nothing without you.</span></div>}
+    <Link className="plan-row" href="/trail/plan/gifts/split"><span><b>Divide the budget by person</b><small>{allocated} of {recipients.length} allocated</small></span><IconArrow /></Link>
+    <section className="handling-list"><header><span><small>WHERE IT WENT</small><b>Recorded in-store purchases</b></span><em>{price(wallet.spentCents, currency)}</em></header><div>{bought.length ? bought.map((stop) => <span key={stop.id}><i>{stopMark(stop.storeName)}</i><b>{stop.storeName}</b><small>{price(stop.purchase?.actualPriceCents ?? 0, currency)} · {stop.purchase?.handling}</small></span>) : <span><i>·</i><b>Nothing recorded yet</b><small>Purchases you save in store appear here</small></span>}</div></section>
+    <p className="quiet-note">{bought.length}/{stops.length} stops bought. The {price(wallet.totalCents, currency)} trip budget was set when you created {trip.city}. Editing it is not wired up yet.</p>
+    <Link className="plan-row" href="/trail/plan/gifts"><span><b>View live plan</b><small>The stops this budget is divided across</small></span><IconArrow /></Link>
   </>;
 }

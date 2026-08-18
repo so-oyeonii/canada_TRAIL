@@ -60,10 +60,19 @@ test("a yen trip is not stored a hundredfold", () => {
 });
 
 test("the onboarding form writes no rows of its own", () => {
-  const form = readFileSync(new URL("../app/onboarding/new-trip-form.tsx", import.meta.url), "utf8");
-  assert.ok(!/from\("(trips|plans)"\)/.test(form), "onboarding is inserting a row from the browser again");
-  assert.ok(!/supabase/i.test(form), "onboarding is holding a supabase client again");
-  assert.ok(/fetch\("\/api\/trips"/.test(form), "onboarding must go through the server route");
+  // Two screens collect the same six answers now (the chip conversation and the form), and both
+  // go through `useTripDraft`. So the guard scans the whole tree rather than one file: a browser
+  // insert added to either screen, or to the hook, is the same reopened grant.
+  const files = ["app/onboarding/new-trip-form.tsx", "app/onboarding/chip-chat.tsx", "app/onboarding/trip-draft.ts", "app/onboarding/script.ts"];
+  const sources = files.map((file) => readFileSync(new URL(`../${file}`, import.meta.url), "utf8"));
+  for (const [index, source] of sources.entries()) {
+    assert.ok(!/from\("(trips|plans)"\)/.test(source), `${files[index]} is inserting a row from the browser again`);
+    assert.ok(!/supabase/i.test(source), `${files[index]} is holding a supabase client again`);
+  }
+  assert.equal(sources.filter((source) => /fetch\("\/api\/trips"/.test(source)).length, 1, "there must be exactly one submit path, and it must be the server route");
+  // A model has no part in onboarding: the hotel is one of these six answers and it may never
+  // reach a prompt (FIGMA_ADOPTION privacy rule, tests/trail-brief.test.ts).
+  for (const [index, source] of sources.entries()) assert.ok(!/api\/chat/.test(source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*/g, "")), `${files[index]} calls the model during onboarding`);
 });
 
 test("the trips route decides the reserve and the split itself", () => {
@@ -71,5 +80,10 @@ test("the trips route decides the reserve and the split itself", () => {
   assert.ok(/getTraveler\(\)/.test(route), "the route must read identity from the session");
   assert.ok(/quoteFee\(/.test(route), "the reserve must come from the price list, not from the body");
   assert.ok(!/body\.body\.(planned|reserve|flexible|buckets)/.test(route), "no bucket may be accepted from the client");
-  assert.ok(/from\("trips"\)\.delete\(\)/.test(route), "a failed plan write must take its trip with it");
+  // Not `.delete()` any more: 0020 revoked DELETE on `trips` from the browser, and this route
+  // runs on the traveller's own session. 0021's definer function is the replacement, and it can
+  // only reach a row that is still provisional -- i.e. one that has no plan behind it.
+  assert.ok(!/from\("trips"\)\.delete\(\)/.test(route), "the compensating delete is revoked and would fail silently");
+  assert.ok(/rpc\("discard_provisional_trip"/.test(route), "a failed plan write must still take its trip with it");
+  assert.ok(/cleanup: withdrawn \? "withdrawn" : "orphaned"/.test(route) || /"orphaned"/.test(route), "a trip that could not be withdrawn has to be reported, not swallowed");
 });

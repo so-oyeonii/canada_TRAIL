@@ -6,7 +6,7 @@
 | URL | 무엇 |
 | --- | --- |
 | `/survey` | 목록. **응답 저장이 안 되고 있으면 여기에 빨간 경고가 뜬다** |
-| `/survey/ux` | 와이어프레임 사용성 조사 (16화면, 약 18분) |
+| `/survey/ux` | **Figma 프로토타입** 사용성 조사 (18화면, 약 20분) |
 | `/survey/team` | 팀 내부 점검 (11화면, 약 13분) |
 
 ---
@@ -40,35 +40,33 @@ Supabase 어드바이저가 이 테이블을 `rls_enabled_no_policy`(INFO)로 �
 
 ---
 
-## 2. 자극물 이미지 — 5장이 비어 있다
+## 2. 자극물 이미지 — 프로토타입 캡처 7장
 
-와이어프레임은 `public/survey/f<N>.png`에서 읽는다. 파일이 없으면 응답자 화면에 **어느 파일이 없는지 그대로 표시**된다.
+설문은 `public/survey/<슬롯>.png`에서 읽는다. 파일이 없으면 응답자 화면에 **어느 파일이 없는지 그대로 표시**된다.
 
-`docs/figma/`의 export 세트는 최종 와이어프레임보다 구버전이라, 확실히 일치하는 7장만 넣어뒀다.
+**v2부터 자극물은 와이어프레임이 아니라 Figma 프로토타입(`https://reach-extra-11429501.figma.site/`) 캡처다.** 375×812 2×, 폰 프레임 포함.
 
-| 슬롯 | 화면 | 상태 |
+| 슬롯 | 캡처 파일 | 화면 |
 | --- | --- | --- |
-| `f1` | 홈 (Plan with AI · 주변 추천) | ✅ `docs/figma/Mobile app with accessibility-15.png` |
-| `f2` | Trail AI 시작 화면 (`Let's start`) | ❌ **직접 넣어야 함** |
-| `f3` | Trail AI 온보딩 대화 (도시·날짜·예산 칩) | ✅ `-16` |
-| `f5` | 대화 + `TRAIL'S PLAN` 요약 카드 | ✅ `-14` |
-| `f6` | Gifts 탭 (`Request` 버튼이 보여야 함) | ✅ `-17` |
-| `f7` | Map 탭 (오늘의 경로) | ✅ `-18` |
-| `f8` | **Trip Wallet** | ❌ **직접 넣어야 함 — 아래 주의** |
-| `f9` | Hotel Delivery (드롭오프 파트너 · 도착 예정 · CAD $9) | ❌ **직접 넣어야 함** |
-| `f10` | Pay (CAD $9.00 · 결제수단) | ❌ **직접 넣어야 함** |
-| `f11` | Drop your bags (QR `TRL-48173` · 5단계) | ❌ **직접 넣어야 함** |
-| `f12` | Bag Tracking (4단계 진행) | ✅ `-12` |
+| `p_home` | `p_home.png` | Home — `YOU'RE NEAR` 배너가 열린 상태 |
+| `p_home_top` | `p_home_top.png` | Home — 배너 없는 최상단. `How much time do you have?` 칩 4개가 온전히 보인다 |
+| `p_ai` | `p_ai.png` | Trail AI — 인사 + 칩 4개 |
+| `p_gifts` | `p_gifts.png` | Gifts — `CAD $250` / `$39 spent` / `$211 left` + 수령인 4명 |
+| `p_wishlist` | `p_wishlist.png` | Wishlist — 저장 항목 3개 |
+| `p_bags` | `p_bags.png` | Bags — 구매 1 · 저장 3 · `HOTEL DELIVERY` |
+| `p_dropoff` | `p_dropoff.png` | Drop your bags — QR `TRL-48173` |
+| `p_tracking` | `p_tracking.png` | `You're hands-free.` + 타임라인 |
 
-> ⚠️ **`f8`이 이 설문에서 제일 중요한 한 장이다.**
-> 과업 T4는 "앞으로 더 쓸 수 있는 금액"을 숫자로 받고 `Planned $210 − Spent $176 = CAD $34`로 채점한다.
-> `docs/figma`에 있는 지갑 프레임은 **`Spent CAD $0`이고 수령인별 배분 행이 없어서** 이 과업이 성립하지 않는다.
-> 네가 올린 최종 와이어프레임의 지갑 화면(Spent so far $176 + 수령인별 bar)을 내보내 넣어야 한다.
->
-> 프레임의 숫자가 다르면 [`lib/survey/ux.ts`](../../lib/survey/ux.ts)의 `WALLET` 상수 한 줄만 고치면 된다.
-> 문항 텍스트·채점·테스트가 전부 거기서 따라간다 (`npm test`가 `answer === planned − spent`를 강제한다).
+- **Home은 두 장 다 필요하다.** `p_home_top`은 T1의 first click(시간 칩이 가려지지 않고 눌려 있지도 않다), `p_home`은 5초 첫인상과 위치 알림 섹션. 서로 대체할 수 없다.
+- `p_time_1h.png`는 쓰지 않는다 — `p_home.png`와 사실상 같은 프레임이다.
+- v1의 `f1`~`f12`는 더 이상 참조되지 않는다.
 
-넣는 법: 피그마에서 2× PNG로 내보내 `public/survey/f2.png` … `f11.png`로 저장. 폭 660px 이하로 렌더되니 1000px 정도면 충분하다.
+> ⚠️ **`p_gifts`와 `p_bags`가 이 설문에서 제일 중요한 두 장이다.**
+> T4는 세 값을 채점한다 — `mo_left`=**211**(=250−39, 인쇄돼 있음), `mo_free`=**20**(=250−230, 어디에도 없음), `mo_fee`=**`same`**($9는 $211에서 빠진 적이 없다).
+> 프레임의 숫자가 다르면 [`lib/survey/ux.ts`](../../lib/survey/ux.ts)의 `WALLET` 상수 한 줄만 고치면 된다. 문항 텍스트·보기 라벨·테스트가 전부 거기서 따라간다 (`npm test`가 `left === budget − spent`와 `unallocated === budget − allocated`를 강제한다).
+
+넣는 법: 캡처를 `public/survey/p_home.png` … `p_tracking.png`로 저장. 폭 660px 이하로 렌더되니 750px이면 충분하다.
+`npm test`의 "every stimulus slot is one of the prototype captures, and resolves to a file"이 **오타난 슬롯과 빠진 파일을 둘 다** 잡는다 — 파일이 없으면 응답자가 그 사실을 대신 보게 되므로, 배포 전에 테스트가 먼저 본다.
 
 ---
 
@@ -115,7 +113,7 @@ curl -H "x-survey-export-token: $SURVEY_EXPORT_TOKEN" "https://<배포주소>/ap
 | --- | --- |
 | 문항 추가·수정·삭제 | `lib/survey/ux.ts` · `lib/survey/team.ts` (+ 종이 설문지 `.md`) |
 | 새로운 문항 유형 | `lib/survey/types.ts` → `index.ts`의 `clean()` → `runner.tsx`의 `Input()` → export의 `columns()` **네 곳 모두** |
-| 지갑 과업 숫자 | `lib/survey/ux.ts`의 `WALLET` |
+| 예산 과업 숫자 | `lib/survey/ux.ts`의 `WALLET` |
 | 화면 스타일 | `app/survey/survey.css` |
 
 `npm test`가 잡아주는 것: 중복 id, 존재하지 않거나 뒤에 나오는 `showIf` 참조, 중복 보기 값, `readBody`의 신원 키(`role`·`auth` 등)와 충돌하는 id — 마지막 것은 실제로 한 번 걸렸다. 팀 설문의 섹션 id가 `role`이었고, 그대로 뒀으면 `timings`에 `role` 키가 실려 **모든 응답자가 400을 받았을 것이다.**

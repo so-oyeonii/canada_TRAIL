@@ -1,23 +1,49 @@
 import type { Survey } from "./types";
 
-/** The wireframe usability instrument. Mirrors docs/surveys/UX_SURVEY.md; that
+/** The prototype usability instrument. Mirrors docs/surveys/UX_SURVEY.md; that
  *  file keeps the analysis notes and failure thresholds, this one keeps only
  *  what a respondent sees.
  *
- *  Two questions here are scored right/wrong rather than rated, and they are the
- *  reason the study exists:
- *    • `t4_remaining` — the wallet either communicates that flexible money is
- *      locked, or it does not. A Likert item cannot tell us which.
- *    • `e1`/`e2`/`e3` — the approval gate and "Request is an enquiry" are
- *      product rules. If they do not survive contact with a stranger's eyes,
- *      they are not rules, they are comments in a spec.
- *  Nothing in the respondent-facing text hints at a correct answer. On those
- *  three the options are held to the same length and the same grain as each
- *  other: one option written more carefully than its neighbours is an answer key.
+ *  **What is measured changed.** v1 showed the wireframes of the app in this
+ *  repository. v2 shows the Figma prototype at reach-extra-11429501.figma.site,
+ *  which is a different product: four tabs (Home · Gifts · Wishlist · Bags), a
+ *  proximity card, a ranked recipient list, a saved-items list, and one budget
+ *  line instead of a three-bucket wallet. It has no onboarding, no map, no pay
+ *  screen, no `Request` button and no approval screen, so nothing here asks a
+ *  respondent to find those.
  *
- *  English throughout, and the money is CAD throughout, because the app the
- *  screens come from prices in CAD and a respondent who cannot read the wallet's
- *  currency is not reading the wallet. */
+ *  Every question whose evidence is a screen carries a **new id**. Old ids are
+ *  not reused: the same words over different screens are a different variable,
+ *  and pooling them would be an error nobody could see in the export. Kept on
+ *  purpose — `consent`, the screener, demographics, `b1`/`b2`, the failure
+ *  scenarios `f1`–`f5`, `umux`, `trust`, `nps` and the closing text items. Those
+ *  are either stimulus-free or standard instruments meant to be read across
+ *  versions, which is the whole point of a benchmark.
+ *
+ *  Scored right/wrong rather than rated, and the reason the study exists:
+ *    • `mo_left` / `mo_free` / `mo_fee` — the budget line either says what is
+ *      left, what is unassigned, and where the delivery fee sits, or it does
+ *      not. A Likert item cannot tell us which.
+ *    • `sv_save` — keeping an item is a note to yourself. A stranger who reads
+ *      it as the store putting one aside has been promised something Trail does
+ *      not do, which is the rule the old `Request` button used to carry.
+ *    • `co_goes` / `co_how` — what actually travels tonight, and who walks it to
+ *      the counter. The prototype states neither, which is the finding.
+ *
+ *  Home is captured twice on purpose. `p_home_top` is the screen at rest, where
+ *  the time buttons are unobstructed and none is pressed, so `hour_first` is a
+ *  first click rather than a guess about one. `p_home` is the same screen with
+ *  the proximity card across the top, which is the only frame in which the alert
+ *  can be judged — and it hides the time buttons, which is why the two are not
+ *  interchangeable.
+ *    • `c_pay` — no screen in the prototype shows a till. Who a stranger thinks
+ *      pays for the gifts is a product rule surviving contact with real eyes.
+ *  Nothing respondent-facing hints at a correct answer, and on the scored items
+ *  the options are held to the same length and grain as each other: one option
+ *  written more carefully than its neighbours is an answer key.
+ *
+ *  English throughout, and CAD throughout, because the prototype prices in CAD
+ *  and a respondent who cannot read the currency is not reading the budget. */
 
 const AGREE = { min: 1, max: 7, low: "Strongly disagree", high: "Strongly agree" } as const;
 /** SEQ (Single Ease Question) anchors, verbatim. It is a validated single-item
@@ -25,19 +51,26 @@ const AGREE = { min: 1, max: 7, low: "Strongly disagree", high: "Strongly agree"
  *  scale that cannot be read against them. */
 const EASY = { min: 1, max: 7, low: "Very difficult", high: "Very easy" } as const;
 
-/** The wallet numbers the T4 task is scored against. If the frame in
- *  /public/survey/f8.png shows different figures, change them here and the
- *  prompt, the placeholder and the export header all follow.
+/** The figures the money section is scored against, read off the prototype's
+ *  Gifts screen (`CAD $250` · `CAD $39 spent` · `CAD $211 left`, and the four
+ *  recipient rows at 80 / 70 / 45 / 35) and its Bags screen (`Cost CAD $9
+ *  (pre-reserved)`). Change them here if the prototype changes and the prompts,
+ *  the choice labels and the export header all follow.
  *
- *  These are the split the app actually produces for a CAD $250 Toronto trip, not
- *  the wireframe's. The reserve was 9 here and in `docs/APP_SPEC.md`; migration 0005
- *  says that figure was "mockup; the cost work puts the floor near $15" and seeds 15,
- *  which is what `quoteFee()` charges. Asking a respondent what "Reserved for delivery
- *  CAD $9" means, over a screen that reads $15, measures nothing.
- *
- *  `answer` is `planned − spent`: the delivery reserve and the flexible bucket are both
- *  outside what a traveller may shop with, which is the whole point of the task. */
-export const WALLET = { planned: 200, spent: 176, flexible: 35, reserved: 15, answer: 24 };
+ *  Two derivations carry the section:
+ *    • `left = budget − spent`, which the screen prints. Getting that wrong is a
+ *      reading failure, not an arithmetic one.
+ *    • `unallocated = budget − allocated`. Printed nowhere: the four people hold
+ *      230 of 250, so 20 is loose, and neither the bar nor any label says so.
+ *  And one figure that is not a derivation at all — `left` is exactly 250 − 39,
+ *  so the pre-reserved 9 has **not** been taken out of the shopping money.
+ *  "Pre-reserved" pulls the other way, and that gap is what `mo_fee` measures. */
+export const WALLET = { budget: 250, spent: 39, left: 211, allocated: 230, unallocated: 20, fee: 9 };
+
+const seqNote = (id: string) => [
+  { id: `${id}_seq`, kind: "scale" as const, prompt: "Overall, how difficult or easy was this to do?", ...EASY },
+  { id: `${id}_note`, kind: "text" as const, long: true, optional: true, prompt: "If anything was confusing or not what you expected, tell us here.", placeholder: "Optional" },
+];
 
 const taskTail = (id: string) => [
   { id: `${id}_done`, kind: "single" as const, prompt: "Did you finish this task?", choices: [
@@ -45,15 +78,14 @@ const taskTail = (id: string) => [
     { value: "unsure", label: "I think so, but I am not sure" },
     { value: "failed", label: "I could not find it" },
   ] },
-  { id: `${id}_seq`, kind: "scale" as const, prompt: "Overall, how difficult or easy was this task to complete?", ...EASY },
-  { id: `${id}_note`, kind: "text" as const, long: true, optional: true, prompt: "If anything was confusing or not what you expected, tell us here.", placeholder: "Optional" },
+  ...seqNote(id),
 ];
 
 export const uxSurvey: Survey = {
   key: "ux",
   title: "TRAIL usability study",
-  lede: "Look through the screens of an app that sends what you buy on a trip back to your hotel.",
-  minutes: "About 18 minutes",
+  lede: "Look through the screens of an app that plans what you buy on a trip and sends it back to your hotel.",
+  minutes: "About 20 minutes",
   anonymity: "Anonymous. We do not store your name, email or IP address.",
   intro: [
     "You will see screens from a service that has not launched yet, and tell us what you think you could do with them.",
@@ -135,138 +167,318 @@ export const uxSurvey: Survey = {
       id: "first",
       title: "First impression",
       note: "The screen below shows for five seconds and then goes away. Answer from memory.",
-      stimuli: [{ slot: "f1", caption: "Home screen", timedSeconds: 5 }],
+      stimuli: [{ slot: "p_home", caption: "Opening screen", timedSeconds: 5 }],
       questions: [
-        { id: "c1", kind: "text", long: true, prompt: "What did that screen look like it was for?" },
-        { id: "c2", kind: "text", prompt: "What did you notice first?" },
-        { id: "c3", kind: "scale", prompt: "This looks like a service I would need.", ...AGREE },
+        { id: "fi1", kind: "text", long: true, prompt: "What did that screen look like it was for?" },
+        { id: "fi2", kind: "text", prompt: "What did you notice first?" },
+        { id: "fi3", kind: "scale", prompt: "This looks like a service I would need.", ...AGREE },
       ],
     },
 
     {
-      id: "t1",
-      title: "Task 1 — Adding a trip and a budget",
-      note: "You are going to Toronto for three days next week. Imagine adding that trip to this app and setting a cap on what you will spend on shopping, then look at the screens below.",
-      stimuli: [{ slot: "f2", caption: "Getting started" }, { slot: "f3", caption: "Answering the questions" }],
+      id: "hour",
+      title: "Task 1 — An hour to spare",
+      note: "It is your second day in Toronto. You have about an hour free before dinner and you would like to get some of your gift shopping done. Imagine starting from these two screens.",
+      stimuli: [{ slot: "p_home_top", caption: "Opening screen" }, { slot: "p_ai", caption: "Asking the app" }],
       questions: [
-        ...taskTail("t1"),
-        { id: "t1_mode", kind: "single", prompt: "The app asks one question at a time in a chat. Next to typing into a form, how was that?", choices: [
-          { value: "chat2", label: "Chat is much better" }, { value: "chat1", label: "Chat is a little better" }, { value: "same", label: "About the same" },
-          { value: "form1", label: "A form is a little better" }, { value: "form2", label: "A form is much better" } ] },
-        { id: "t1_count", kind: "single", prompt: "How did the number of questions feel?", choices: [
-          { value: "few", label: "Too few" }, { value: "ok", label: "About right" }, { value: "many", label: "Too many" } ] },
-        { id: "t1_uncomfortable", kind: "multi", prompt: "Were any of the questions uncomfortable, or ones you would rather not answer?", choices: [
-          { value: "city", label: "Which city you are going to" }, { value: "dates", label: "When you are going" }, { value: "who", label: "Who you are buying for" },
-          { value: "budget", label: "Your total budget" }, { value: "hotel", label: "Where you are staying" }, { value: "taste", label: "Your taste" },
-          { value: "none", label: "None of them", exclusive: true } ] },
+        ...taskTail("hour"),
+        // First click, not a guess about one: `p_home_top` is the frame where the
+        // time buttons are unobstructed and none of them is already pressed.
+        { id: "hour_first", kind: "single", prompt: "Where on the first screen would you go first?", choices: [
+          { value: "chips", label: "The row of time buttons under the greeting" },
+          { value: "ask", label: "The box you type a question into" },
+          { value: "ready", label: "One of the ready-made questions further down" },
+          { value: "stores", label: "One of the store cards" },
+          { value: "stats", label: "One of the three summary boxes" },
+          { value: "tabs", label: "One of the four tabs along the bottom" } ] },
+        { id: "hour_chips", kind: "single", prompt: "You press '1 hour'. What do you expect the app to do?", choices: [
+          { value: "shorter", label: "Cut the suggestions down to what I can reach in an hour" },
+          { value: "route", label: "Lay out an order to walk them in, with times" },
+          { value: "answer", label: "Answer me in the chat" },
+          { value: "remember", label: "Remember it and change nothing on this screen" },
+          { value: "unsure", label: "Not sure" } ] },
+        { id: "hour_effect", kind: "multi", prompt: "Having told it you have one hour, what should that change about what it suggests?", choices: [
+          { value: "distance", label: "How far away it sends me" },
+          { value: "people", label: "How many of the four people it covers" },
+          { value: "count", label: "How many stops it suggests" },
+          { value: "price", label: "What it suggests I spend" },
+          { value: "nothing", label: "Nothing much", exclusive: true } ] },
+        { id: "hour_knows", kind: "single", prompt: "The greeting says the app already knows the city, the day, the four people and how much money is left. How did that read?", choices: [
+          { value: "saves", label: "Useful — it saves me repeating myself" },
+          { value: "fine", label: "Fine, I would expect that" },
+          { value: "check", label: "I would want to check it had that right first" },
+          { value: "much", label: "More than I want an app to hold about me" } ] },
       ],
     },
 
     {
-      id: "t2",
-      title: "Task 2 — Checking and changing the plan",
-      note: "Imagine checking the plan the app put together, and swapping one person's gift for something else.",
-      stimuli: [{ slot: "f5", caption: "Chat and plan summary" }, { slot: "f6", caption: "Gift list" }],
+      id: "near",
+      title: "The card at the top",
+      note: "The opening screen again, with a card that has appeared across the top of it as you walked past a store.",
+      stimuli: [{ slot: "p_home", caption: "Opening screen" }],
       questions: [
-        ...taskTail("t2"),
-        { id: "t2_accurate", kind: "scale", prompt: "The plan summary card matched what I said.", ...AGREE },
-        { id: "t2_instock", kind: "scale", prompt: "The items it recommended are probably really in those stores.", ...AGREE },
-        { id: "t2_why", kind: "text", long: true, showIf: { q: "t2_instock", has: ["1", "2", "3", "4"] }, prompt: "What made you doubt it?" },
-        { id: "t2_edit", kind: "single", prompt: "When you want to change the plan, which would you use?", choices: [
-          { value: "edit", label: "Edit it myself" }, { value: "ai", label: "Tell the AI" }, { value: "depends", label: "Depends on the situation" } ] },
+        { id: "near_needs", kind: "multi", prompt: "For that card to appear, what does the app have to know? Choose everything.", choices: [
+          { value: "location", label: "Where I am while I am walking around" },
+          { value: "people", label: "Who I am shopping for" },
+          { value: "stock", label: "What that store has on its shelves right now" },
+          { value: "hours", label: "Whether that store is open" },
+          { value: "nothing", label: "Nothing about me — everyone sees the same card", exclusive: true } ] },
+        { id: "near_ok", kind: "scale", prompt: "How comfortable are you with an app following which street you are on so it can do this?", min: 1, max: 7, low: "Not comfortable at all", high: "Completely comfortable" },
+        { id: "near_permission", kind: "single", prompt: "To send that card, the app has to keep checking your location while you are not looking at it. What would you do?", choices: [
+          { value: "always", label: "Allow it all the time" },
+          { value: "using", label: "Allow it only while the app is open" },
+          { value: "off", label: "Turn it off" },
+          { value: "unsure", label: "Not sure" } ] },
+        { id: "near_pull", kind: "scale", prompt: "A card like this would get me into the store.", ...AGREE },
+        { id: "near_often", kind: "single", prompt: "How often would you want cards like this?", choices: [
+          { value: "any", label: "Whenever there is something near me" },
+          { value: "few", label: "A few times a day at most" },
+          { value: "once", label: "About once a day" },
+          { value: "never", label: "Never" } ] },
       ],
     },
 
     {
-      id: "t3",
-      title: "Task 3 — Checking the route",
-      note: "Imagine checking how many places you have to visit today, and in what order.",
-      stimuli: [{ slot: "f7", caption: "Today's route" }],
+      id: "people",
+      title: "Task 2 — The people you are buying for",
+      note: "Imagine checking who you are buying for on this trip, and then changing who matters most.",
+      stimuli: [{ slot: "p_gifts", caption: "Who you are buying for" }],
       questions: [
-        ...taskTail("t3"),
-        { id: "t3_source", kind: "single", prompt: "Where did you get that from?", choices: [
-          { value: "map", label: "The map" }, { value: "list", label: "The list below it" }, { value: "both", label: "Both" }, { value: "neither", label: "Neither one read clearly" } ] },
-        { id: "t3_follow", kind: "scale", prompt: "I would actually walk this route.", ...AGREE },
-        { id: "t3_missing", kind: "text", long: true, optional: true, prompt: "Was there anything about the route you wanted to know that was not on the screen?", placeholder: "Optional" },
+        ...taskTail("people"),
+        { id: "pe_rank", kind: "single", prompt: "What do the small numbers 1 to 4 beside the four people mean?", choices: [
+          { value: "order", label: "Which person the app deals with first" },
+          { value: "added", label: "The order the people were added in" },
+          { value: "money", label: "Who the most money is set aside for" },
+          { value: "near", label: "Whose stores are closest to me" },
+          { value: "unsure", label: "Not sure" } ] },
+        { id: "pe_reorder", kind: "single", prompt: "You decide your coworkers now matter more than your friends. How would you change that here?", choices: [
+          { value: "drag", label: "Drag the person up the list" },
+          { value: "ai", label: "Ask the app to reorder them" },
+          { value: "open", label: "Open the person and change a setting" },
+          { value: "money", label: "Change the amounts" },
+          { value: "cant", label: "I do not think you can" } ] },
+        { id: "pe_means", kind: "multi", prompt: "If someone is first on that list, what should that change? Choose everything.", choices: [
+          { value: "route", label: "Which stores I am sent to first" },
+          { value: "money", label: "How much money is set aside for them" },
+          { value: "time", label: "Who still gets covered if I run out of time" },
+          { value: "quality", label: "How much effort goes into their suggestions" },
+          { value: "nothing", label: "Nothing — it is only a sort order", exclusive: true } ] },
+        // The prototype uses emoji as the recipient's identifier, and carries the
+        // same emoji onto the bag tag a stranger reads at the counter. That makes
+        // it a function rather than decoration, so it is asked as one.
+        { id: "pe_icons", kind: "single", prompt: "Each person has a small picture beside their name. How did you read those?", choices: [
+          { value: "tell", label: "They help me tell people apart at a glance" },
+          { value: "decor", label: "Decoration — I read the names instead" },
+          { value: "unclear", label: "I could not work out what they stood for" },
+          { value: "light", label: "They make the app feel less serious than I want" } ] },
+        { id: "pe_myself", kind: "single", prompt: "'Myself' is on the list alongside the other three. How does that read?", choices: [
+          { value: "right", label: "Right — I buy things for myself on a trip too" },
+          { value: "separate", label: "I would keep that separate from the gifts" },
+          { value: "never", label: "I do not buy for myself on a trip" },
+          { value: "unsure", label: "Not sure" } ] },
       ],
     },
 
     {
-      id: "t4",
-      title: "Task 4 — Checking the budget",
-      note: "Look at this screen and tell us how much is left to spend on shopping on this trip.",
-      stimuli: [{ slot: "f8", caption: "Trip wallet" }],
+      id: "saved",
+      title: "Task 3 — Something for later",
+      note: "You have seen a mug you might buy for your mother, but you do not want to carry it around yet. Imagine using this screen.",
+      stimuli: [{ slot: "p_wishlist", caption: "Things you kept" }],
       questions: [
-        { id: "t4_remaining", kind: "number", prompt: "How much can you still spend on shopping?", unit: "CAD $", min: 0, max: 100000 },
-        { id: "t4_confidence", kind: "scale", prompt: "How sure are you about that number?", min: 1, max: 7, low: "Not sure at all", high: "Completely sure" },
-        { id: "t4_flexible", kind: "text", prompt: `What did you take 'Flexible CAD $${WALLET.flexible}' on the screen to mean?` },
-        { id: "t4_reserved", kind: "text", prompt: `What did you take 'Reserved for delivery CAD $${WALLET.reserved}' on the screen to mean?` },
-        { id: "t4_drop", kind: "multi", prompt: "Is there anything on this screen you could do without?", choices: [
-          { value: "total", label: "Total budget" }, { value: "planned", label: "Planned shopping" }, { value: "spent", label: "Spent" },
-          { value: "reserved", label: "Reserved for delivery" }, { value: "flexible", label: "Flexible" },
+        ...taskTail("saved"),
+        { id: "sv_save", kind: "single", prompt: "What does keeping an item on this screen do?", choices: [
+          { value: "hold", label: "The store puts one aside for me" },
+          { value: "order", label: "The app orders it from the store" },
+          { value: "note", label: "It is a note to myself to go and buy it" },
+          { value: "later", label: "The app buys it later once I say yes" },
+          { value: "unsure", label: "Not sure" } ] },
+        { id: "sv_tilde", kind: "single", prompt: "The mug is listed at '~CAD $42'. What is that squiggle doing?", choices: [
+          { value: "about", label: "It is roughly that — the real price could differ" },
+          { value: "exact", label: "Nothing — it is the price" },
+          { value: "deal", label: "It marks a price that has come down" },
+          { value: "unsure", label: "Not sure" } ] },
+        { id: "sv_when", kind: "single", prompt: "When would you actually use a list like this?", choices: [
+          { value: "before", label: "Before the trip, planning what to look for" },
+          { value: "instore", label: "Standing in a store, unable to decide" },
+          { value: "evening", label: "In the evening, working out tomorrow" },
+          { value: "never", label: "I do not think I would" } ] },
+        { id: "sv_instock", kind: "scale", prompt: "These items will really be in those stores.", ...AGREE },
+        { id: "sv_why", kind: "text", long: true, showIf: { q: "sv_instock", has: ["1", "2", "3", "4"] }, prompt: "What made you doubt it?" },
+      ],
+    },
+
+    {
+      id: "money",
+      title: "Task 4 — What is left to spend",
+      note: "These two screens are from the same trip, on the same afternoon. Take a moment with both.",
+      stimuli: [{ slot: "p_gifts", caption: "Who you are buying for" }, { slot: "p_bags", caption: "What you have so far" }],
+      questions: [
+        { id: "mo_left", kind: "number", prompt: "How much can you still spend on gifts on this trip?", unit: "CAD $", min: 0, max: 100000 },
+        { id: "mo_sure", kind: "scale", prompt: "How sure are you about that number?", min: 1, max: 7, low: "Not sure at all", high: "Completely sure" },
+        { id: "mo_free", kind: "number", prompt: `Of the CAD $${WALLET.budget}, how much is not set aside for any of the four people?`, unit: "CAD $", min: 0, max: 100000 },
+        { id: "mo_fee", kind: "single", prompt: `The second screen puts the delivery at CAD $${WALLET.fee} (pre-reserved). If you go ahead with it, what happens to the CAD $${WALLET.left}?`, choices: [
+          { value: "same", label: `It stays at CAD $${WALLET.left} — that money sits apart from it` },
+          { value: "drops", label: `It drops to CAD $${WALLET.left - WALLET.fee} once the delivery goes ahead` },
+          { value: "already", label: `It is already CAD $${WALLET.fee} lower than it would be` },
+          { value: "unsure", label: "Not sure" } ] },
+        { id: "mo_prereserved", kind: "text", prompt: "In your own words, what does 'pre-reserved' mean here?" },
+        { id: "mo_over", kind: "single", prompt: `What do you think happens if you spend more than CAD $${WALLET.budget}?`, choices: [
+          { value: "stops", label: "The app stops me" },
+          { value: "warns", label: "It warns me and lets me carry on" },
+          { value: "asks", label: "It asks me what to take the extra from" },
+          { value: "nothing", label: "Nothing — it is only a number on a screen" },
+          { value: "unsure", label: "Not sure" } ] },
+        { id: "mo_drop", kind: "multi", prompt: "Is there anything on the first screen you could do without?", choices: [
+          { value: "total", label: "The total at the top" },
+          { value: "bar", label: "The bar under it" },
+          { value: "spent", label: "The amount spent" },
+          { value: "each", label: "The amount under each person" },
+          { value: "rank", label: "The 1 to 4 ranking" },
+          { value: "photos", label: "The rows of photos" },
           { value: "none", label: "Nothing", exclusive: true } ] },
-        ...taskTail("t4"),
+        ...seqNote("mo"),
       ],
     },
 
     {
-      id: "t5",
-      title: "Task 5 — Sending the bags",
-      note: "You now have three shopping bags. Imagine sending them to where you are staying instead of carrying them.",
-      stimuli: [{ slot: "f9", caption: "Delivery screen" }, { slot: "f10", caption: "Payment screen" }, { slot: "f11", caption: "Handing the bags over" }],
+      id: "collect",
+      title: "Task 5 — Getting it off your hands",
+      note: "It is late afternoon and you have been carrying what you bought. Imagine sending it to where you are staying instead.",
+      stimuli: [{ slot: "p_bags", caption: "What you have so far" }],
       questions: [
-        ...taskTail("t5"),
-        { id: "t5_partner", kind: "single", prompt: "What did you take 'Blue Banana Market' on the screen to be?", choices: [
-          { value: "dropoff", label: "Where you leave the bags" }, { value: "shop", label: "A store that sells the gifts" }, { value: "carrier", label: "The delivery company" }, { value: "unsure", label: "Not sure" } ] },
-        { id: "t5_when", kind: "single", prompt: "When did you understand the CAD $9 delivery fee is charged?", choices: [
-          { value: "now", label: "Now" }, { value: "dropoff", label: "When you leave the bags" }, { value: "arrival", label: "After they reach the hotel" }, { value: "unsure", label: "Not sure" } ] },
-        { id: "t5_qr", kind: "scale", prompt: "From the QR screen alone, do you know what to do in the store?", min: 1, max: 7, low: "Not clear at all", high: "Completely clear" },
-        { id: "t5_worry", kind: "multi", prompt: "Choose everything that felt worrying at this step.", choices: [
-          { value: "lost", label: "The bags could go missing" }, { value: "staff", label: "Store staff might not know this service" },
-          { value: "hotel", label: "The hotel might not take them" }, { value: "pay", label: "The payment could go wrong" },
+        ...taskTail("collect"),
+        { id: "co_goes", kind: "single", prompt: "Four things are listed on this screen. Which of them would go to the hotel this evening?", choices: [
+          { value: "bought", label: "Only the box of chocolates you have already bought" },
+          { value: "all", label: "All four — the chocolates and the three below" },
+          { value: "saved", label: "Only the three you have not bought yet" },
+          { value: "unsure", label: "Not sure" } ] },
+        { id: "co_partner", kind: "single", prompt: "What did you take 'Blue Banana Market' to be?", choices: [
+          { value: "dropoff", label: "Where you leave the bags" },
+          { value: "shop", label: "A store selling one of the gifts" },
+          { value: "carrier", label: "The company that does the driving" },
+          { value: "hotel", label: "Another name for the hotel" },
+          { value: "unsure", label: "Not sure" } ] },
+        { id: "co_how", kind: "single", prompt: "How do the bags get from you to Blue Banana Market?", choices: [
+          { value: "walk", label: "I walk them over there myself" },
+          { value: "pickup", label: "Someone comes to collect them from me" },
+          { value: "stores", label: "The stores I bought from send them there" },
+          { value: "direct", label: "They do not — they go straight to the hotel" },
+          { value: "unsure", label: "Not sure" } ] },
+        // The pencilled note on the wireframes: a traveller buys things the app
+        // never planned. Nothing on this screen says whether those can travel.
+        { id: "co_extra", kind: "single", prompt: "On the same afternoon you also buy a coat at a store the app never mentioned. Could that go in the same delivery?", choices: [
+          { value: "yes", label: "Yes, I would add it at the counter" },
+          { value: "app", label: "Only if I put it into the app first" },
+          { value: "no", label: "No — only what the app already knows about" },
+          { value: "unsure", label: "Not sure" } ] },
+        { id: "co_charge", kind: "single", prompt: `When is the CAD $${WALLET.fee} taken from you?`, choices: [
+          { value: "now", label: "When I press the button on this screen" },
+          { value: "drop", label: "When I leave the bags at the counter" },
+          { value: "after", label: "After they reach the hotel" },
+          { value: "earlier", label: "It was taken earlier, when the trip was set up" },
+          { value: "unsure", label: "Not sure" } ] },
+        { id: "co_worry", kind: "multi", prompt: "Choose everything that felt worrying at this step.", choices: [
+          { value: "lost", label: "The bags could go missing" },
+          { value: "staff", label: "Store staff might not know this service" },
+          { value: "hotel", label: "The hotel might not take them" },
+          { value: "pay", label: "The payment could go wrong" },
           { value: "late", label: "They might not arrive in time" },
+          { value: "mix", label: "The wrong bag could reach the wrong person" },
           { value: "none", label: "Nothing in particular", exclusive: true } ] },
       ],
     },
 
     {
-      id: "t6",
-      title: "Task 6 — Checking the delivery",
-      note: "Imagine checking where the bags you handed over are now.",
-      stimuli: [{ slot: "f12", caption: "Delivery tracking" }],
+      id: "counter",
+      title: "Task 6 — At the counter",
+      note: "You have walked your bags over to the store. Imagine standing at the counter with this on your phone.",
+      stimuli: [{ slot: "p_dropoff", caption: "At the store" }],
       questions: [
-        { id: "t6_where", kind: "single", prompt: "Where are the bags right now?", choices: [
-          { value: "store", label: "Still at the store" }, { value: "transit", label: "Picked up and on the way" }, { value: "hotel", label: "At the hotel" }, { value: "unsure", label: "Not sure" } ] },
-        { id: "t6_calm", kind: "scale", prompt: "How reassuring is this screen?", min: 1, max: 7, low: "Not reassuring at all", high: "Very reassuring" },
-        { id: "t6_more", kind: "multi", prompt: "What else do you think should be here?", choices: [
-          { value: "driver", label: "The driver's name and number" }, { value: "live", label: "A live location map" }, { value: "photo", label: "A photo as proof" },
-          { value: "desk", label: "Who signed for them at the hotel" }, { value: "none", label: "Nothing", exclusive: true } ] },
-        ...taskTail("t6"),
+        ...taskTail("counter"),
+        { id: "ct_clear", kind: "scale", prompt: "From this screen alone, do you know what to do in the store?", min: 1, max: 7, low: "Not clear at all", high: "Completely clear" },
+        { id: "ct_count", kind: "single", prompt: "Who checks that the number of bags is right?", choices: [
+          { value: "staff", label: "Store staff, against the code" },
+          { value: "me", label: "I do, on my own screen" },
+          { value: "both", label: "Both of us" },
+          { value: "nobody", label: "Nobody — the app already knows" },
+          { value: "unsure", label: "Not sure" } ] },
+        { id: "ct_tag", kind: "single", prompt: "Store staff attach a tag to each bag with the person's name and picture on it. How does that sit with you?", choices: [
+          { value: "fine", label: "Fine as it is" },
+          { value: "initials", label: "I would want initials rather than names" },
+          { value: "nonames", label: "I would want no names on the tag at all" },
+          { value: "unsure", label: "Not sure" } ] },
+        // The prototype says "by 7:00 PM" here and "Estimated 6:30–7:00 PM" one
+        // screen earlier. Which of the two a stranger carries away is the point.
+        { id: "ct_time", kind: "single", prompt: "The last step says the bags reach the hotel by 7:00 PM. The screen before this one said 6:30–7:00 PM. How did you read that?", choices: [
+          { value: "promise", label: "As a promise — they will be there by seven" },
+          { value: "estimate", label: "As a rough estimate that could slip" },
+          { value: "clash", label: "I noticed the two screens did not say the same thing" },
+          { value: "missed", label: "I did not take in the time at all" } ] },
+        { id: "ct_odd", kind: "text", long: true, optional: true, prompt: "Was anything here different from what the screen before it led you to expect?", placeholder: "Optional" },
+      ],
+    },
+
+    {
+      id: "onway",
+      title: "Task 7 — After you walk away",
+      note: "You have handed the bags over and left the store.",
+      stimuli: [{ slot: "p_tracking", caption: "After the hand-over" }],
+      questions: [
+        { id: "ow_where", kind: "single", prompt: "Where are the bags right now?", choices: [
+          { value: "store", label: "Still at the store" },
+          { value: "transit", label: "Picked up and on the way" },
+          { value: "hotel", label: "At the hotel" },
+          { value: "unsure", label: "Not sure" } ] },
+        { id: "ow_calm", kind: "scale", prompt: "How reassuring is this screen?", min: 1, max: 7, low: "Not reassuring at all", high: "Very reassuring" },
+        { id: "ow_more", kind: "multi", prompt: "What else do you think should be here?", choices: [
+          { value: "driver", label: "A name and number for whoever has them" },
+          { value: "live", label: "A live location on a map" },
+          { value: "photo", label: "A photo of the bags as proof" },
+          { value: "desk", label: "Who at the hotel took them in" },
+          { value: "contents", label: "A list of what is in each bag" },
+          { value: "none", label: "Nothing", exclusive: true } ] },
+        { id: "ow_late", kind: "single", prompt: "It is 7:20 PM and this screen still reads 'On the way'. What would you do first?", choices: [
+          { value: "wait", label: "Wait a while longer" },
+          { value: "app", label: "Look for a way to report it in the app" },
+          { value: "hotel", label: "Ring the hotel" },
+          { value: "trail", label: "Look for a phone number for Trail" },
+          { value: "unsure", label: "Not sure" } ] },
+        ...seqNote("ow"),
       ],
     },
 
     {
       id: "concepts",
       title: "What you took from the screens",
-      note: "These are not questions with right answers. If that is how the screen read to you, choose that.",
+      note: "These are not questions with right answers. If that is how the screens read to you, choose that.",
       questions: [
-        { id: "e1", kind: "single", prompt: "What did you take the 'Request' button next to an item to do?", choices: [
-          { value: "order", label: "Orders it from the store" }, { value: "reserve", label: "Reserves it at the store" },
-          { value: "enquiry", label: "Asks the store about stock" }, { value: "unsure", label: "Not sure" } ] },
-        { id: "e2", kind: "single", prompt: "Who pays for the items themselves?", choices: [
-          { value: "app", label: "The app pays for me" }, { value: "me", label: "I pay at the store" },
-          { value: "hotel", label: "The hotel pays for me" }, { value: "unsure", label: "Not sure" } ] },
-        { id: "e3", kind: "single", prompt: "The real price is higher than planned and the budget is over. What did you take the app to do?", choices: [
-          { value: "auto", label: "Rebalances the budget on its own" },
-          { value: "propose", label: "Suggests a change and waits for you" },
-          { value: "delete", label: "Removes the item from the plan" }, { value: "unsure", label: "Not sure" } ] },
-        { id: "e4", kind: "single", prompt: "Did you see 'Sample' or 'Simulated' marked anywhere on the screens?", choices: [
+        { id: "c_pay", kind: "single", prompt: "Who pays for the gifts themselves?", choices: [
+          { value: "app", label: "The app pays and bills me" },
+          { value: "me", label: "I pay in the store" },
+          { value: "hotel", label: "The hotel pays and adds it to my bill" },
+          { value: "unsure", label: "Not sure" } ] },
+        { id: "c_over", kind: "single", prompt: "In the store the real price turns out to be CAD $40 more than the app planned for. What should the app do?", choices: [
+          { value: "auto", label: "Move money around by itself and carry on" },
+          { value: "propose", label: "Suggest a change and wait for me" },
+          { value: "remove", label: "Take something off the list to pay for it" },
+          { value: "nothing", label: "Say nothing and let me deal with it" },
+          { value: "unsure", label: "Not sure" } ] },
+        { id: "c_where", kind: "single", prompt: "Three of the four tabs hold things you might buy. Where would you look for something you kept but have not bought?", choices: [
+          { value: "gifts", label: "Gifts" }, { value: "wishlist", label: "Wishlist" }, { value: "bags", label: "Bags" },
+          { value: "any", label: "Any of them — they look like the same list" },
+          { value: "unsure", label: "Not sure" } ] },
+        { id: "c_demo", kind: "single", prompt: "Did you see anything marked as a demo, a sample or simulated?", choices: [
           { value: "yes", label: "Yes" }, { value: "no", label: "No" }, { value: "unsure", label: "I do not remember" } ] },
-        { id: "e4_where", kind: "text", showIf: { q: "e4", has: ["yes"] }, prompt: "Which screen was it on?" },
-        { id: "e5", kind: "multi", prompt: "Choose everything this app should be free to do on its own, without asking you.", choices: [
-          { value: "recommend", label: "Recommend items" }, { value: "route", label: "Work the route out again" }, { value: "rebalance", label: "Move money between budgets" },
-          { value: "remove", label: "Delete an item" }, { value: "swap", label: "Swap in a replacement item" }, { value: "delivery", label: "Arrange the delivery" },
-          { value: "pay", label: "Pay" }, { value: "none", label: "None of them", exclusive: true } ] },
+        { id: "c_demo_where", kind: "text", showIf: { q: "c_demo", has: ["yes"] }, prompt: "Which screen was it on, and what did it say?" },
+        { id: "c_auto", kind: "multi", prompt: "Choose everything this app should be free to do on its own, without asking you.", choices: [
+          { value: "suggest", label: "Suggest items" },
+          { value: "reorder", label: "Change who is top of the list" },
+          { value: "notify", label: "Send a card when I walk near a store" },
+          { value: "move", label: "Move money between people" },
+          { value: "remove", label: "Take an item off a list" },
+          { value: "arrange", label: "Arrange the delivery" },
+          { value: "pay", label: "Pay the delivery fee" },
+          { value: "none", label: "None of them", exclusive: true } ] },
       ],
     },
 
@@ -286,10 +498,10 @@ export const uxSurvey: Survey = {
           { id: "money", label: "This app will not spend my money without my permission" },
           { id: "eta", label: "The arrival times this app shows can be relied on" },
           { id: "honest", label: "This app does not say it can do things it cannot" } ] },
-        { id: "ai", kind: "matrix", prompt: "About the chat with the AI.", ...AGREE, rows: [
-          { id: "understood", label: "I felt the AI understood my taste in gifts" },
-          { id: "necessary", label: "The questions the AI asked were ones it needed to ask" },
-          { id: "madeup", label: "Some of what the AI said looked made up" } ] },
+        { id: "aichat", kind: "matrix", prompt: "About the app answering questions for you.", ...AGREE, rows: [
+          { id: "context", label: "It already knowing my trip and my budget is worth it to me" },
+          { id: "ready", label: "The ready-made questions were ones I would actually ask" },
+          { id: "madeup", label: "Some of what it showed looked made up" } ] },
       ],
     },
 
@@ -314,20 +526,26 @@ export const uxSurvey: Survey = {
     {
       id: "price",
       title: "Price",
-      // Not "same-day", not "that evening". Trail quotes the arrival window at
-      // the counter (`etaLabel`, and the pay screen with the same-day line
-      // removed), so a survey that priced an evening delivery would be pricing a
-      // promise no screen makes and reading the answer back as revenue. What is
-      // described here is what the product does do: the bags stop being yours to
-      // carry, and the time is quoted, not promised.
-      note: "Three shopping bags (about 2.4 kg) left at a partner store counter and delivered to your hotel, so you do not carry them for the rest of the day. The arrival window is quoted at the counter when you hand them over. Answer in whole Canadian dollars.",
+      // The arrival window is back in the description, and stated the way the
+      // prototype states it. That is a product decision rather than a survey
+      // one: the screens now quote 6:30–7:00 PM before the hand-over, so a
+      // survey that priced an unquoted window would price a different service.
+      //
+      // Every price id is new for the same reason. A van Westendorp curve built
+      // from two descriptions is one curve drawn through two populations.
+      note: "Everything you bought that day — one to three shopping bags — left at a partner store counter on your way past, and taken to your hotel front desk the same evening, between 6:30 and 7:00 PM. You carry none of it for the rest of the day. Answer in whole Canadian dollars.",
       questions: [
-        { id: "p_expensive", kind: "number", prompt: "At what price is this so expensive that you would not use it?", unit: "CAD $", min: 0, max: 1000 },
-        { id: "p_pricey", kind: "number", prompt: "At what price does it start to feel expensive — not out of the question, but you would think about it?", unit: "CAD $", min: 0, max: 1000 },
-        { id: "p_cheap", kind: "number", prompt: "At what price is it a bargain — a good buy for the money?", unit: "CAD $", min: 0, max: 1000 },
-        { id: "p_toocheap", kind: "number", prompt: "At what price is it so cheap that you would doubt the quality?", unit: "CAD $", min: 0, max: 1000 },
-        { id: "p_intent", kind: "scale", prompt: "If this cost CAD $9, would you use it?", min: 1, max: 7, low: "Definitely not", high: "Definitely would" },
-        { id: "p_who", kind: "single", prompt: "Who do you think should be paying for this?", choices: [
+        { id: "pr_expensive", kind: "number", prompt: "At what price is this so expensive that you would not use it?", unit: "CAD $", min: 0, max: 1000 },
+        { id: "pr_pricey", kind: "number", prompt: "At what price does it start to feel expensive — not out of the question, but you would think about it?", unit: "CAD $", min: 0, max: 1000 },
+        { id: "pr_cheap", kind: "number", prompt: "At what price is it a bargain — a good buy for the money?", unit: "CAD $", min: 0, max: 1000 },
+        { id: "pr_toocheap", kind: "number", prompt: "At what price is it so cheap that you would doubt the quality?", unit: "CAD $", min: 0, max: 1000 },
+        { id: "pr_intent", kind: "scale", prompt: `If this cost CAD $${WALLET.fee}, would you use it?`, min: 1, max: 7, low: "Definitely not", high: "Definitely would" },
+        { id: "pr_window", kind: "single", prompt: "Which would you rather be told as you hand the bags over?", choices: [
+          { value: "window", label: "An estimated window, like 6:30 to 7:00 PM" },
+          { value: "deadline", label: "A time it will not be later than, like by 7:00 PM" },
+          { value: "paymore", label: "A time it will not be later than, and I would pay more for that" },
+          { value: "unsure", label: "Not sure" } ] },
+        { id: "pr_who", kind: "single", prompt: "Who do you think should be paying for this?", choices: [
           { value: "me", label: "Me, all of it" }, { value: "split", label: "Part me, part the store" },
           { value: "store", label: "The store, all of it" }, { value: "hotel", label: "The hotel, all of it" }, { value: "unsure", label: "Not sure" } ] },
       ],

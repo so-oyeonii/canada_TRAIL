@@ -67,18 +67,34 @@ test("choice values are unique inside a question", () => {
 });
 
 // ── product rules the survey exists to measure ───────────────
-/** If the wallet task ever stops asking about locked money, the study stops
- *  measuring the one thing the Trip Wallet can get wrong. */
-test("the wallet task is still scored against planned minus spent", () => {
-  assert.equal(WALLET.answer, WALLET.planned - WALLET.spent);
-  assert.notEqual(WALLET.answer, WALLET.planned - WALLET.spent + WALLET.flexible);
-  assert.ok(uxQ("t4_remaining").kind === "number");
+/** The prototype prints one budget line, so the money section is scored on
+ *  three figures instead of one. If any of them stops being derivable from the
+ *  screen, the section stops measuring the thing the budget line can get wrong. */
+test("the money task is still scored against the figures on the screen", () => {
+  assert.equal(WALLET.left, WALLET.budget - WALLET.spent, "the printed 'left' is budget minus spent");
+  assert.equal(WALLET.unallocated, WALLET.budget - WALLET.allocated, "what the four recipients do not hold");
+  assert.notEqual(WALLET.left, WALLET.budget - WALLET.spent - WALLET.fee, "the delivery fee is outside the shopping money — mo_fee is keyed on that");
+  assert.ok(uxQ("mo_left").kind === "number" && uxQ("mo_free").kind === "number");
 });
 
-test("the approval gate and the enquiry rule are both asked, with a real distractor", () => {
-  const gate = uxQ("e3"), request = uxQ("e1");
+test("the approval gate and the 'this is only a note' rule are both asked, with a real distractor", () => {
+  const gate = uxQ("c_over"), saved = uxQ("sv_save");
   assert.ok(gate.kind === "single" && gate.choices.some((c) => c.value === "propose") && gate.choices.some((c) => c.value === "auto"));
-  assert.ok(request.kind === "single" && request.choices.some((c) => c.value === "enquiry") && request.choices.some((c) => c.value === "order"));
+  assert.ok(saved.kind === "single" && saved.choices.some((c) => c.value === "note") && saved.choices.some((c) => c.value === "hold"));
+});
+
+/** The eight captures sitting in /public/survey, and nothing else. A stimulus
+ *  slot that does not resolve to a file is a grey box in front of a respondent,
+ *  and the runner reports it to them rather than to us. Home is in here twice —
+ *  `p_home_top` at rest for the first-click task, `p_home` with the proximity
+ *  card for the alert section. */
+test("every stimulus slot is one of the prototype captures, and resolves to a file", () => {
+  const known = new Set(["p_home", "p_home_top", "p_ai", "p_gifts", "p_wishlist", "p_bags", "p_dropoff", "p_tracking"]);
+  const shipped = new Set(readdirSync(fileURLToPath(new URL("../public/survey", import.meta.url))));
+  for (const s of ux.sections.flatMap((x) => x.stimuli ?? [])) {
+    assert.ok(known.has(s.slot), `unknown stimulus slot ${s.slot}`);
+    assert.ok(shipped.has(`${s.slot}.png`), `no /public/survey/${s.slot}.png — respondents would be shown the gap`);
+  }
 });
 
 test("the screener terminates on the two questions that define the sample", () => {
@@ -98,21 +114,21 @@ test("the team survey judges every build item on the same five-way scale", () =>
 
 // ── validation ───────────────────────────────────────────────
 test("a well-formed response survives cleaning unchanged", () => {
-  const result = cleanAnswers(ux, { consent: true, s1: "yes", s3: ["carried", "gaveup"], c3: 5, t4_remaining: 34, b1: { carry: 7, choose: "na" }, liked: "지도" });
+  const result = cleanAnswers(ux, { consent: true, s1: "yes", s3: ["carried", "gaveup"], fi3: 5, mo_left: 211, b1: { carry: 7, choose: "na" }, liked: "지도" });
   assert.ok(result.ok);
   assert.deepEqual(result.answers.s3, ["carried", "gaveup"]);
-  assert.equal(result.answers.t4_remaining, 34);
+  assert.equal(result.answers.mo_left, 211);
   assert.deepEqual(result.answers.b1, { carry: 7, choose: "na" });
 });
 
 test("nothing is coerced — a stringified scale is a rejection, not a 5", () => {
-  const result = cleanAnswers(ux, { c3: "5" });
+  const result = cleanAnswers(ux, { fi3: "5" });
   assert.ok(!result.ok);
-  assert.equal(result.badQuestion, "c3");
+  assert.equal(result.badQuestion, "fi3");
 });
 
 test("out-of-range and unknown values are refused", () => {
-  assert.ok(!cleanAnswers(ux, { c3: 9 }).ok, "9 is off a 1–7 scale");
+  assert.ok(!cleanAnswers(ux, { fi3: 9 }).ok, "9 is off a 1–7 scale");
   assert.ok(!cleanAnswers(ux, { s1: "maybe" }).ok, "not a listed choice");
   assert.ok(!cleanAnswers(ux, { s3: ["carried", "invented"] }).ok, "not a listed choice");
   assert.ok(!cleanAnswers(ux, { consent: "true" }).ok, "consent is a boolean");
@@ -144,14 +160,14 @@ test("the risk grid keeps likelihood and impact separate and in range", () => {
 /** A renamed question must not strand a respondent who started before the
  *  deploy: their unknown key is dropped, the rest of the response is kept. */
 test("unknown question ids are dropped, not fatal", () => {
-  const result = cleanAnswers(ux, { c3: 5, q_from_last_week: "whatever" });
+  const result = cleanAnswers(ux, { fi3: 5, q_from_last_week: "whatever" });
   assert.ok(result.ok);
   assert.deepEqual(result.dropped, ["q_from_last_week"]);
-  assert.equal(result.answers.c3, 5);
+  assert.equal(result.answers.fi3, 5);
 });
 
 test("timings accept known sections only, clamped to an hour", () => {
-  assert.deepEqual(cleanTimings(ux, { t4: 90, made_up: 10, first: 999999 }), { t4: 90, first: 3600 });
+  assert.deepEqual(cleanTimings(ux, { money: 90, made_up: 10, first: 999999 }), { money: 90, first: 3600 });
   assert.deepEqual(cleanTimings(ux, "nope"), {});
 });
 
@@ -183,11 +199,11 @@ test("a hundred-point allocation is unanswered until it sums to a hundred", () =
 });
 
 test("follow-ups appear only for the answers that earn them", () => {
-  const why = uxQ("t2_why");
-  assert.ok(visible(why, { t2_instock: 3 }), "a low rating asks why");
-  assert.ok(!visible(why, { t2_instock: 6 }), "a high rating does not");
+  const why = uxQ("sv_why");
+  assert.ok(visible(why, { sv_instock: 3 }), "a low rating asks why");
+  assert.ok(!visible(why, { sv_instock: 6 }), "a high rating does not");
   assert.ok(!visible(why, {}));
-  assert.ok(visible(uxQ("c3"), {}), "an unconditional question is always shown");
+  assert.ok(visible(uxQ("fi3"), {}), "an unconditional question is always shown");
 });
 
 // ── the price of being ownerless ─────────────────────────────
